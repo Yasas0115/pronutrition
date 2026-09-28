@@ -122,8 +122,44 @@ Then put Nginx in front (`proxy_pass http://127.0.0.1:3000;`, plus
 `client_max_body_size 10M;` so photo uploads fit) and add HTTPS with
 `certbot --nginx`. Open the site and create the company + owner at `/register`.
 
-**Updating later:** `git pull && pnpm install && pnpm db:migrate && pnpm build && pm2 restart pro-nutrition`.
+**Updating later:** push to `main` — GitHub Actions deploys it (see below). To
+deploy by hand on the server: `git pull && bash scripts/deploy.sh`.
 Never run `pnpm db:reset` on the server — it drops every table.
+
+### Automatic deploys (GitHub Actions)
+
+`.github/workflows/deploy.yml` runs on every push to `main`: it typechecks and
+builds on GitHub first, and only if that passes it SSHes into the VPS, checks out
+the pushed commit and runs `scripts/deploy.sh` (install → build → migrate →
+`pm2 restart` → health check). Pull requests get the build check only.
+
+One-time setup:
+
+1. **Deploy key** — on the VPS, as the user that owns the app and runs pm2:
+   ```bash
+   ssh-keygen -t ed25519 -f ~/.ssh/github_actions -N "" -C github-actions
+   cat ~/.ssh/github_actions.pub >> ~/.ssh/authorized_keys
+   cat ~/.ssh/github_actions          # copy this private key for step 3
+   ```
+2. **Link the app folder to the repo** (skip `git init`/`remote add` if it is
+   already a clone — use `git remote set-url origin …` instead):
+   ```bash
+   cd /var/www/pro-nutrition
+   cp .env ~/pro-nutrition.env.bak   # safety copy — .env is not in git
+   git init -b main
+   git remote add origin https://github.com/Yasas0115/pronutrition.git
+   git fetch origin main
+   git reset --hard origin/main      # server files now match GitHub
+   bash scripts/deploy.sh            # first deploy by hand to confirm it works
+   ```
+3. **GitHub → Settings → Secrets and variables → Actions**
+   - Secrets: `VPS_HOST` (IP or domain), `VPS_USER`, `VPS_SSH_KEY` (the private
+     key from step 1), and `VPS_PORT` if SSH is not on 22.
+   - Variables (only if different from the defaults): `APP_DIR`
+     (`/var/www/pro-nutrition`), `PM2_NAME` (`pro-nutrition`).
+
+Until the secrets exist, the deploy job is skipped with a warning. Re-run a
+deploy any time from **Actions → Build & Deploy → Run workflow**.
 
 **Changing the schema:** edit `prisma/schema.prisma`, run
 `pnpm exec prisma migrate dev --name <change>` locally, commit the new folder in

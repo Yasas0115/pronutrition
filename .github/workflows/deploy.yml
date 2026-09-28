@@ -1,0 +1,82 @@
+name: Build & Deploy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Typecheck & build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec prisma generate
+      - run: pnpm typecheck
+
+      # The build never connects to the database; these are placeholders only.
+      - run: pnpm build
+        env:
+          DATABASE_URL: mysql://ci:ci@127.0.0.1:3306/ci
+          AUTH_SECRET: ci-placeholder-not-used-in-production
+          NEXT_TELEMETRY_DISABLED: 1
+
+  deploy:
+    name: Deploy to VPS
+    needs: build
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    env:
+      VPS_HOST: ${{ secrets.VPS_HOST }}
+      VPS_USER: ${{ secrets.VPS_USER }}
+      VPS_PORT: ${{ secrets.VPS_PORT || '22' }}
+      VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+      APP_DIR: ${{ vars.APP_DIR || '/var/www/pro-nutrition' }}
+      PM2_NAME: ${{ vars.PM2_NAME || 'pro-nutrition' }}
+    steps:
+      - name: Check deploy secrets
+        id: check
+        run: |
+          if [ -z "$VPS_HOST" ] || [ -z "$VPS_USER" ] || [ -z "$VPS_SSH_KEY" ]; then
+            echo "::warning::Deploy skipped: add VPS_HOST, VPS_USER and VPS_SSH_KEY under Settings > Secrets and variables > Actions."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up SSH key
+        if: steps.check.outputs.ready == 'true'
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          ssh-keyscan -p "$VPS_PORT" -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Update code & restart on VPS
+        if: steps.check.outputs.ready == 'true'
+        run: |
+          ssh -i ~/.ssh/id_deploy -p "$VPS_PORT" "$VPS_USER@$VPS_HOST" \
+            "APP_DIR='$APP_DIR' PM2_NAME='$PM2_NAME' SHA='$GITHUB_SHA' bash -s" <<'EOF'
+          set -euo pipefail
+          cd "$APP_DIR"
+          git fetch --prune origin main
+          git reset --hard "$SHA"
+          bash scripts/deploy.sh
+          EOF
