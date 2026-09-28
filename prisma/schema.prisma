@@ -1,0 +1,220 @@
+// Pro Nutrition — POS data model (MySQL / MariaDB).
+// Long free-text / data: URL columns are annotated @db.Text / @db.LongText,
+// since a plain MySQL String is VARCHAR(191). MySQL can't default a TEXT
+// column, so those are nullable instead of carrying @default.
+// Multi-branch: one company (the single Store row) with many Branches. The
+// product catalogue is shared company-wide (name, price, image), while stock is
+// tracked per branch in BranchStock. Money is stored as whole rupees (Int).
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// Single company-settings row (name, logo, currency, receipt footer, tax) plus
+// the list of enabled modules that gate the sidebar / features.
+model Store {
+  id             String   @id @default(cuid())
+  name           String   @default("Pro Nutrition")
+  logoUrl        String?  @db.LongText // small resized data: URL (base64)
+  currency       String   @default("Rs")
+  phone          String?
+  address        String?  @db.Text
+  receiptNote    String?  @db.Text
+  taxPercent     Int      @default(0) // whole-percent VAT/GST applied at checkout
+  // Next invoice number to hand out. Checkout increments it atomically (the
+  // row lock serialises concurrent tills), so numbers never collide.
+  nextInvoice    Int      @default(1001)
+  // Comma-separated module keys that are switched on for this company.
+  enabledModules String   @default("pos,products,stock,categories,reports,users,branches,settings")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+// A physical branch / outlet. The owner opens and edits these; each branch keeps
+// its own stock (BranchStock) and its own sales.
+model Branch {
+  id        String   @id @default(cuid())
+  name      String
+  code      String? // short label shown on receipts, e.g. "COL"
+  phone     String?
+  address   String?  @db.Text
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  stocks    BranchStock[]
+  sales     Sale[]
+  users     User[]
+  movements StockMovement[]
+
+  @@index([active])
+}
+
+// Managed pick-list of product categories (add / delete from the Store page).
+// Products keep their `category` as a plain string snapshot; this table is the
+// authoritative list offered in the category picker and filter chips.
+model Category {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Configurable payment methods with an auto-applied percentage discount.
+// Seeded: CASH 10%, CARD 7%, KOKO 0%.
+model PaymentMethod {
+  id              String   @id @default(cuid())
+  key             String   @unique // CASH | CARD | KOKO | …
+  label           String
+  discountPercent Int      @default(0)
+  sortOrder       Int      @default(0)
+  active          Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// Staff accounts. OWNER sees everything. A STAFF member only sees the modules
+// the owner granted them (`modules`), and is optionally pinned to one branch
+// (branchId null = all branches, e.g. an accountant who reads company-wide
+// reports). `title` is a free label the owner picks — "Accountant", "Cashier",
+// "Manager" — purely for display.
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String?
+  role         String   @default("STAFF") // OWNER | STAFF
+  title        String? // display label: Accountant, Cashier, Manager…
+  modules      String   @default("") // comma-separated granted module keys (STAFF only)
+  passwordHash String
+  branchId     String? // null = all branches; set = pinned to one branch
+  branch       Branch?  @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  sales Sale[]
+
+  @@index([branchId])
+}
+
+// A product on the shelf — supplements, drinks, accessories, etc. The catalogue
+// is company-wide; per-branch stock lives in BranchStock.
+model Product {
+  id        String   @id @default(cuid())
+  name      String
+  category  String   @default("Supplements")
+  brand     String?
+  flavor    String?
+  sku       String?
+  barcode   String?
+  price     Int // selling price, whole rupees
+  cost      Int      @default(0) // purchase cost, for margin reports
+  imageUrl  String?  @db.LongText // cover thumbnail = first gallery image (kept in sync)
+  images    String?  @db.LongText // JSON array of data: URL photos (gallery)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  stocks    BranchStock[]
+  saleItems SaleItem[]
+  movements StockMovement[]
+
+  @@index([category])
+  @@index([barcode])
+}
+
+// Per-branch stock level for a product. One row per (branch, product).
+model BranchStock {
+  id         String   @id @default(cuid())
+  branchId   String
+  branch     Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  productId  String
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  stock      Int      @default(0)
+  lowStockAt Int      @default(5)
+  updatedAt  DateTime @updatedAt
+
+  @@unique([branchId, productId])
+  @@index([branchId])
+  @@index([productId])
+}
+
+// One completed sale (a printed receipt / invoice), belonging to a branch.
+model Sale {
+  id             String   @id @default(cuid())
+  number         Int      @unique // human-friendly invoice no, starts at 1001
+  branchId       String?
+  branch         Branch?  @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  branchName     String? // snapshot of the branch name at sale time
+  subtotal       Int
+  discount       Int      @default(0) // total discount = method + manual
+  methodDiscount Int      @default(0) // portion from the payment-method %
+  manualDiscount Int      @default(0) // portion typed by the cashier
+  tax            Int      @default(0)
+  total          Int
+  paid           Int
+  change         Int      @default(0)
+  method         String // CASH | CARD | KOKO
+  customerName   String?
+  cashierId      String?
+  cashier        User?    @relation(fields: [cashierId], references: [id], onDelete: SetNull)
+  cashierName    String?
+  createdAt      DateTime @default(now())
+
+  items SaleItem[]
+
+  @@index([createdAt])
+  @@index([number])
+  @@index([branchId])
+}
+
+// A line on a sale. Name/price are snapshotted so history stays correct even
+// if the product is later renamed, repriced, or deleted.
+model SaleItem {
+  id        String   @id @default(cuid())
+  saleId    String
+  sale      Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  productId String?
+  product   Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  name      String
+  price     Int
+  qty       Int
+  lineTotal Int
+
+  @@index([saleId])
+  @@index([productId])
+}
+
+// Append-only ledger of every stock change at a branch. One row per movement:
+// receiving new stock, a sale, a manual count/correction, or a branch transfer.
+// `delta` is signed (positive = added, negative = removed) and `balanceAfter`
+// snapshots the resulting on-hand so history reads without recomputation.
+// Product name is snapshotted so the log survives a product rename/delete.
+model StockMovement {
+  id          String   @id @default(cuid())
+  branchId    String
+  branch      Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  productId   String?
+  product     Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  productName String // snapshot at movement time
+  // RESTOCK | SALE | COUNT | ADJUST | TRANSFER_IN | TRANSFER_OUT | INITIAL
+  type        String
+  delta       Int // signed change applied to on-hand
+  balanceAfter Int // on-hand after this movement
+  unitCost    Int? // purchase cost per unit, for RESTOCK
+  note        String?  @db.Text // free-text reason / reference
+  saleId      String? // links a SALE movement back to its sale
+  transferId  String? // pairs the OUT/IN legs of one transfer
+  userId      String?
+  userName    String? // snapshot of who made the change
+  createdAt   DateTime @default(now())
+
+  @@index([branchId, createdAt])
+  @@index([productId])
+  @@index([transferId])
+  @@index([saleId])
+}

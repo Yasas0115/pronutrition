@@ -1,0 +1,537 @@
+@import "tailwindcss";
+
+/* ============================================================
+   Theme tokens — Pro Nutrition palette (red #EF4444 brand)
+   Default values below are the DARK theme. The neutral tokens
+   (ink-*, line-*, ash/muted/faint, strong) are re-declared under
+   [data-theme="light"] so every utility (bg-ink-2, text-strong…)
+   and component class flips at runtime with no rebuild.
+   `strong` = highest-contrast foreground (white in dark, near
+   black in light) — use it wherever pure #fff text used to be.
+   ============================================================ */
+@theme {
+  --color-ink-0: #080808;
+  --color-ink-1: #0d0d0d;
+  --color-ink-2: #111111;
+  --color-ink-3: #161616;
+  --color-ink-4: #1c1c1c;
+  --color-line: #1f1f1f;
+  --color-line-2: #2a2a2a;
+
+  --color-brand: #ef4444;
+  --color-brand-600: #dc2626;
+  --color-brand-deep: #961414;
+
+  --color-strong: #ffffff;
+  --color-ash: #d1d5db;
+  --color-muted: #9ca3af;
+  --color-faint: #6b7280;
+
+  --color-ok: #22c55e;
+  --color-warn: #f59e0b;
+
+  --font-sans: var(--font-barlow), ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-head: var(--font-barlow-cond), Impact, "Segoe UI", sans-serif;
+}
+
+/* Dark is the default; declared explicitly so native controls,
+   scrollbars and form widgets render dark too. Elevation lives in
+   tokens so it can soften in light mode (see below). */
+:root, :root[data-theme="dark"] {
+  color-scheme: dark;
+  --shadow-card: 0 10px 40px rgba(0, 0, 0, .5);       /* toast, auth cards */
+  --shadow-pop: 0 12px 34px rgba(0, 0, 0, .5);        /* menu, modal */
+  --scrim: rgba(0, 0, 0, .72);                        /* modal / drawer backdrop */
+}
+
+/* ---------- Light theme overrides · "Warm Athletic" ----------
+   Warm ivory canvas, pure-white RAISED cards, and a deepened red
+   (#dc2626) so the brand reads confident instead of neon/alarming
+   on white. Neutrals lean warm (stone ramp) for a premium,
+   energetic feel rather than cold corporate gray. */
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  /* Deepen the red on light: neon #ef4444 vibrates on white, so
+     accents / text / borders use red-600; big fills stay saturated. */
+  --color-brand: #dc2626;
+  --color-brand-600: #b91c1c;
+  --color-brand-deep: #7f1d1d;
+
+  /* Warm ivory ramp. Cards/header/sidebar are pure white and sit
+     RAISED above a warm canvas; the recessed surfaces (inputs,
+     table headers, row hover) carry a warm tint so they read as
+     distinct panels instead of collapsing into one white sheet. */
+  --color-ink-0: #f7f4f0;  /* page canvas (recessed, warm ivory) */
+  --color-ink-1: #f2eee8;  /* inputs, table header, row hover */
+  --color-ink-2: #ffffff;  /* header / sidebar / cards (raised) */
+  --color-ink-3: #f4ede9;  /* nav/menu hover, selected chip, toast */
+  --color-ink-4: #f1ebe4;  /* idle icon chips */
+  --color-line: #eae3da;
+  --color-line-2: #ddd4c8;
+
+  --color-strong: #1c1917;  /* stone-900 — headings, high contrast */
+  --color-ash: #292524;     /* stone-800 — body text, nav labels */
+  --color-muted: #57534e;   /* stone-600 — stat labels, sublabels */
+  --color-faint: #78716c;   /* stone-500 — hints, idle icons, table heads */
+
+  /* Warm, layered elevation — soft brown tint at low opacity reads
+     as gentle depth instead of a hard gray drop. */
+  --shadow-card: 0 1px 3px rgba(60, 45, 30, .05), 0 8px 24px rgba(60, 45, 30, .09);
+  --shadow-pop: 0 2px 8px rgba(60, 45, 30, .08), 0 18px 40px rgba(60, 45, 30, .16);
+  --scrim: rgba(28, 25, 23, .34);
+}
+
+/* Faint brand glow from the top-right warms the flat canvas and
+   adds a touch of gym energy without tinting the content. */
+:root[data-theme="light"] body {
+  background:
+    radial-gradient(1100px 620px at 100% -8%, rgba(220, 38, 38, .05), transparent 60%),
+    var(--color-ink-0);
+}
+
+/* Light-only chrome polish: lift cards off the canvas, give the top
+   bar a crisp warm edge, and use white (not black) text on the red
+   primary button so it reads clean instead of neon. Cards with their
+   own inline shadow (menu, modal, auth) are unaffected — inline wins. */
+:root[data-theme="light"] .card { box-shadow: var(--shadow-card); }
+:root[data-theme="light"] .btn-primary { color: #fff; }
+:root[data-theme="light"] header.no-print {
+  border-bottom: 1px solid var(--color-line);
+  box-shadow: 0 1px 2px rgba(60, 45, 30, .05);
+}
+
+/* ============================================================
+   Auth (login / register) — plain centered card.
+   Solid, theme-adaptive surface; clean and consistent in both.
+   ============================================================ */
+.auth-page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: var(--color-ink-0);
+}
+.auth-card {
+  width: 100%;
+  max-width: 400px;
+  background: var(--color-ink-2);
+  border: 1px solid var(--color-line);
+  border-radius: 16px;
+  box-shadow: var(--shadow-card);
+  padding: 40px 34px 32px;
+}
+.auth-card__logo {
+  font-size: 44px;
+  line-height: 1;
+  text-align: center;
+}
+.auth-card__rule {
+  display: block;
+  width: 44px;
+  height: 3px;
+  margin: 16px auto 0;
+  border-radius: 999px;
+  background: var(--color-brand);
+}
+.auth-card__label {
+  margin-top: 14px;
+  text-align: center;
+  font-size: 12px;
+  letter-spacing: .22em;
+  text-transform: uppercase;
+  color: var(--color-faint);
+}
+.auth-card__body { margin-top: 26px; }
+.auth-card__foot {
+  margin-top: 20px;
+  text-align: center;
+  font-size: 13.5px;
+  color: var(--color-faint);
+}
+.auth-card__foot a { color: var(--color-brand); font-weight: 600; }
+
+/* ============================================================
+   Splash — full-screen boot/loading screen (app/loading.tsx).
+   Themed via tokens so it flips light/dark with no flash. The
+   red glow behind the wordmark + indeterminate bar signal work
+   in progress while the dashboard fetches its data.
+   ============================================================ */
+.splash {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: var(--color-ink-0);
+  animation: splashIn .35s ease both;
+}
+.splash__inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 22px;
+}
+.splash__logo {
+  position: relative;
+  font-family: var(--font-head);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  color: var(--color-strong);
+  font-size: clamp(64px, 18vw, 128px);
+  animation: splashRise .55s cubic-bezier(.2, .7, .2, 1) both;
+}
+.splash__logo .accent {
+  color: var(--color-brand);
+}
+/* Soft red halo pulsing behind the wordmark */
+.splash__logo::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 120%;
+  height: 160%;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(closest-side, rgba(239, 68, 68, .28), transparent 72%);
+  filter: blur(6px);
+  z-index: -1;
+  animation: splashGlow 1.8s ease-in-out infinite;
+}
+.splash__rule {
+  width: 64px;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--color-brand);
+  transform-origin: center;
+  animation: splashRuleGrow .6s .1s cubic-bezier(.2, .7, .2, 1) both;
+}
+.splash__label {
+  font-size: 12px;
+  letter-spacing: .28em;
+  text-transform: uppercase;
+  color: var(--color-faint);
+  animation: splashIn .5s .15s ease both;
+}
+/* Indeterminate progress bar */
+.splash__bar {
+  position: relative;
+  width: 180px;
+  height: 3px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--color-line-2);
+}
+.splash__bar::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 40%;
+  border-radius: 999px;
+  background: var(--color-brand);
+  animation: splashBar 1.15s ease-in-out infinite;
+}
+
+@keyframes splashIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes splashRise {
+  from { opacity: 0; transform: translateY(14px) scale(.96); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes splashRuleGrow { from { transform: scaleX(0); opacity: 0; } to { transform: scaleX(1); opacity: 1; } }
+@keyframes splashGlow {
+  0%, 100% { opacity: .55; transform: translate(-50%, -50%) scale(.92); }
+  50%      { opacity: 1;   transform: translate(-50%, -50%) scale(1.05); }
+}
+@keyframes splashBar {
+  0%   { left: -40%; }
+  100% { left: 100%; }
+}
+/* Fade-out once the splash has finished its brief run. */
+.splash.is-leaving { animation: splashOut .42s ease forwards; }
+@keyframes splashOut { to { opacity: 0; visibility: hidden; } }
+@media (prefers-reduced-motion: reduce) {
+  .splash, .splash__logo, .splash__rule, .splash__label { animation: none; }
+  .splash__logo::before, .splash__bar::after { animation-duration: 0s; }
+}
+
+/* ---------- Base ---------- */
+html, body { padding: 0; margin: 0; }
+body {
+  background: var(--color-ink-0);
+  color: var(--color-ash);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+}
+::selection { background: rgba(239, 68, 68, 0.3); }
+
+/* Thin dark scrollbars */
+* { scrollbar-width: thin; scrollbar-color: var(--color-line-2) transparent; }
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-thumb { background: var(--color-line-2); border-radius: 6px; }
+
+/* ============================================================
+   Reusable component classes (raw CSS using theme vars)
+   ============================================================ */
+.brand {
+  font-family: var(--font-head);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  color: var(--color-strong);
+}
+.brand .accent { color: var(--color-brand); }
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  border: 1px solid transparent; border-radius: 8px; padding: 10px 18px;
+  font-family: var(--font-head); font-weight: 600; font-size: 15px;
+  letter-spacing: 0.04em; text-transform: uppercase; cursor: pointer;
+  transition: background .15s, border-color .15s, transform .05s, color .15s, opacity .15s;
+}
+.btn:disabled { opacity: .55; cursor: not-allowed; }
+.btn:not(:disabled):active { transform: translateY(1px); }
+.btn-primary { background: var(--color-brand); color: #000; }
+.btn-primary:not(:disabled):hover { background: var(--color-brand-600); color: #fff; }
+.btn-ghost { background: transparent; color: var(--color-ash); border-color: var(--color-line-2); }
+.btn-ghost:not(:disabled):hover { background: var(--color-ink-3); color: var(--color-strong); }
+.btn-danger { background: transparent; color: var(--color-brand); border-color: rgba(239, 68, 68, .4); }
+.btn-danger:not(:disabled):hover { background: rgba(239, 68, 68, .12); }
+.btn-sm { padding: 6px 12px; font-size: 13px; border-radius: 6px; }
+.btn-block { width: 100%; }
+
+.input {
+  width: 100%; background: var(--color-ink-1); border: 1px solid var(--color-line-2);
+  color: var(--color-strong); border-radius: 8px; padding: 11px 13px; font-size: 15px; outline: none;
+  transition: border-color .15s, box-shadow .15s;
+}
+.input::placeholder { color: var(--color-faint); }
+.input:focus { border-color: var(--color-brand); box-shadow: 0 0 0 3px rgba(239, 68, 68, .18); }
+textarea.input { resize: vertical; min-height: 64px; }
+.field-label { display: block; font-size: 13px; color: var(--color-muted); margin-bottom: 6px; letter-spacing: .02em; }
+
+.badge {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700;
+  letter-spacing: .03em; text-transform: uppercase; padding: 4px 10px; border-radius: 999px; white-space: nowrap;
+}
+.badge::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.badge-active { color: var(--color-ok); background: rgba(34, 197, 94, .12); }
+.badge-expiring { color: var(--color-warn); background: rgba(245, 158, 11, .12); }
+.badge-expired { color: var(--color-brand); background: rgba(239, 68, 68, .12); }
+
+.card { background: var(--color-ink-2); border: 1px solid var(--color-line); border-radius: 12px; }
+
+/* ---------- Sidebar nav ---------- */
+.side-label {
+  font-family: var(--font-head); font-size: 11px; font-weight: 700;
+  letter-spacing: .18em; text-transform: uppercase; color: var(--color-faint);
+  padding: 0 10px;
+}
+.side-link {
+  display: flex; align-items: center; gap: 13px; width: 100%; text-align: left;
+  font-family: var(--font-head); font-weight: 600; font-size: 15px; line-height: 1.2;
+  letter-spacing: .05em; text-transform: uppercase; color: var(--color-ash);
+  padding: 11px 12px; border-radius: 12px; border-left: 3px solid transparent;
+  cursor: pointer; transition: background .15s, color .15s, border-color .15s;
+}
+.side-link__icon {
+  display: grid; place-items: center; width: 36px; height: 36px; flex-shrink: 0;
+  border-radius: 10px; color: var(--color-faint); background: var(--color-ink-4);
+  transition: background .15s, color .15s, box-shadow .15s;
+}
+.side-link:hover { background: var(--color-ink-3); color: var(--color-strong); }
+.side-link:hover .side-link__icon { color: var(--color-strong); background: var(--color-line-2); }
+.side-link[data-active] {
+  background: rgba(239, 68, 68, .1); color: var(--color-brand);
+  border-left-color: var(--color-brand);
+}
+.side-link[data-active] .side-link__icon {
+  color: var(--color-brand); background: rgba(239, 68, 68, .16);
+  box-shadow: 0 0 0 1px rgba(239, 68, 68, .25);
+}
+
+/* Collapsible submenu (treeview) — children of a sidebar group */
+.side-sub {
+  display: flex; flex-direction: column; gap: 4px;
+  margin: 2px 0 4px 30px; padding-left: 14px;
+  border-left: 1px solid var(--color-line-2);
+}
+.side-sublink {
+  display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
+  font-family: var(--font-head); font-weight: 600; font-size: 13.5px; line-height: 1.2;
+  letter-spacing: .04em; text-transform: uppercase; color: var(--color-muted);
+  padding: 9px 12px; border-radius: 10px; cursor: pointer;
+  transition: background .15s, color .15s;
+}
+.side-sublink__icon {
+  display: grid; place-items: center; width: 26px; height: 26px; flex-shrink: 0;
+  color: var(--color-faint); transition: color .15s;
+}
+.side-sublink:hover { background: var(--color-ink-3); color: var(--color-strong); }
+.side-sublink:hover .side-sublink__icon { color: var(--color-strong); }
+.side-sublink[data-active] { color: var(--color-brand); background: rgba(239, 68, 68, .1); }
+.side-sublink[data-active] .side-sublink__icon { color: var(--color-brand); }
+
+/* ---------- Profile dropdown menu ---------- */
+.menu-item {
+  display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
+  padding: 9px 12px; border-radius: 8px; font-size: 14px; color: var(--color-ash);
+  cursor: pointer; transition: background .15s, color .15s;
+}
+.menu-item:hover { background: var(--color-ink-3); color: var(--color-strong); }
+
+.plan-opt {
+  background: var(--color-ink-1); border: 1px solid var(--color-line-2); color: var(--color-ash);
+  border-radius: 8px; padding: 12px 6px; text-align: center; cursor: pointer; transition: all .12s;
+}
+.plan-opt .pm { font-family: var(--font-head); font-weight: 700; font-size: 22px; color: var(--color-strong); line-height: 1; }
+.plan-opt .pl { font-size: 11px; color: var(--color-muted); text-transform: uppercase; letter-spacing: .08em; margin-top: 3px; }
+.plan-opt.selected { border-color: var(--color-brand); background: rgba(239, 68, 68, .1); }
+.plan-opt.selected .pm { color: var(--color-brand); }
+
+.animate-slide-in { animation: slideIn .2s ease; }
+@keyframes slideIn { from { transform: translateX(20px); opacity: 0; } to { transform: none; opacity: 1; } }
+.animate-pop { animation: pop .16s ease; }
+@keyframes pop { from { transform: scale(.97); opacity: 0; } to { transform: none; opacity: 1; } }
+
+/* ============================================================
+   POS-specific components — all built on the same theme tokens
+   so they flip light/dark with the rest of the app.
+   ============================================================ */
+
+/* Section heading used at the top of every view */
+.page-title {
+  font-family: var(--font-head); font-weight: 700; text-transform: uppercase;
+  letter-spacing: .01em; line-height: 1; color: var(--color-strong);
+  font-size: clamp(26px, 4vw, 34px);
+}
+.page-sub { color: var(--color-muted); font-size: 14px; margin-top: 4px; }
+
+/* KPI / stat tile */
+.stat {
+  background: var(--color-ink-2); border: 1px solid var(--color-line);
+  border-radius: 12px; padding: 16px 18px;
+}
+.stat__label {
+  font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--color-faint); font-weight: 700;
+}
+.stat__value {
+  font-family: var(--font-head); font-weight: 700; line-height: 1;
+  font-size: 28px; color: var(--color-strong); margin-top: 8px;
+}
+.stat__value.accent { color: var(--color-brand); }
+
+/* Category filter chips (POS + products) */
+.chip {
+  display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+  font-family: var(--font-head); font-weight: 600; font-size: 13px;
+  letter-spacing: .04em; text-transform: uppercase;
+  padding: 7px 14px; border-radius: 999px; cursor: pointer;
+  background: var(--color-ink-1); border: 1px solid var(--color-line-2);
+  color: var(--color-ash); transition: all .12s;
+}
+.chip:hover { color: var(--color-strong); border-color: var(--color-brand); }
+.chip:focus-visible { outline: 2px solid var(--color-brand); outline-offset: 2px; }
+.chip[data-active] {
+  background: rgba(239, 68, 68, .12); border-color: var(--color-brand);
+  color: var(--color-brand);
+}
+
+/* Product tile on the POS grid */
+.prod {
+  position: relative; display: flex; flex-direction: column; text-align: left;
+  background: var(--color-ink-2); border: 1px solid var(--color-line);
+  border-radius: 12px; padding: 14px; overflow: hidden;
+  transition: border-color .12s, box-shadow .12s;
+}
+.prod:hover { border-color: var(--color-line-2); }
+.prod[data-out] { opacity: .55; }
+.prod__img {
+  width: 100%; height: 96px; object-fit: cover; border-radius: 8px;
+  margin-bottom: 10px; background: var(--color-ink-1);
+}
+.prod__img--ph {
+  display: grid; place-items: center; color: var(--color-faint);
+  border: 1px dashed var(--color-line-2);
+}
+.prod__cat { font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--color-faint); font-weight: 700; }
+.prod__name { margin-top: 6px; font-weight: 600; font-size: 14px; color: var(--color-strong); line-height: 1.25; min-height: 2.5em; }
+.prod__foot { margin-top: 10px; display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.prod__add { margin-top: 12px; }
+.prod__price { font-family: var(--font-head); font-weight: 700; font-size: 18px; color: var(--color-brand); }
+.prod__stock { font-size: 11px; color: var(--color-muted); }
+.prod__stock.low { color: var(--color-warn); }
+.prod__stock.out { color: var(--color-brand); }
+
+/* Cart panel + rows */
+.cart {
+  background: var(--color-ink-2); border: 1px solid var(--color-line);
+  border-radius: 14px; display: flex; flex-direction: column; overflow: hidden;
+}
+.cart__row {
+  display: grid; grid-template-columns: 1fr auto; gap: 4px 10px;
+  padding: 12px 14px; border-bottom: 1px solid var(--color-line);
+}
+.cart__name { font-size: 13.5px; color: var(--color-strong); font-weight: 600; line-height: 1.2; }
+.cart__meta { font-size: 12px; color: var(--color-muted); }
+.qtybtn {
+  width: 28px; height: 28px; display: grid; place-items: center; border-radius: 7px;
+  background: var(--color-ink-1); border: 1px solid var(--color-line-2);
+  color: var(--color-ash); cursor: pointer; font-size: 16px; line-height: 1;
+  transition: all .1s;
+}
+.qtybtn:hover { color: var(--color-strong); border-color: var(--color-brand); }
+.qtybtn:disabled { opacity: .45; cursor: not-allowed; }
+.stock-input {
+  width: 52px; text-align: center; font-weight: 600; font-size: 14px; line-height: 1;
+  background: var(--color-ink-1); border: 1px solid var(--color-line-2);
+  border-radius: 7px; padding: 5px 4px; outline: none;
+  transition: border-color .12s, box-shadow .12s;
+}
+.stock-input:focus { border-color: var(--color-brand); box-shadow: 0 0 0 3px rgba(239, 68, 68, .18); }
+.stock-input:disabled { opacity: .6; }
+.summary-row { display: flex; justify-content: space-between; align-items: center; font-size: 14px; color: var(--color-ash); }
+.summary-row.total { font-family: var(--font-head); font-size: 26px; font-weight: 700; color: var(--color-strong); }
+.summary-row.total .amt { color: var(--color-brand); }
+
+/* Data table (products, sales) */
+.table { width: 100%; border-collapse: collapse; }
+.table thead th {
+  text-align: left; font-size: 11px; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--color-faint); font-weight: 700; padding: 12px 14px;
+  border-bottom: 1px solid var(--color-line); background: var(--color-ink-1);
+  position: sticky; top: 0;
+}
+/* Let header cells honour the same alignment classes as their body cells;
+   without this the `.table thead th` rule's left-align wins over the utility
+   classes and headers drift away from the column values below them. */
+.table thead th.text-right { text-align: right; }
+.table thead th.text-center { text-align: center; }
+.table tbody td { padding: 13px 14px; border-bottom: 1px solid var(--color-line); font-size: 14px; color: var(--color-ash); }
+.table tbody tr:hover td { background: var(--color-ink-1); }
+.table tbody tr:last-child td { border-bottom: 0; }
+.num { font-variant-numeric: tabular-nums; }
+
+/* Receipt (printable) */
+.receipt { font-family: var(--font-sans); color: var(--color-strong); }
+.receipt__line { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; padding: 3px 0; }
+.receipt__hr { border: 0; border-top: 1px dashed var(--color-line-2); margin: 10px 0; }
+
+/* ---------- Print (financial report) ---------- */
+.print-only { display: none; }
+@media print {
+  header, .no-print { display: none !important; }
+  .print-only { display: block !important; }
+  body { background: #fff !important; }
+  main { padding-top: 0 !important; }
+  * { color: #000 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .card { background: #fff !important; border: 1px solid #999 !important; box-shadow: none !important; }
+  table th, table td { border-color: #999 !important; background: #fff !important; }
+}

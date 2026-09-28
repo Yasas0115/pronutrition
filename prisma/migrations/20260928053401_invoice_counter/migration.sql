@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE `Store` ADD COLUMN `nextInvoice` INTEGER NOT NULL DEFAULT 1001;
