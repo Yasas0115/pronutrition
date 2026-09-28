@@ -13,7 +13,8 @@
     "db:reset": "prisma migrate reset --force",
     "setup": "prisma generate && prisma migrate deploy && tsx prisma/seed.ts",
     "db:migrate": "prisma migrate deploy",
-    "db:wipe": "tsx scripts/wipe-data.ts"
+    "db:wipe": "tsx scripts/wipe-data.ts",
+    "db:wipe-keep-owner": "tsx scripts/wipe-keep-owner.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

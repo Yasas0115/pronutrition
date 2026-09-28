@@ -62,6 +62,7 @@ pnpm typecheck    # tsc --noEmit
 pnpm db:migrate   # apply pending migrations (use this on the VPS)
 pnpm db:reset     # DROP all tables, re-migrate + reseed (dev only!)
 pnpm db:wipe      # delete all data + users, keep tables & payment methods
+pnpm db:wipe-keep-owner --yes      # delete all data + staff, keep owner login, settings & branches
 pnpm exec tsx scripts/verify-checkout.ts   # integration check for the sale flow
 ```
 
