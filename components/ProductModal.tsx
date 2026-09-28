@@ -23,18 +23,6 @@ export type ProductRow = {
   active: boolean;
 };
 
-const CATEGORIES = [
-  'Protein',
-  'Pre-Workout',
-  'Creatine',
-  'Amino Acids',
-  'Vitamins',
-  'Snacks',
-  'Drinks',
-  'Accessories',
-  'Supplements',
-];
-
 export default function ProductModal({
   product,
   categories,
@@ -53,7 +41,7 @@ export default function ProductModal({
   const editing = !!product;
   const [name, setName] = useState(product?.name ?? '');
   const [category, setCategory] = useState(
-    product?.category ?? categories[0] ?? 'Supplements',
+    product?.category ?? categories[0] ?? 'Uncategorized',
   );
   const [brand, setBrand] = useState(product?.brand ?? '');
   const [flavor, setFlavor] = useState(product?.flavor ?? '');
@@ -116,7 +104,7 @@ export default function ProductModal({
 
   // Offer the managed categories, always including this product's current one.
   const catOptions = Array.from(
-    new Set([...(categories.length ? categories : CATEGORIES), category].filter(Boolean)),
+    new Set([...categories, category].filter(Boolean)),
   ).sort();
 
   async function save() {
@@ -248,6 +236,11 @@ export default function ProductModal({
             <select className="input" value={category} onChange={(e) => setCategory(e.target.value)}>
               {catOptions.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
+            {categories.length === 0 && (
+              <p className="text-[12px] mt-1" style={{ color: 'var(--color-faint)' }}>
+                No categories yet — add them under Store → Categories.
+              </p>
+            )}
           </div>
           <div>
             <label className="field-label">Brand</label>
