@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { money, fmt, parseAmount } from '@/lib/money';
 import { toast } from './toast';
@@ -62,6 +62,13 @@ export default function POSView({
   const [mobileCartOpen, setMobileCartOpen] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
   const chipsRef = useRef<HTMLDivElement>(null);
+
+  // Ready the search box for a barcode scanner on tills with a mouse/keyboard.
+  // Skipped on touch screens, where focusing it would pop the on-screen
+  // keyboard up over the product grid as soon as the page opens.
+  useEffect(() => {
+    if (window.matchMedia('(pointer: fine)').matches) searchRef.current?.focus();
+  }, []);
 
   const categories = useMemo(
     () => ['All', ...Array.from(new Set(products.map((p) => p.category))).sort()],
@@ -205,14 +212,38 @@ export default function POSView({
 
   const quickCash = [total, 1000, 2000, 5000];
 
+  const chargeButton = (
+    <button
+      className="btn btn-primary btn-block"
+      style={{ padding: '14px 18px', fontSize: 17 }}
+      disabled={lines.length === 0 || processing || (isCash && paid < total)}
+      onClick={checkout}
+    >
+      {processing ? 'Processing…' : `Charge ${money(total, currency)}`}
+    </button>
+  );
+
+  // `panel` = the desktop side column. `modal` = the phone bottom sheet: the
+  // sheet already has its own "Cart" title and border, so the inner card
+  // chrome is dropped, the whole sheet scrolls as one, and the Charge button
+  // moves to the sheet's sticky footer so it is always on screen.
   const renderCart = (variant: 'panel' | 'modal') => {
     const panel = variant === 'panel';
     return (
-    <div className={`cart${panel ? ' lg:min-h-full' : ''}`}>
+    <div
+      className={`cart${panel ? ' lg:min-h-full' : ''}`}
+      style={panel ? undefined : { border: 0, borderRadius: 0, background: 'transparent', overflow: 'visible' }}
+    >
       <div className="flex items-center justify-between px-4 py-3.5" style={{ borderBottom: '1px solid var(--color-line)', flexShrink: 0 }}>
-        <div className="brand" style={{ fontSize: 18 }}>Cart</div>
-        <div className="flex items-center gap-3">
+        {panel ? (
+          <div className="brand" style={{ fontSize: 18 }}>Cart</div>
+        ) : (
           <span className="text-[13px]" style={{ color: 'var(--color-muted)' }}>{count} item{count === 1 ? '' : 's'}</span>
+        )}
+        <div className="flex items-center gap-3">
+          {panel && (
+            <span className="text-[13px]" style={{ color: 'var(--color-muted)' }}>{count} item{count === 1 ? '' : 's'}</span>
+          )}
           {lines.length > 0 && (
             <button className="text-[12px] uppercase tracking-wider" style={{ color: 'var(--color-brand)' }} onClick={clearCart}>
               Clear
@@ -222,8 +253,8 @@ export default function POSView({
       </div>
 
       <div
-        className="overflow-y-auto"
-        style={panel ? { flex: '1 1 0', minHeight: 96 } : { maxHeight: 'min(42vh, 380px)' }}
+        className={panel ? 'overflow-y-auto' : undefined}
+        style={panel ? { flex: '1 1 0', minHeight: 96 } : undefined}
       >
         {lines.length === 0 ? (
           <div className="px-4 py-10 text-center text-[13.5px]" style={{ color: 'var(--color-faint)' }}>
@@ -341,14 +372,7 @@ export default function POSView({
           </div>
         )}
 
-        <button
-          className="btn btn-primary btn-block"
-          style={{ padding: '14px 18px', fontSize: 17 }}
-          disabled={lines.length === 0 || processing || (isCash && paid < total)}
-          onClick={checkout}
-        >
-          {processing ? 'Processing…' : `Charge ${money(total, currency)}`}
-        </button>
+        {panel && chargeButton}
       </div>
     </div>
     );
@@ -379,7 +403,6 @@ export default function POSView({
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={onSearchKey}
-                autoFocus
               />
             </div>
             <div
@@ -461,22 +484,23 @@ export default function POSView({
         </div>
       </div>
 
-      {/* Mobile: sticky bottom bar + cart modal */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-30 no-print px-4 pb-4 pt-3"
-        style={{ background: 'linear-gradient(to top, var(--color-ink-0) 60%, transparent)' }}>
-        <button
-          className="btn btn-primary btn-block flex items-center justify-between"
-          style={{ padding: '14px 18px' }}
-          onClick={() => setMobileCartOpen(true)}
-          disabled={lines.length === 0}
-        >
-          <span>{count} item{count === 1 ? '' : 's'}</span>
-          <span>View cart · {money(total, currency)}</span>
-        </button>
-      </div>
+      {/* Mobile: sticky bottom bar (once something is in the cart) + cart modal */}
+      {lines.length > 0 && (
+        <div className="lg:hidden fixed bottom-0 left-0 right-0 z-30 no-print px-4 pb-4 pt-3"
+          style={{ background: 'linear-gradient(to top, var(--color-ink-0) 60%, transparent)' }}>
+          <button
+            className="btn btn-primary btn-block flex items-center justify-between"
+            style={{ padding: '14px 18px' }}
+            onClick={() => setMobileCartOpen(true)}
+          >
+            <span>{count} item{count === 1 ? '' : 's'}</span>
+            <span>View cart · {money(total, currency)}</span>
+          </button>
+        </div>
+      )}
 
       {mobileCartOpen && (
-        <Modal title="Cart" onClose={() => setMobileCartOpen(false)} maxWidth={440}>
+        <Modal title="Cart" onClose={() => setMobileCartOpen(false)} maxWidth={440} flush footer={chargeButton}>
           {renderCart('modal')}
         </Modal>
       )}

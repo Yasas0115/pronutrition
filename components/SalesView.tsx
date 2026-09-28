@@ -168,7 +168,7 @@ export default function SalesView({
                           <div className="text-[12px]" style={{ color: 'var(--color-muted)' }}>{s.customerName ?? 'Walk-in'}</div>
                         </td>
                         {showBranchColumn && <td className="text-[13px]">{s.branchName ?? '—'}</td>}
-                        <td className="text-[13px]">{fmtDateTime(s.createdAt)}</td>
+                        <td className="text-[13px] whitespace-nowrap">{fmtDateTime(s.createdAt)}</td>
                         <td className="text-center num">{s.items.reduce((a, b) => a + b.qty, 0)}</td>
                         <td><span className="badge" style={{ color: 'var(--color-muted)', background: 'var(--color-ink-1)' }}>{s.method}</span></td>
                         <td className="text-right num text-strong font-semibold">{money(s.total, currency)}</td>

@@ -22,7 +22,9 @@ export function Toaster() {
   }, []);
 
   return (
-    <div className="fixed bottom-6 right-6 z-[100] flex flex-col gap-[10px]">
+    // Phones: full-width strip under the header, clear of the POS cart bar at
+    // the bottom. Larger screens: bottom-right corner.
+    <div className="fixed top-[76px] left-4 right-4 sm:top-auto sm:left-auto sm:bottom-6 sm:right-6 z-[100] flex flex-col gap-[10px]">
       {items.map((t) => (
         <div
           key={t.id}

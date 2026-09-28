@@ -222,6 +222,45 @@ export default function AppShell({
     if (activeGroup) setOpenGroups((prev) => new Set(prev).add(activeGroup));
   }, [activeGroup]);
 
+  // Mobile drawer: stop the page behind it from scrolling while it's open.
+  useEffect(() => {
+    if (!navOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, [navOpen]);
+
+  // Branch switcher (owner) / current branch label (staff). Lives in the header
+  // on wider screens and at the top of the drawer on phones, where the header
+  // has no room for it.
+  const branchControl = (compact: boolean) =>
+    branches.length > 0 &&
+    (owner ? (
+      <select
+        aria-label="Active branch"
+        className="input"
+        value={activeScope}
+        disabled={switching}
+        onChange={(e) => onBranchChange(e.target.value)}
+        style={compact ? { height: 38, padding: '0 30px 0 12px', maxWidth: 190, fontSize: 13 } : { height: 44 }}
+      >
+        <option value={ALL_BRANCHES}>All branches</option>
+        {branches.map((b) => (
+          <option key={b.id} value={b.id}>
+            {b.name}{b.active ? '' : ' (closed)'}
+          </option>
+        ))}
+      </select>
+    ) : (
+      <span
+        className="inline-flex items-center gap-1.5 rounded-lg px-3"
+        style={{ height: compact ? 38 : 44, background: 'var(--color-ink-1)', border: '1px solid var(--color-line-2)', color: 'var(--color-ash)', fontSize: 13 }}
+      >
+        <Icon name="branch" className="opacity-70" />
+        {activeBranchName}
+      </span>
+    ));
+
   const toggleGroup = (key: string) =>
     setOpenGroups((prev) => {
       const next = new Set(prev);
@@ -231,14 +270,17 @@ export default function AppShell({
     });
 
   return (
-    <div className="min-h-screen flex flex-col">
+    // overflow-x: clip is a safety net: anything that ever pokes past the
+    // viewport gets cut off instead of making the whole page side-scroll /
+    // zoom out on phones. (clip, unlike hidden, keeps the sticky header working.)
+    <div className="min-h-screen flex flex-col" style={{ overflowX: 'clip' }}>
       {/* Header */}
       <header
         className="no-print sticky top-0 z-30 flex items-center justify-between gap-2 px-4 sm:px-6"
         style={{ background: 'var(--color-ink-2)', minHeight: 64 }}
       >
-        <div className="flex items-center gap-3">
-          <div className="md:hidden">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="md:hidden shrink-0">
             <button
               className="btn btn-ghost btn-sm"
               onClick={() => setNavOpen((v) => !v)}
@@ -251,7 +293,7 @@ export default function AppShell({
           <Link href="/" className="flex items-center gap-3 min-w-0" aria-label={storeName}>
             {logoUrl && (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={logoUrl} alt="" style={{ height: 40, maxWidth: 132, objectFit: 'contain' }} className="shrink-0" />
+              <img src={logoUrl} alt="" style={{ objectFit: 'contain' }} className="shrink-0 h-8 max-w-[88px] sm:h-10 sm:max-w-[132px]" />
             )}
             <span className="brand text-[22px] sm:text-[27px] truncate">
               {storeName}
@@ -259,36 +301,14 @@ export default function AppShell({
           </Link>
         </div>
 
-        {/* Right cluster: branch switcher + theme toggle + profile */}
-        <div className="flex items-center gap-2">
-          {branches.length > 0 && (
-            owner ? (
-              <select
-                aria-label="Active branch"
-                className="input"
-                value={activeScope}
-                disabled={switching}
-                onChange={(e) => onBranchChange(e.target.value)}
-                style={{ height: 38, padding: '0 30px 0 12px', maxWidth: 190, fontSize: 13 }}
-              >
-                <option value={ALL_BRANCHES}>All branches</option>
-                {branches.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.name}{b.active ? '' : ' (closed)'}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <span
-                className="hidden sm:inline-flex items-center gap-1.5 rounded-lg px-3"
-                style={{ height: 38, background: 'var(--color-ink-1)', border: '1px solid var(--color-line-2)', color: 'var(--color-ash)', fontSize: 13 }}
-              >
-                <Icon name="branch" className="opacity-70" />
-                {activeBranchName}
-              </span>
-            )
-          )}
-          <FullscreenToggle />
+        {/* Right cluster: branch switcher + theme toggle + profile. On phones
+            the branch switcher and fullscreen button move out of the way so
+            the bar fits in the screen width. */}
+        <div className="flex items-center gap-2 shrink-0">
+          <div className="hidden sm:block">{branchControl(true)}</div>
+          <div className="hidden sm:block">
+            <FullscreenToggle />
+          </div>
           <ThemeToggle />
           <div className="relative">
             <button
@@ -311,11 +331,11 @@ export default function AppShell({
               >
                 {initial}
               </span>
-              <span className="hidden sm:flex flex-col items-start leading-tight">
+              <span className="hidden md:flex flex-col items-start leading-tight">
                 <span className="text-[13px] text-strong font-semibold max-w-[170px] truncate">{username}</span>
                 <span className="text-[11px]" style={{ color: 'var(--color-muted)' }}>{roleLabel}</span>
               </span>
-              <Icon name="chevron" className={menuOpen ? 'rotate-180 transition-transform' : 'transition-transform'} />
+              <Icon name="chevron" className={`hidden sm:block transition-transform${menuOpen ? ' rotate-180' : ''}`} />
             </button>
 
             {menuOpen && (
@@ -370,7 +390,13 @@ export default function AppShell({
           } md:static md:block md:z-auto md:w-[290px] md:shrink-0 md:overflow-visible`}
           style={{ background: 'var(--color-ink-2)', borderRight: '1px solid var(--color-line)' }}
         >
-          <nav className="flex flex-col gap-1.5 px-4 pt-10 pb-4 md:sticky md:top-16">
+          <nav className="flex flex-col gap-1.5 px-4 pt-5 md:pt-10 pb-4 md:sticky md:top-16">
+            {branches.length > 0 && (
+              <div className="sm:hidden flex flex-col gap-2 mb-4">
+                <div className="side-label">Branch</div>
+                {branchControl(false)}
+              </div>
+            )}
             <div className="side-label">Main navigation</div>
             {menu.map((item) =>
               item.kind === 'link' ? (

@@ -107,6 +107,7 @@
    ============================================================ */
 .auth-page {
   min-height: 100vh;
+  min-height: 100dvh;
   display: grid;
   place-items: center;
   padding: 24px;
@@ -150,6 +151,10 @@
   color: var(--color-faint);
 }
 .auth-card__foot a { color: var(--color-brand); font-weight: 600; }
+@media (max-width: 480px) {
+  .auth-page { padding: 16px; }
+  .auth-card { padding: 32px 20px 26px; }
+}
 
 /* ============================================================
    Splash — full-screen boot/loading screen (app/loading.tsx).
@@ -326,6 +331,30 @@ textarea.input { resize: vertical; min-height: 64px; }
 .badge-expired { color: var(--color-brand); background: rgba(239, 68, 68, .12); }
 
 .card { background: var(--color-ink-2); border: 1px solid var(--color-line); border-radius: 12px; }
+
+/* ---------- Modal ----------
+   Centered dialog on tablets/desktop; on phones it becomes a full-width
+   bottom sheet so forms get the whole screen width. The header and footer
+   stick while the body scrolls, so Close and the action buttons are always
+   reachable. dvh follows the mobile browser's collapsing address bar. */
+.modal-wrap {
+  position: fixed; inset: 0; z-index: 50;
+  display: grid; align-items: end; justify-items: center;
+}
+.modal-panel {
+  width: 100%; overflow-y: auto; overscroll-behavior: contain;
+  max-height: 92vh; max-height: 92dvh;
+  border-bottom-left-radius: 0; border-bottom-right-radius: 0; border-bottom: 0;
+}
+.modal-head, .modal-foot {
+  position: sticky; z-index: 1; background: var(--color-ink-2);
+}
+.modal-head { top: 0; }
+.modal-foot { bottom: 0; }
+@media (min-width: 640px) {
+  .modal-wrap { place-items: center; padding: 20px; }
+  .modal-panel { border-radius: 12px; border-bottom: 1px solid var(--color-line); }
+}
 
 /* ---------- Sidebar nav ---------- */
 .side-label {
@@ -518,6 +547,23 @@ textarea.input { resize: vertical; min-height: 64px; }
 .table tbody tr:hover td { background: var(--color-ink-1); }
 .table tbody tr:last-child td { border-bottom: 0; }
 .num { font-variant-numeric: tabular-nums; }
+
+/* ---------- Phones ---------- */
+@media (max-width: 767px) {
+  /* iOS Safari zooms the page in when a focused field's text is under 16px
+     (and leaves it zoomed) — keep form text at 16px on small screens. */
+  .input, .stock-input { font-size: 16px; }
+
+  /* Tables that sit in a horizontal scroller get a sensible minimum width so
+     columns keep readable widths and the table scrolls sideways, instead of
+     every cell being squeezed into a 1–2 word column. Headers, amounts and
+     action buttons stay on one line. */
+  .overflow-x-auto > .table { min-width: 640px; }
+  .table thead th,
+  .table td.num,
+  .table td.text-right { white-space: nowrap; }
+  .table thead th, .table tbody td { padding-left: 12px; padding-right: 12px; }
+}
 
 /* Receipt (printable) */
 .receipt { font-family: var(--font-sans); color: var(--color-strong); }

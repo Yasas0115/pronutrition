@@ -8,12 +8,15 @@ export default function Modal({
   children,
   footer,
   maxWidth = 480,
+  flush = false,
 }: {
   title: string;
   onClose: () => void;
   children: ReactNode;
   footer?: ReactNode;
   maxWidth?: number;
+  /** Drop the body padding so the content can run edge to edge. */
+  flush?: boolean;
 }) {
   useEffect(() => {
     const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -21,22 +24,29 @@ export default function Modal({
     return () => window.removeEventListener('keydown', h);
   }, [onClose]);
 
+  // Keep the page behind the dialog from scrolling along with it.
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, []);
+
   return (
     <div
-      className="fixed inset-0 z-50 grid place-items-center p-5"
+      className="modal-wrap"
       style={{ background: 'var(--scrim)', backdropFilter: 'blur(2px)' }}
       onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div
-        className="card w-full animate-pop"
-        style={{ maxWidth, boxShadow: 'var(--shadow-pop)', maxHeight: '92vh', overflowY: 'auto' }}
+        className="card modal-panel animate-pop"
+        style={{ maxWidth, boxShadow: 'var(--shadow-pop)' }}
       >
         <div
-          className="flex items-center justify-between px-6 py-5"
+          className="modal-head flex items-center justify-between gap-3 px-5 py-4 sm:px-6 sm:py-5"
           style={{ borderBottom: '1px solid var(--color-line)' }}
         >
           <h3
-            className="m-0"
+            className="m-0 min-w-0 truncate"
             style={{ fontFamily: 'var(--font-head)', fontSize: 24, fontWeight: 700, color: 'var(--color-strong)', textTransform: 'uppercase', letterSpacing: '.01em' }}
           >
             {title}
@@ -51,8 +61,8 @@ export default function Modal({
             ×
           </button>
         </div>
-        <div className="px-6 py-[22px]">{children}</div>
-        {footer && <div className="px-6 pb-[22px] pt-4 flex gap-[10px] justify-end">{footer}</div>}
+        <div className={flush ? '' : 'px-5 py-5 sm:px-6 sm:py-[22px]'}>{children}</div>
+        {footer && <div className="modal-foot px-5 pb-5 pt-4 sm:px-6 sm:pb-[22px] flex gap-[10px] justify-end">{footer}</div>}
       </div>
     </div>
   );
