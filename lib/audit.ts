@@ -8,8 +8,11 @@ import type { Prisma, PrismaClient } from '@prisma/client';
 
 type Db = PrismaClient | Prisma.TransactionClient;
 
-export type AuditEntity = 'PRODUCT' | 'USER' | 'BRANCH' | 'SETTINGS' | 'STOCK' | 'CATEGORY' | 'CUSTOMER';
-export type AuditAction = 'CREATE' | 'UPDATE' | 'DELETE' | 'PRICE_CHANGE' | 'ACCESS_CHANGE' | 'PAYMENT';
+export type AuditEntity =
+  | 'PRODUCT' | 'USER' | 'BRANCH' | 'SETTINGS' | 'STOCK' | 'CATEGORY' | 'CUSTOMER'
+  | 'EXPENSE' | 'SALARY' | 'WORKER' | 'FLOAT';
+export type AuditAction =
+  | 'CREATE' | 'UPDATE' | 'DELETE' | 'PRICE_CHANGE' | 'ACCESS_CHANGE' | 'PAYMENT' | 'VOID';
 
 export type AuditEntry = {
   entity: AuditEntity;

@@ -73,6 +73,13 @@ export async function setupFixtures(opts: {
     await prisma.stockMovement.deleteMany({ where: { branchId: branch.id } });
     await prisma.productPriceHistory.deleteMany({ where: { productId: { in: productIds } } });
     await prisma.auditLog.deleteMany({ where: { entity: 'CUSTOMER', entityId: { in: customers.map((c) => c.id) } } });
+    // Money-out rows are all tagged with the fixture branch. Expenses first: a
+    // salary expense points at its SalaryPayment.
+    await prisma.expense.deleteMany({ where: { branchId: branch.id } });
+    await prisma.salaryPayment.deleteMany({ where: { branchId: branch.id } });
+    await prisma.worker.deleteMany({ where: { branchId: branch.id } });
+    await prisma.auditLog.deleteMany({ where: { branchId: branch.id } });
+    await prisma.expenseCategory.deleteMany({ where: { name: { startsWith: 'VERIFY' } } });
     await prisma.branchStock.deleteMany({ where: { branchId: branch.id } });
     await prisma.product.deleteMany({ where: { id: { in: productIds } } });
     await prisma.customer.deleteMany({ where: { id: { in: customers.map((c) => c.id) } } });

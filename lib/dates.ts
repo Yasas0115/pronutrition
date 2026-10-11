@@ -37,6 +37,24 @@ export function startOfMonth(d = new Date()): Date {
   return new Date(Date.UTC(s.getUTCFullYear(), s.getUTCMonth(), 1) - OFFSET_MS);
 }
 
+/** YYYY-MM in Sri Lanka time (the key a salary month is stored under). */
+export function monthKey(d = new Date()): string {
+  return todayStr(d).slice(0, 7);
+}
+
+/** First and last instant of a `YYYY-MM` month in Sri Lanka time, or null if invalid. */
+export function monthRange(ym: string): { start: Date; end: Date } | null {
+  const m = /^(\d{4})-(\d{2})$/.exec(ym);
+  if (!m) return null;
+  const y = Number(m[1]);
+  const mo = Number(m[2]);
+  if (mo < 1 || mo > 12) return null;
+  return {
+    start: new Date(Date.UTC(y, mo - 1, 1) - OFFSET_MS),
+    end: new Date(Date.UTC(y, mo, 1) - OFFSET_MS - 1),
+  };
+}
+
 /** Parse a `YYYY-MM-DD` date input as the start of that day in Sri Lanka time. */
 export function parseDay(ymd: string): Date | null {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd);
@@ -55,6 +73,12 @@ export function fmtDateTime(d: Date | string): string {
     minute: '2-digit',
     timeZone: TIME_ZONE,
   });
+}
+
+/** A business date with no time of day ("12 Oct 2026"), in Sri Lanka time. */
+export function fmtDate(d: Date | string): string {
+  const date = typeof d === 'string' ? new Date(d) : d;
+  return date.toLocaleDateString('en-LK', { day: '2-digit', month: 'short', year: 'numeric', timeZone: TIME_ZONE });
 }
 
 export function fmtTime(d: Date | string): string {

@@ -434,6 +434,10 @@ const ENTITY_LABEL: Record<string, string> = {
   STOCK: 'Stock',
   CATEGORY: 'Category',
   CUSTOMER: 'Customer',
+  EXPENSE: 'Expense',
+  SALARY: 'Salary',
+  WORKER: 'Worker',
+  FLOAT: 'Float',
 };
 
 function ActivityLog({ rows }: { rows: AuditRow[] }) {

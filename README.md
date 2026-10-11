@@ -26,6 +26,13 @@ MariaDB** — ready to host on a VPS.
   vs retail price, stock valuation, price-change history, credit outstanding with
   ageing, sales mix and an activity log. Buying prices are never sent to anyone
   without that module.
+- **Profit & Expenses** (owner / *Accounts & finance* module) — profit & loss for
+  any date range (net sales − cost of goods − expenses, retail vs wholesale),
+  expenses by category, worker salaries (monthly due vs paid, bonus / deduction),
+  petty cash taken by workers, the till float with a full change history, and a
+  cash-drawer report. Entries are never edited or deleted — mistakes are voided
+  with a reason and drop out of the reports. Every entry records the business date
+  *and* the exact time it was entered, plus who entered it.
 - **Settings** (owner) — store name, logo upload, currency, tax %, phone/address,
   receipt footer note.
 - **Auth** — cookie session (JWT via `jose`), roles: `OWNER` and `STAFF`.
@@ -77,6 +84,7 @@ pnpm db:wipe-keep-owner --yes      # delete all data + staff, keep owner login, 
 pnpm exec tsx scripts/verify-checkout.ts   # integration check for the sale flow
 pnpm exec tsx scripts/verify-credit.ts     # customer rules, credit, wholesale, settlement
 pnpm exec tsx scripts/verify-prices.ts     # price history, cost snapshot, Colombo dates
+pnpm exec tsx scripts/verify-profit.ts     # expenses, salaries, float, profit & loss, cash drawer
 ```
 The `verify-*` scripts build their own throw-away branch/products and remove them
 afterwards, but they do write to the database in `DATABASE_URL` — run them against

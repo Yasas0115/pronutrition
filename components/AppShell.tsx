@@ -215,7 +215,10 @@ export default function AppShell({
       ? [{ kind: 'link' as const, href: '/customers', label: 'Customers', icon: 'customer' as const }]
       : []),
     ...(has('finance')
-      ? [{ kind: 'link' as const, href: '/accounts', label: 'Accounts', icon: 'accounts' as const }]
+      ? [
+          { kind: 'link' as const, href: '/accounts', label: 'Accounts', icon: 'accounts' as const },
+          { kind: 'link' as const, href: '/finance', label: 'Profit & Expenses', icon: 'reports' as const },
+        ]
       : []),
     ...(has('branches')
       ? [{ kind: 'link' as const, href: '/branches', label: 'Branches', icon: 'branch' as const }]

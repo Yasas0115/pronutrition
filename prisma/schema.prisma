@@ -43,13 +43,19 @@ model Branch {
   phone     String?
   address   String?  @db.Text
   active    Boolean  @default(true)
+  // The fixed amount of cash kept in this branch's till as change (the "float").
+  // It is not income or expense, so it never touches profit; every edit is
+  // logged in FloatAdjustment and feeds the cash-drawer report.
+  floatAmount Int    @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  stocks    BranchStock[]
-  sales     Sale[]
-  users     User[]
-  movements StockMovement[]
+  stocks           BranchStock[]
+  sales            Sale[]
+  users            User[]
+  movements        StockMovement[]
+  expenses         Expense[]
+  floatAdjustments FloatAdjustment[]
 
   @@index([active])
 }
@@ -329,4 +335,116 @@ model StockMovement {
   @@index([productId])
   @@index([transferId])
   @@index([saleId])
+}
+
+// Pick-list of expense categories (Rent, Electricity, Transport…), managed from
+// the Profit & Expenses page. Expenses keep their category as a plain string
+// snapshot, so deleting a category never rewrites history.
+model ExpenseCategory {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// A shop worker who is paid a salary. Workers are separate from staff logins —
+// plenty of shop-floor workers never sign in to the POS.
+model Worker {
+  id            String   @id @default(cuid())
+  name          String
+  title         String? // Sales assistant, Cleaner…
+  phone         String?
+  branchId      String?
+  monthlySalary Int      @default(0)
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  payments SalaryPayment[]
+
+  @@index([active])
+}
+
+// One salary payout. `baseAmount` is the part of the monthly salary it covers,
+// `netPaid` (= base + bonus − deduction) is the cash that left the business and
+// is what counts as an expense. Saving one also writes the matching Expense row
+// (kind SALARY) in the same transaction. Never edited — a mistake is voided.
+model SalaryPayment {
+  id           String    @id @default(cuid())
+  workerId     String?
+  worker       Worker?   @relation(fields: [workerId], references: [id], onDelete: SetNull)
+  workerName   String // snapshot
+  period       String // YYYY-MM the salary is for
+  baseAmount   Int
+  bonus        Int       @default(0)
+  deduction    Int       @default(0)
+  netPaid      Int
+  paidVia      String    @default("CASH") // CASH | BANK | CARD
+  paidAt       DateTime // business date the money was paid
+  note         String?   @db.Text
+  branchId     String?
+  userId       String?
+  userName     String? // snapshot of who recorded it
+  createdAt    DateTime  @default(now())
+  voidedAt     DateTime?
+  voidedByName String?
+  voidReason   String?   @db.Text
+
+  expense Expense?
+
+  @@index([workerId, period])
+  @@index([period])
+  @@index([paidAt])
+}
+
+// Money that left the business. One ledger for every kind so profit is simply
+// the sum by kind: GENERAL (rent, electricity…), SALARY (written by a
+// SalaryPayment) and PETTY_CASH (cash taken by a worker — always a plain
+// expense, never deducted from salary). Append-only: a mistake is voided with a
+// reason (kept, struck through, excluded from reports), never edited or deleted.
+model Expense {
+  id              String         @id @default(cuid())
+  branchId        String? // null = company-wide
+  branch          Branch?        @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  branchName      String? // snapshot
+  kind            String         @default("GENERAL") // GENERAL | SALARY | PETTY_CASH
+  category        String
+  amount          Int
+  description     String?        @db.Text
+  paidVia         String         @default("CASH") // CASH | BANK | CARD
+  expenseDate     DateTime // the day it belongs to (Sri Lanka midnight), editable at entry
+  workerId        String?
+  workerName      String? // who took the cash / who was paid
+  salaryPaymentId String?        @unique
+  salaryPayment   SalaryPayment? @relation(fields: [salaryPaymentId], references: [id], onDelete: SetNull)
+  userId          String?
+  userName        String? // snapshot of who recorded it
+  createdAt       DateTime       @default(now()) // the real moment it was entered
+  voidedAt        DateTime?
+  voidedByName    String?
+  voidReason      String?        @db.Text
+
+  @@index([expenseDate])
+  @@index([kind, expenseDate])
+  @@index([branchId, expenseDate])
+}
+
+// History of the till float. Every change records what it was, what it became
+// and why, with who/when — so a drawer report can use the float that applied on
+// any given day.
+model FloatAdjustment {
+  id         String   @id @default(cuid())
+  branchId   String
+  branch     Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  branchName String // snapshot
+  oldAmount  Int
+  newAmount  Int
+  delta      Int
+  reason     String   @db.Text
+  userId     String?
+  userName   String? // snapshot of who changed it
+  createdAt  DateTime @default(now())
+
+  @@index([branchId, createdAt])
 }
