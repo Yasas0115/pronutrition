@@ -5,17 +5,46 @@ import {
   TOKEN_COOKIE,
   sessionFromToken,
   signSession,
+  normalizeRole,
   isOwner,
   type Session,
 } from './session';
+import { prisma } from './db';
 import { getEffectiveModules } from './branch';
 import { landingRoute, type ModuleKey } from './modules';
 
 const MAX_AGE_SECONDS = 60 * 60 * 12; // 12 hours
 
+// The signed cookie only proves who someone WAS when they signed in. So each
+// request re-reads the account:
+//   • a deleted user is signed out at once (not 12 hours later),
+//   • a password change retires every session issued before it,
+//   • role / branch / name come from the database, so demoting or re-pinning a
+//     person takes effect immediately instead of after their next login.
 export async function getSession(): Promise<Session | null> {
   const token = (await cookies()).get(TOKEN_COOKIE)?.value;
-  return sessionFromToken(token);
+  const claims = await sessionFromToken(token);
+  if (!claims) return null;
+
+  const user = await prisma.user.findUnique({
+    where: { id: claims.userId },
+    select: { email: true, name: true, role: true, branchId: true, passwordChangedAt: true },
+  });
+  if (!user) return null;
+
+  if (user.passwordChangedAt) {
+    const changedAt = Math.floor(user.passwordChangedAt.getTime() / 1000);
+    if (claims.issuedAt === undefined || claims.issuedAt < changedAt) return null;
+  }
+
+  return {
+    userId: claims.userId,
+    email: user.email,
+    name: user.name ?? user.email,
+    role: normalizeRole(user.role),
+    branchId: user.branchId ?? null,
+    issuedAt: claims.issuedAt,
+  };
 }
 
 export async function requireSession(): Promise<Session> {

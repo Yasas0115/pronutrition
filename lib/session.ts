@@ -13,6 +13,9 @@ export type Session = {
   role: Role;
   // The branch a STAFF member is pinned to. null = all branches (also OWNER).
   branchId: string | null;
+  // When this sign-in was issued (seconds since epoch, from the token's `iat`).
+  // Compared with User.passwordChangedAt to retire sessions after a reset.
+  issuedAt?: number;
 };
 
 // Normalize any stored role value to the two we support. Legacy "CASHIER" rows
@@ -44,6 +47,7 @@ export async function sessionFromToken(
       name: String(payload.name ?? ''),
       role: normalizeRole(payload.role),
       branchId: payload.branchId ? String(payload.branchId) : null,
+      issuedAt: typeof payload.iat === 'number' ? payload.iat : undefined,
     };
   } catch {
     return null;

@@ -1,12 +1,13 @@
 'use server';
 
-import { randomUUID } from 'crypto';
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/db';
-import { requireModule, canSeeCost } from '@/lib/auth';
+import { requireModule, canSeeCost, hasModule } from '@/lib/auth';
 import type { Session } from '@/lib/session';
 import { recordStockChange, setStockTo } from '@/lib/stock';
 import { recordPriceChange } from '@/lib/price-history';
+import { createStockTransfer } from '@/lib/transfers';
+import { reconcileStock, type StockCheckResult } from '@/lib/stock-check';
 
 export type SimpleResult = { ok: true } | { ok: false; error: string };
 
@@ -183,10 +184,42 @@ export async function setLowStockAt(input: {
   }
 }
 
-// Move stock between two branches. Runs both legs as one transaction: a
-// TRANSFER_OUT from the source (validated against on-hand) and a TRANSFER_IN to
-// the destination, tied together by a shared transferId. Owner-only, since it
-// touches two branches at once.
+export type TransferResult =
+  | { ok: true; id: string; number: number }
+  | { ok: false; error: string };
+
+// Move stock between two branches as ONE numbered document (TRF-1001) carrying
+// any number of products. Every line is a TRANSFER_OUT at the sender (checked
+// against on-hand) and a TRANSFER_IN at the receiver, and the whole document is
+// a single transaction — all lines move or none do (lib/transfers.ts).
+// Owner-only, since it touches two branches at once.
+export async function transferStockBatch(input: {
+  fromBranchId: string;
+  toBranchId: string;
+  items: { productId: string; qty: number }[];
+  note?: string;
+}): Promise<TransferResult> {
+  const session = await requireModule('stock');
+  if (session.role !== 'OWNER') {
+    return { ok: false, error: 'Only an owner can transfer between branches.' };
+  }
+  try {
+    const r = await createStockTransfer({
+      fromBranchId: input.fromBranchId,
+      toBranchId: input.toBranchId,
+      items: input.items,
+      note: input.note,
+      userId: session.userId,
+      userName: session.name,
+    });
+    revalidateStock();
+    return { ok: true, id: r.id, number: r.number };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'Could not transfer stock.' };
+  }
+}
+
+// Kept for older callers: a one-product transfer is just a one-line document.
 export async function transferStock(input: {
   productId: string;
   fromBranchId: string;
@@ -194,53 +227,27 @@ export async function transferStock(input: {
   qty: number;
   note?: string;
 }): Promise<SimpleResult> {
+  const res = await transferStockBatch({
+    fromBranchId: input.fromBranchId,
+    toBranchId: input.toBranchId,
+    items: [{ productId: input.productId, qty: input.qty }],
+    note: input.note,
+  });
+  return res.ok ? { ok: true } : res;
+}
+
+// Replays the movement ledger and compares it with the live counts. For the
+// owner and anyone with the Accounts & finance module.
+export async function stockCheckAction(): Promise<
+  { ok: true; result: StockCheckResult } | { ok: false; error: string }
+> {
   const session = await requireModule('stock');
-  if (session.role !== 'OWNER') {
-    return { ok: false, error: 'Only an owner can transfer between branches.' };
+  if (session.role !== 'OWNER' && !(await hasModule(session, 'finance'))) {
+    return { ok: false, error: 'Only the owner or an accountant can run the stock check.' };
   }
-  const qty = Math.round(Number(input.qty) || 0);
-  if (qty <= 0) return { ok: false, error: 'Quantity must be at least 1.' };
-  if (!input.fromBranchId || !input.toBranchId) return { ok: false, error: 'Pick both branches.' };
-  if (input.fromBranchId === input.toBranchId) {
-    return { ok: false, error: 'Source and destination must differ.' };
-  }
-  const name = await productName(input.productId);
-  if (!name) return { ok: false, error: 'Product not found.' };
-  const transferId = randomUUID();
   try {
-    await prisma.$transaction(async (tx) => {
-      const [from, to] = await Promise.all([
-        tx.branch.findUnique({ where: { id: input.fromBranchId }, select: { name: true } }),
-        tx.branch.findUnique({ where: { id: input.toBranchId }, select: { name: true } }),
-      ]);
-      if (!from || !to) throw new Error('A selected branch no longer exists.');
-      // OUT first so the on-hand guard rejects an over-transfer before crediting.
-      await recordStockChange(tx, {
-        branchId: input.fromBranchId,
-        productId: input.productId,
-        productName: name,
-        delta: -qty,
-        type: 'TRANSFER_OUT',
-        transferId,
-        note: input.note?.trim() || `To ${to.name}`,
-        userId: session.userId,
-        userName: session.name,
-      });
-      await recordStockChange(tx, {
-        branchId: input.toBranchId,
-        productId: input.productId,
-        productName: name,
-        delta: qty,
-        type: 'TRANSFER_IN',
-        transferId,
-        note: input.note?.trim() || `From ${from.name}`,
-        userId: session.userId,
-        userName: session.name,
-      });
-    });
-    revalidateStock();
-    return { ok: true };
-  } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : 'Could not transfer stock.' };
+    return { ok: true, result: await reconcileStock() };
+  } catch {
+    return { ok: false, error: 'Could not run the stock check.' };
   }
 }

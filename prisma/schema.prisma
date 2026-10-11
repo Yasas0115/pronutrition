@@ -125,14 +125,34 @@ model User {
   title        String? // display label: Accountant, Cashier, Manager…
   modules      String   @default("") // comma-separated granted module keys (STAFF only)
   passwordHash String
+  // When the password last changed. Any session signed in before this moment is
+  // rejected, so resetting a password also signs out whoever held the old one.
+  passwordChangedAt DateTime?
   branchId     String? // null = all branches; set = pinned to one branch
   branch       Branch?  @relation(fields: [branchId], references: [id], onDelete: SetNull)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  sales Sale[]
+  sales       Sale[]
+  resetTokens PasswordResetToken[]
 
   @@index([branchId])
+}
+
+// A one-time link that lets someone set a new password. Only the SHA-256 of the
+// token is stored — the token itself exists only in the email — so a copy of
+// this table can't be used to take over an account. Single use, short-lived.
+model PasswordResetToken {
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash       String    @unique // sha256 hex of the emailed token
+  expiresAt       DateTime
+  usedAt          DateTime? // set when the link is used (or replaced by a newer one)
+  requestedByName String? // who asked: the person themselves, or the owner
+  createdAt       DateTime  @default(now())
+
+  @@index([userId, createdAt])
 }
 
 // A product on the shelf — supplements, drinks, accessories, etc. The catalogue
@@ -447,4 +467,23 @@ model FloatAdjustment {
   createdAt  DateTime @default(now())
 
   @@index([branchId, createdAt])
+}
+
+// Header for a stock transfer between two branches, so a hand-over is one
+// numbered document (TRF-1001) however many products are on it. The lines are
+// the paired TRANSFER_OUT / TRANSFER_IN StockMovement rows that share this id
+// as their `transferId` — they hold the before/after balances on both sides.
+model StockTransfer {
+  id             String   @id // equals StockMovement.transferId
+  number         Int      @unique // shown as TRF-<number>, starts at 1001
+  fromBranchId   String
+  fromBranchName String // snapshot
+  toBranchId     String
+  toBranchName   String // snapshot
+  note           String?  @db.Text
+  userId         String?
+  userName       String? // snapshot of who sent it
+  createdAt      DateTime @default(now())
+
+  @@index([createdAt])
 }

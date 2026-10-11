@@ -9,8 +9,12 @@ import ProductModal, { type ProductRow } from './ProductModal';
 import StockStepper from './StockStepper';
 import PriceHistoryTable, { type PriceHistoryRow } from './PriceHistoryTable';
 import Modal from './Modal';
+import TransferModal from './TransferModal';
+import TransfersTab from './TransfersTab';
+import StockCheckModal from './StockCheckModal';
+import type { TransferRow } from '@/lib/transfer-types';
 import { toast } from './toast';
-import { transferStock, receiveStock } from '@/app/stock/actions';
+import { receiveStock } from '@/app/stock/actions';
 
 export type PerBranch = { branchId: string; branchName: string; stock: number; lowStockAt: number };
 
@@ -31,7 +35,7 @@ export type MovementRow = {
 
 type BranchOpt = { id: string; name: string; active: boolean };
 type StockFilter = 'all' | 'low' | 'out';
-type Tab = 'catalogue' | 'stock' | 'movements' | 'prices';
+type Tab = 'catalogue' | 'stock' | 'movements' | 'transfers' | 'prices';
 
 // Product thumbnail + name + brand/flavor/sku line (+ per-branch chips on the
 // "All branches" view). Shared by the Catalogue and Stock tables.
@@ -73,7 +77,10 @@ export default function ProductsStockView({
   products,
   history,
   priceHistory = [],
+  transfers = [],
   canSeeCost = false,
+  canReconcile = false,
+  storeName = 'Pro Nutrition',
   currency,
   categories: catList = [],
   branches,
@@ -87,7 +94,11 @@ export default function ProductsStockView({
   products: StockProduct[];
   history: MovementRow[];
   priceHistory?: PriceHistoryRow[];
+  transfers?: TransferRow[];
   canSeeCost?: boolean;
+  /** Owner / accountant: may run the stock check. */
+  canReconcile?: boolean;
+  storeName?: string;
   currency: string;
   categories?: string[];
   branches: BranchOpt[];
@@ -107,6 +118,7 @@ export default function ProductsStockView({
   const [editing, setEditing] = useState<ProductRow | null>(null);
   const [creating, setCreating] = useState(false);
   const [transferOpen, setTransferOpen] = useState(false);
+  const [checkOpen, setCheckOpen] = useState(false);
   const [receiving, setReceiving] = useState<StockProduct | null>(null);
 
   const activeBranches = branches.filter((b) => b.active);
@@ -160,7 +172,12 @@ export default function ProductsStockView({
             {allBranches && canManageStock && ' · pick a single branch to receive or count'}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          {canReconcile && canManageStock && (
+            <button className="btn btn-ghost" onClick={() => setCheckOpen(true)} title="Compare every stock count with its history">
+              ✓ Stock check
+            </button>
+          )}
           {canManageStock && isOwner && activeBranches.length >= 2 && (
             <button className="btn btn-ghost" onClick={() => setTransferOpen(true)} disabled={products.length === 0}>
               ⇄ Transfer
@@ -194,6 +211,11 @@ export default function ProductsStockView({
         <button className="chip" data-active={tab === 'stock' || undefined} onClick={() => setTab('stock')}>Stock</button>
         {canManageStock && (
           <button className="chip" data-active={tab === 'movements' || undefined} onClick={() => setTab('movements')}>Movements</button>
+        )}
+        {canManageStock && isOwner && (
+          <button className="chip" data-active={tab === 'transfers' || undefined} onClick={() => setTab('transfers')}>
+            Transfers{transfers.length > 0 ? ` (${transfers.length})` : ''}
+          </button>
         )}
         {canSeeCost && (
           <button className="chip" data-active={tab === 'prices' || undefined} onClick={() => setTab('prices')}>Price history</button>
@@ -326,6 +348,10 @@ export default function ProductsStockView({
         <HistoryTable history={history} currency={currency} allBranches={allBranches} />
       )}
 
+      {tab === 'transfers' && canManageStock && isOwner && (
+        <TransfersTab transfers={transfers} storeName={storeName} />
+      )}
+
       {tab === 'prices' && canSeeCost && <PriceHistoryTable rows={priceHistory} currency={currency} />}
 
       {(creating || editing) && (
@@ -354,13 +380,15 @@ export default function ProductsStockView({
 
       {transferOpen && (
         <TransferModal
-          rows={products}
+          products={products}
           branches={activeBranches}
           fromDefault={allBranches ? '' : activeScope}
           onClose={() => setTransferOpen(false)}
           onDone={refresh}
         />
       )}
+
+      {checkOpen && <StockCheckModal onClose={() => setCheckOpen(false)} />}
     </>
   );
 }
@@ -436,88 +464,6 @@ function ReceiveModal({
         <label className="block">
           <span className="field-label">Note (optional)</span>
           <input className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. Supplier invoice no." />
-        </label>
-      </div>
-    </Modal>
-  );
-}
-
-function BranchPicker({ branches, value, onChange, label = 'Branch' }: { branches: BranchOpt[]; value: string; onChange: (v: string) => void; label?: string }) {
-  return (
-    <label className="block">
-      <span className="field-label">{label}</span>
-      <select className="input" value={value} onChange={(e) => onChange(e.target.value)}>
-        <option value="" disabled>Select a branch…</option>
-        {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-      </select>
-    </label>
-  );
-}
-
-function TransferModal({
-  rows, branches, fromDefault, onClose, onDone,
-}: {
-  rows: StockProduct[];
-  branches: BranchOpt[];
-  fromDefault: string;
-  onClose: () => void;
-  onDone: () => void;
-}) {
-  const [pending, start] = useTransition();
-  const [productId, setProductId] = useState(rows[0]?.id ?? '');
-  const [from, setFrom] = useState(fromDefault || branches[0]?.id || '');
-  const [to, setTo] = useState(branches.find((b) => b.id !== (fromDefault || branches[0]?.id))?.id ?? '');
-  const [qty, setQty] = useState('');
-  const [note, setNote] = useState('');
-
-  const row = rows.find((r) => r.id === productId) ?? rows[0];
-  const onHandFrom = row?.perBranch.find((b) => b.branchId === from)?.stock
-    ?? (from && (row?.perBranch.length ?? 0) === 0 ? row?.stock ?? 0 : 0);
-
-  function submit() {
-    const q = parseAmount(qty);
-    if (!from || !to) { toast('Pick both branches.', true); return; }
-    if (from === to) { toast('Source and destination must differ.', true); return; }
-    if (q <= 0) { toast('Enter a quantity.', true); return; }
-    start(async () => {
-      const res = await transferStock({ productId, fromBranchId: from, toBranchId: to, qty: q, note });
-      if (res.ok) { toast('Transfer saved.'); onDone(); }
-      else toast(res.error, true);
-    });
-  }
-
-  return (
-    <Modal
-      title="Transfer stock"
-      onClose={onClose}
-      footer={
-        <>
-          <button className="btn btn-ghost" onClick={onClose} disabled={pending}>Cancel</button>
-          <button className="btn btn-primary" onClick={submit} disabled={pending}>{pending ? 'Moving…' : 'Transfer'}</button>
-        </>
-      }
-    >
-      <div className="flex flex-col gap-3">
-        <label className="block">
-          <span className="field-label">Product</span>
-          <select className="input" value={productId} onChange={(e) => setProductId(e.target.value)}>
-            {rows.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
-          </select>
-        </label>
-        <div className="grid grid-cols-2 gap-3">
-          <BranchPicker branches={branches} value={from} onChange={setFrom} label="From" />
-          <BranchPicker branches={branches} value={to} onChange={setTo} label="To" />
-        </div>
-        <div className="text-[13px]" style={{ color: 'var(--color-muted)' }}>
-          Available to send: <b className="num" style={{ color: 'var(--color-strong)' }}>{fmt(onHandFrom)}</b>
-        </div>
-        <label className="block">
-          <span className="field-label">Quantity</span>
-          <input className="input num" inputMode="numeric" autoFocus value={qty} onChange={(e) => setQty(e.target.value.replace(/[^0-9]/g, ''))} placeholder="0" />
-        </label>
-        <label className="block">
-          <span className="field-label">Note (optional)</span>
-          <input className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. Rebalancing stock" />
         </label>
       </div>
     </Modal>

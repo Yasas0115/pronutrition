@@ -8,6 +8,8 @@ import AppShell from '@/components/AppShell';
 import ProductsStockView, { type StockProduct, type MovementRow } from '@/components/ProductsStockView';
 import type { PriceHistoryRow } from '@/components/PriceHistoryTable';
 import { galleryOf } from '@/lib/images';
+import { listTransfers } from '@/lib/transfers';
+import type { TransferRow } from '@/lib/transfer-types';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,7 +32,7 @@ export default async function ProductsPage() {
 
   const [shell, store, products, categories, branches] = await Promise.all([
     getShellProps(session),
-    prisma.store.findFirst({ select: { currency: true } }),
+    prisma.store.findFirst({ select: { currency: true, name: true } }),
     // Buying price is only selected for finance users; everyone else never
     // has it loaded into this request at all.
     prisma.product.findMany({
@@ -66,14 +68,15 @@ export default async function ProductsPage() {
       ? p.stocks.reduce((sum, s) => sum + s.stock, 0)
       : branchRow?.stock ?? 0;
     const lowStockAt = branchRow?.lowStockAt ?? 5;
-    const perBranch = allBranches
-      ? branches.map((b) => ({
-          branchId: b.id,
-          branchName: b.name,
-          stock: p.stocks.find((s) => s.branchId === b.id)?.stock ?? 0,
-          lowStockAt: p.stocks.find((s) => s.branchId === b.id)?.lowStockAt ?? 5,
-        }))
-      : [];
+    // Always every branch (not only on the "All branches" view): the transfer
+    // form needs the sender's and receiver's on-hand whichever branch is being
+    // viewed. The per-branch chips in the list are still shown only on "All".
+    const perBranch = branches.map((b) => ({
+      branchId: b.id,
+      branchName: b.name,
+      stock: p.stocks.find((s) => s.branchId === b.id)?.stock ?? 0,
+      lowStockAt: p.stocks.find((s) => s.branchId === b.id)?.lowStockAt ?? 5,
+    }));
     return {
       id: p.id,
       name: p.name,
@@ -134,13 +137,20 @@ export default async function ProductsPage() {
       }))
     : [];
 
+  // Transfers are an owner-only feature (they touch two branches at once).
+  const transfers: TransferRow[] =
+    canManageStock && session.role === 'OWNER' ? await listTransfers(60) : [];
+
   return (
     <AppShell {...shell} wide>
       <ProductsStockView
         products={items}
         history={history}
         priceHistory={priceHistory}
+        transfers={transfers}
         canSeeCost={mayCost}
+        canReconcile={mayCost}
+        storeName={store?.name ?? 'Pro Nutrition'}
         currency={store?.currency ?? 'Rs'}
         categories={categories.map((c) => c.name)}
         branches={branches}

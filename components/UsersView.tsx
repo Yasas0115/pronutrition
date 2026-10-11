@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { toast } from './toast';
 import Modal from './Modal';
 import { saveUser, deleteUser } from '@/app/users/actions';
+import { sendUserResetEmail } from '@/app/password/actions';
 import { STAFF_MODULES, parseUserModules, type ModuleKey } from '@/lib/modules';
 
 type Role = 'OWNER' | 'STAFF';
@@ -143,7 +144,19 @@ function UserModal({
   const [branchId, setBranchId] = useState<string>(user?.branchId ?? '');
   const [password, setPassword] = useState('');
   const [saving, setSaving] = useState(false);
+  const [sending, setSending] = useState(false);
   const [confirmDel, setConfirmDel] = useState(false);
+
+  // Existing people never get a password typed in here — a one-time link goes to
+  // the email address on file instead.
+  async function sendReset() {
+    if (!user) return;
+    setSending(true);
+    const res = await sendUserResetEmail(user.id);
+    setSending(false);
+    if (res.ok) toast(`Reset link sent to ${res.email}`);
+    else toast(res.error, true);
+  }
 
   function toggleModule(key: ModuleKey) {
     setModules((prev) => {
@@ -166,7 +179,8 @@ function UserModal({
       title: role === 'STAFF' ? title : undefined,
       modules: role === 'STAFF' ? Array.from(modules) : undefined,
       branchId: role === 'STAFF' ? branchId || null : null,
-      password: password || undefined,
+      // Only a brand-new account gets a typed first password.
+      password: editing ? undefined : password || undefined,
     });
     setSaving(false);
     if (res.ok) { toast(editing ? 'User updated' : 'User added'); onSaved(); }
@@ -264,10 +278,26 @@ function UserModal({
           </>
         )}
 
-        <div>
-          <label className="field-label">{editing ? 'New password (leave blank to keep)' : 'Password'}</label>
-          <input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" autoComplete="new-password" />
-        </div>
+        {editing ? (
+          <div className="rounded-lg px-3 py-3" style={{ background: 'var(--color-ink-1)', border: '1px solid var(--color-line-2)' }}>
+            <div className="text-[13px] text-strong font-semibold">Password</div>
+            <p className="text-[12px] mt-0.5 mb-2" style={{ color: 'var(--color-muted)' }}>
+              Passwords change only through a one-time link sent to <b>{user!.email}</b>. The link works
+              once and expires in 30 minutes.
+            </p>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={sendReset} disabled={sending || saving}>
+              {sending ? 'Sending…' : 'Send password reset email'}
+            </button>
+          </div>
+        ) : (
+          <div>
+            <label className="field-label">First password</label>
+            <input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" autoComplete="new-password" />
+            <p className="text-[12px] mt-1" style={{ color: 'var(--color-muted)' }}>
+              At least 6 characters. After this, the password can only be changed through a link sent to their email.
+            </p>
+          </div>
+        )}
       </div>
     </Modal>
   );

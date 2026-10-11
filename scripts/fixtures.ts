@@ -15,6 +15,8 @@ export type Fixtures = {
   customers: Customer[];
   /** Create a registered customer (removed again by teardown). */
   makeCustomer: (name: string, type?: 'RETAIL' | 'SHOP') => Promise<Customer>;
+  /** Create an extra branch (removed again by teardown, with its stock, movements and transfers). */
+  makeBranch: (suffix: string) => Promise<Branch>;
   teardown: () => Promise<void>;
 };
 
@@ -67,8 +69,16 @@ export async function setupFixtures(opts: {
     return c;
   };
 
+  const extraBranches: Branch[] = [];
+  const makeBranch = async (suffix: string) => {
+    const b = await prisma.branch.create({ data: { name: `${branch.name}-${suffix}` } });
+    extraBranches.push(b);
+    return b;
+  };
+
   const teardown = async () => {
     const productIds = products.map((p) => p.id);
+    const branchIds = [branch.id, ...extraBranches.map((b) => b.id)];
     await prisma.sale.deleteMany({ where: { branchId: branch.id } }); // cascades items + payments
     await prisma.stockMovement.deleteMany({ where: { branchId: branch.id } });
     await prisma.productPriceHistory.deleteMany({ where: { productId: { in: productIds } } });
@@ -78,12 +88,14 @@ export async function setupFixtures(opts: {
     await prisma.expense.deleteMany({ where: { branchId: branch.id } });
     await prisma.salaryPayment.deleteMany({ where: { branchId: branch.id } });
     await prisma.worker.deleteMany({ where: { branchId: branch.id } });
-    await prisma.auditLog.deleteMany({ where: { branchId: branch.id } });
+    await prisma.auditLog.deleteMany({ where: { branchId: { in: branchIds } } });
     await prisma.expenseCategory.deleteMany({ where: { name: { startsWith: 'VERIFY' } } });
-    await prisma.branchStock.deleteMany({ where: { branchId: branch.id } });
+    await prisma.stockTransfer.deleteMany({ where: { OR: [{ fromBranchId: { in: branchIds } }, { toBranchId: { in: branchIds } }] } });
+    await prisma.stockMovement.deleteMany({ where: { branchId: { in: branchIds } } });
+    await prisma.branchStock.deleteMany({ where: { branchId: { in: branchIds } } });
     await prisma.product.deleteMany({ where: { id: { in: productIds } } });
     await prisma.customer.deleteMany({ where: { id: { in: customers.map((c) => c.id) } } });
-    await prisma.branch.delete({ where: { id: branch.id } });
+    await prisma.branch.deleteMany({ where: { id: { in: branchIds } } });
 
     for (const [key, orig] of originals) {
       if (!orig) await prisma.paymentMethod.delete({ where: { key } });
@@ -104,7 +116,7 @@ export async function setupFixtures(opts: {
     else await prisma.store.update({ where: { id: store.id }, data: { nextInvoice: startInvoice, taxPercent: startTax } });
   };
 
-  return { store, branch, products, customers, makeCustomer, teardown };
+  return { store, branch, products, customers, makeCustomer, makeBranch, teardown };
 }
 
 let failures = 0;

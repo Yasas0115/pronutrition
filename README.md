@@ -33,6 +33,16 @@ MariaDB** — ready to host on a VPS.
   cash-drawer report. Entries are never edited or deleted — mistakes are voided
   with a reason and drop out of the reports. Every entry records the business date
   *and* the exact time it was entered, plus who entered it.
+- **Branch transfers** (owner) — move any number of products between two branches
+  as one numbered document (TRF-1001), saved all-or-nothing. The Transfers tab
+  shows both branches' before → after balances for every line (−3 / +3) with a
+  printable hand-over note, and **Stock check** replays the stock history against
+  the live counts to flag anything that no longer adds up.
+- **Passwords by email only** — nobody types a new password into the app. *Forgot
+  password?* on the sign-in page, *Change password* in the account menu and
+  *Send password reset email* on the Staff page all send a one-time link
+  (30 minutes, single use). Changing a password signs out every older session.
+  See **Email setup** below.
 - **Settings** (owner) — store name, logo upload, currency, tax %, phone/address,
   receipt footer note.
 - **Auth** — cookie session (JWT via `jose`), roles: `OWNER` and `STAFF`.
@@ -85,10 +95,36 @@ pnpm exec tsx scripts/verify-checkout.ts   # integration check for the sale flow
 pnpm exec tsx scripts/verify-credit.ts     # customer rules, credit, wholesale, settlement
 pnpm exec tsx scripts/verify-prices.ts     # price history, cost snapshot, Colombo dates
 pnpm exec tsx scripts/verify-profit.ts     # expenses, salaries, float, profit & loss, cash drawer
+pnpm exec tsx scripts/verify-transfer.ts   # multi-product transfers, atomicity, stock check
+pnpm exec tsx scripts/verify-password.ts   # email reset flow against a built-in fake mail server
 ```
 The `verify-*` scripts build their own throw-away branch/products and remove them
 afterwards, but they do write to the database in `DATABASE_URL` — run them against
 a local database, not production.
+
+## Email setup (password reset)
+
+Passwords change only through an emailed link, so the server needs a mailbox to
+send from. Add these to `.env` (on the VPS: `/var/www/pro-nutrition/.env`) and
+restart with `pm2 restart pro-nutrition --update-env`:
+
+```
+SMTP_HOST="smtp.gmail.com"        # smtp.zoho.com, or your hosting provider's mail server
+SMTP_PORT="587"                   # 587 = STARTTLS, 465 = TLS
+SMTP_USER="you@gmail.com"
+SMTP_PASS="xxxx xxxx xxxx xxxx"   # an App password, not your normal password
+MAIL_FROM="Pro Nutrition <you@gmail.com>"
+APP_URL="https://your-domain.example"   # the address people open the app at
+```
+
+*Gmail:* turn on 2-step verification, then Google Account → Security → App
+passwords, and paste the 16-character password above. Until these are set,
+*Forgot password?* says email is not set up — nothing breaks.
+
+**Locked out with no email working?** On the server, as the person who runs the
+app: `pnpm exec tsx scripts/set-owner.ts <email> <new-password>` makes that
+account an owner with the new password and signs out any old session. Treat it
+as break-glass; day-to-day changes go through the emailed link.
 
 ## Project layout
 ```

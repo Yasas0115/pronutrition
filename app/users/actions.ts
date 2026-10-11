@@ -50,6 +50,14 @@ export async function saveUser(input: UserInput): Promise<UserResult> {
 
   try {
     if (input.id) {
+      // An existing person's password is never typed in here — it changes only
+      // through the emailed link ("Send password reset email" on this page).
+      if (input.password && input.password.length > 0) {
+        return {
+          ok: false,
+          error: 'Passwords are changed through an email link now. Use “Send password reset email”.',
+        };
+      }
       const data: Record<string, unknown> = {
         name: name || null,
         email,
@@ -58,10 +66,6 @@ export async function saveUser(input: UserInput): Promise<UserResult> {
         modules,
         branchId,
       };
-      if (input.password && input.password.length > 0) {
-        if (input.password.length < 6) return { ok: false, error: 'Password must be at least 6 characters.' };
-        data.passwordHash = hashPassword(input.password);
-      }
       const current = await prisma.user.findUnique({
         where: { id: input.id },
         select: { name: true, email: true, role: true, title: true, modules: true, branchId: true },
@@ -78,12 +82,6 @@ export async function saveUser(input: UserInput): Promise<UserResult> {
           name: x.name, email: x.email, role: x.role, title: x.title, modules: x.modules, branchId: x.branchId,
         });
         const { before, after, changed } = diffFields(pick(current), pick(u));
-        const afterOut: Record<string, unknown> = { ...after };
-        if (typeof data.passwordHash === 'string') {
-          // Never store the hash — just the fact that it happened.
-          afterOut.password = '(changed)';
-          changed.push('password');
-        }
         if (changed.length > 0) {
           const access = changed.some((f) => ['role', 'modules', 'branchId'].includes(f));
           await logAudit(prisma, {
@@ -92,7 +90,7 @@ export async function saveUser(input: UserInput): Promise<UserResult> {
             action: access ? 'ACCESS_CHANGE' : 'UPDATE',
             summary: `Edited staff “${u.name || u.email}” — changed ${changed.join(', ')}`,
             before,
-            after: afterOut,
+            after,
             ...actor,
           });
         }

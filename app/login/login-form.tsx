@@ -1,6 +1,7 @@
 'use client';
 
 import { useActionState, useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { loginAction, type LoginResult } from '@/app/actions';
 
@@ -55,6 +56,9 @@ export default function LoginForm() {
           >
             {show ? 'Hide' : 'Show'}
           </button>
+        </div>
+        <div className="mt-2 text-right">
+          <Link href="/forgot-password" className="text-[13px] accent">Forgot password?</Link>
         </div>
       </div>
 

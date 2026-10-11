@@ -7,8 +7,10 @@ import type { Role } from '@/lib/session';
 import type { ModuleKey, BranchLite } from '@/lib/modules';
 import { ALL_BRANCHES } from '@/lib/modules';
 import { logoutAction, switchBranchAction } from '@/app/actions';
+import { requestOwnPasswordChange } from '@/app/password/actions';
 import ThemeToggle from './ThemeToggle';
 import FullscreenToggle from './FullscreenToggle';
+import { toast } from './toast';
 
 type IconName =
   | 'pos'
@@ -20,6 +22,7 @@ type IconName =
   | 'sales'
   | 'accounts'
   | 'customer'
+  | 'key'
   | 'settings'
   | 'branch'
   | 'users'
@@ -87,6 +90,14 @@ function Icon({ name, className }: { name: IconName; className?: string }) {
           <line x1="12" y1="20" x2="12" y2="10" />
           <line x1="18" y1="20" x2="18" y2="4" />
           <line x1="6" y1="20" x2="6" y2="16" />
+        </>
+      )}
+      {name === 'key' && (
+        <>
+          <circle cx="8" cy="15" r="4" />
+          <path d="M10.85 12.15 19 4" />
+          <path d="M18 5l2 2" />
+          <path d="M15 8l2 2" />
         </>
       )}
       {name === 'customer' && (
@@ -171,6 +182,18 @@ export default function AppShell({
   const pathname = usePathname();
   const router = useRouter();
   const [switching, startSwitch] = useTransition();
+  const [pwBusy, setPwBusy] = useState(false);
+
+  // There is no "type a new password" box: a link is emailed to the signed-in
+  // person's own address, which proves the mailbox is theirs.
+  async function changePassword() {
+    setPwBusy(true);
+    const res = await requestOwnPasswordChange();
+    setPwBusy(false);
+    setMenuOpen(false);
+    if (res.ok) toast(`We emailed a link to ${res.email}`);
+    else toast(res.error, true);
+  }
 
   function onBranchChange(value: string) {
     startSwitch(async () => {
@@ -384,6 +407,10 @@ export default function AppShell({
                       Settings
                     </Link>
                   )}
+                  <button type="button" className="menu-item" onClick={changePassword} disabled={pwBusy}>
+                    <Icon name="key" />
+                    {pwBusy ? 'Sending link…' : 'Change password'}
+                  </button>
                   <form action={logoutAction}>
                     <button type="submit" className="menu-item" style={{ color: 'var(--color-brand)' }}>
                       <Icon name="logout" />

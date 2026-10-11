@@ -22,10 +22,12 @@ async function main() {
   const passwordHash = hashPassword(password);
   const user = await prisma.user.upsert({
     where: { email },
-    update: { passwordHash, role: 'OWNER', branchId: null, ...(name ? { name } : {}) },
+    // passwordChangedAt signs out every session issued before this moment.
+    update: { passwordHash, passwordChangedAt: new Date(), role: 'OWNER', branchId: null, ...(name ? { name } : {}) },
     create: { email, passwordHash, role: 'OWNER', branchId: null, name: name || 'Owner' },
   });
   console.log(`OK: ${user.email} is an OWNER and can sign in with the new password.`);
+  console.log('(Break-glass tool: run it on the server only. Day-to-day password changes go through the emailed link.)');
 }
 
 main()
