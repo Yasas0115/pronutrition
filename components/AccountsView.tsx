@@ -26,11 +26,36 @@ export type AuditRow = {
   changes: { field: string; from: string; to: string }[];
 };
 
-type Tab = 'valuation' | 'prices' | 'activity';
+// One customer's unpaid credit, split by how old the unpaid sales are.
+export type CreditRow = {
+  key: string;
+  name: string;
+  due: number;
+  count: number; // unpaid sales
+  oldestAt: string;
+  b0: number; // 0–30 days
+  b30: number; // 31–60
+  b60: number; // 61–90
+  b90: number; // 90+
+};
+
+// Sales rolled up by payment method + sale type for one period.
+export type MixRow = {
+  period: 'today' | 'month' | 'all';
+  method: string;
+  saleType: string; // RETAIL | WHOLESALE
+  count: number;
+  total: number;
+  due: number;
+};
+
+type Tab = 'valuation' | 'credit' | 'mix' | 'prices' | 'activity';
 
 export default function AccountsView({
   valuation,
   priceHistory,
+  credit,
+  mix,
   audit,
   currency,
   storeName,
@@ -38,6 +63,8 @@ export default function AccountsView({
 }: {
   valuation: ValuationRow[];
   priceHistory: PriceHistoryRow[];
+  credit: CreditRow[];
+  mix: MixRow[];
   audit: AuditRow[];
   currency: string;
   storeName: string;
@@ -62,6 +89,10 @@ export default function AccountsView({
 
       <div className="flex flex-wrap gap-2 mb-4 no-print">
         <button className="chip" data-active={tab === 'valuation' || undefined} onClick={() => setTab('valuation')}>Stock valuation</button>
+        <button className="chip" data-active={tab === 'credit' || undefined} onClick={() => setTab('credit')}>
+          Credit outstanding{credit.length > 0 && ` (${credit.length})`}
+        </button>
+        <button className="chip" data-active={tab === 'mix' || undefined} onClick={() => setTab('mix')}>Sales mix</button>
         <button className="chip" data-active={tab === 'prices' || undefined} onClick={() => setTab('prices')}>Price history</button>
         <button className="chip" data-active={tab === 'activity' || undefined} onClick={() => setTab('activity')}>Activity log</button>
       </div>
@@ -69,8 +100,165 @@ export default function AccountsView({
       {tab === 'valuation' && (
         <Valuation rows={valuation} currency={currency} storeName={storeName} scopeLabel={scopeLabel} />
       )}
+      {tab === 'credit' && <CreditTable rows={credit} currency={currency} />}
+      {tab === 'mix' && <SalesMix rows={mix} currency={currency} />}
       {tab === 'prices' && <PriceHistoryTable rows={priceHistory} currency={currency} />}
       {tab === 'activity' && <ActivityLog rows={audit} />}
+    </>
+  );
+}
+
+const METHOD_LABEL: Record<string, string> = {
+  CASH: 'Cash', CARD: 'Card', KOKO: 'Koko', BANK: 'Bank transfer', CREDIT: 'Credit',
+};
+
+function CreditTable({ rows, currency }: { rows: CreditRow[]; currency: string }) {
+  const sum = (f: (r: CreditRow) => number) => rows.reduce((n, r) => n + f(r), 0);
+  const days = (iso: string) => Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000));
+
+  return (
+    <>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+        <div className="stat">
+          <div className="stat__label">Total outstanding</div>
+          <div className="stat__value" style={{ color: rows.length ? 'var(--color-warn)' : undefined }}>{money(sum((r) => r.due), currency)}</div>
+        </div>
+        <div className="stat">
+          <div className="stat__label">Customers owing</div>
+          <div className="stat__value">{rows.length}</div>
+        </div>
+        <div className="stat">
+          <div className="stat__label">Over 30 days</div>
+          <div className="stat__value">{money(sum((r) => r.b30 + r.b60 + r.b90), currency)}</div>
+        </div>
+        <div className="stat">
+          <div className="stat__label">Over 90 days</div>
+          <div className="stat__value" style={{ color: sum((r) => r.b90) ? 'var(--color-brand)' : undefined }}>{money(sum((r) => r.b90), currency)}</div>
+        </div>
+      </div>
+
+      <div className="card overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Customer</th>
+                <th className="text-center">Unpaid sales</th>
+                <th className="text-right">0–30 days</th>
+                <th className="text-right">31–60</th>
+                <th className="text-right">61–90</th>
+                <th className="text-right">90+</th>
+                <th className="text-right">Total owed</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.length === 0 ? (
+                <tr><td colSpan={7} className="text-center" style={{ color: 'var(--color-faint)', padding: 40 }}>Nobody owes anything right now.</td></tr>
+              ) : (
+                rows.map((r) => (
+                  <tr key={r.key}>
+                    <td>
+                      <div className="text-strong font-semibold">{r.name}</div>
+                      <div className="text-[12px]" style={{ color: 'var(--color-muted)' }}>
+                        oldest {days(r.oldestAt)} day{days(r.oldestAt) === 1 ? '' : 's'} · since {fmtDateTime(r.oldestAt)}
+                      </div>
+                    </td>
+                    <td className="text-center num">{r.count}</td>
+                    <td className="text-right num whitespace-nowrap">{r.b0 ? money(r.b0, currency) : '—'}</td>
+                    <td className="text-right num whitespace-nowrap">{r.b30 ? money(r.b30, currency) : '—'}</td>
+                    <td className="text-right num whitespace-nowrap">{r.b60 ? money(r.b60, currency) : '—'}</td>
+                    <td className="text-right num whitespace-nowrap" style={{ color: r.b90 ? 'var(--color-brand)' : undefined }}>{r.b90 ? money(r.b90, currency) : '—'}</td>
+                    <td className="text-right num whitespace-nowrap text-strong font-semibold">{money(r.due, currency)}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+            {rows.length > 0 && (
+              <tfoot>
+                <tr>
+                  <td className="text-strong font-semibold">Total</td>
+                  <td className="text-center num text-strong font-semibold">{sum((r) => r.count)}</td>
+                  <td className="text-right num whitespace-nowrap text-strong font-semibold">{money(sum((r) => r.b0), currency)}</td>
+                  <td className="text-right num whitespace-nowrap text-strong font-semibold">{money(sum((r) => r.b30), currency)}</td>
+                  <td className="text-right num whitespace-nowrap text-strong font-semibold">{money(sum((r) => r.b60), currency)}</td>
+                  <td className="text-right num whitespace-nowrap text-strong font-semibold">{money(sum((r) => r.b90), currency)}</td>
+                  <td className="text-right num whitespace-nowrap text-strong font-semibold">{money(sum((r) => r.due), currency)}</td>
+                </tr>
+              </tfoot>
+            )}
+          </table>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function SalesMix({ rows, currency }: { rows: MixRow[]; currency: string }) {
+  const [period, setPeriod] = useState<MixRow['period']>('month');
+  const inPeriod = rows.filter((r) => r.period === period);
+  const grand = inPeriod.reduce((n, r) => n + r.total, 0);
+
+  // Roll the (method × type) rows up by one dimension.
+  const rollup = (key: (r: MixRow) => string) => {
+    const m = new Map<string, { count: number; total: number; due: number }>();
+    for (const r of inPeriod) {
+      const k = key(r);
+      const cur = m.get(k) ?? { count: 0, total: 0, due: 0 };
+      cur.count += r.count;
+      cur.total += r.total;
+      cur.due += r.due;
+      m.set(k, cur);
+    }
+    return Array.from(m.entries()).sort((a, b) => b[1].total - a[1].total);
+  };
+
+  const table = (title: string, data: [string, { count: number; total: number; due: number }][], label: (k: string) => string) => (
+    <div className="card overflow-hidden">
+      <div className="px-4 py-3.5" style={{ borderBottom: '1px solid var(--color-line)' }}>
+        <div className="brand" style={{ fontSize: 17 }}>{title}</div>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="table">
+          <thead>
+            <tr>
+              <th></th>
+              <th className="text-center">Sales</th>
+              <th className="text-right">Total</th>
+              <th className="text-right">Share</th>
+              <th className="text-right">Still owed</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.length === 0 ? (
+              <tr><td colSpan={5} className="text-center" style={{ color: 'var(--color-faint)', padding: 28 }}>No sales in this period.</td></tr>
+            ) : (
+              data.map(([k, v]) => (
+                <tr key={k}>
+                  <td className="text-strong font-semibold">{label(k)}</td>
+                  <td className="text-center num">{v.count}</td>
+                  <td className="text-right num whitespace-nowrap text-strong font-semibold">{money(v.total, currency)}</td>
+                  <td className="text-right num whitespace-nowrap" style={{ color: 'var(--color-muted)' }}>{grand > 0 ? Math.round((v.total / grand) * 100) : 0}%</td>
+                  <td className="text-right num whitespace-nowrap" style={{ color: v.due > 0 ? 'var(--color-warn)' : 'var(--color-faint)' }}>{v.due > 0 ? money(v.due, currency) : '—'}</td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+
+  return (
+    <>
+      <div className="flex gap-2 mb-4">
+        <button className="chip" data-active={period === 'today' || undefined} onClick={() => setPeriod('today')}>Today</button>
+        <button className="chip" data-active={period === 'month' || undefined} onClick={() => setPeriod('month')}>This month</button>
+        <button className="chip" data-active={period === 'all' || undefined} onClick={() => setPeriod('all')}>All time</button>
+      </div>
+      <div className="grid lg:grid-cols-2 gap-4">
+        {table('By payment method', rollup((r) => r.method), (k) => METHOD_LABEL[k] ?? k)}
+        {table('Retail vs wholesale', rollup((r) => r.saleType), (k) => (k === 'WHOLESALE' ? 'Wholesale' : 'Retail'))}
+      </div>
     </>
   );
 }
@@ -206,13 +394,13 @@ function Valuation({
                         </div>
                       </td>
                       <td className="text-center num">{fmt(r.units)}</td>
-                      <td className="text-right num" style={{ color: noCost ? 'var(--color-warn)' : undefined }}>
+                      <td className="text-right num whitespace-nowrap" style={{ color: noCost ? 'var(--color-warn)' : undefined }}>
                         {noCost ? 'not set' : money(r.cost, currency)}
                       </td>
-                      <td className="text-right num">{money(r.price, currency)}</td>
-                      <td className="text-right num">{money(r.units * r.cost, currency)}</td>
-                      <td className="text-right num text-strong font-semibold">{money(r.units * r.price, currency)}</td>
-                      <td className="text-right num">{noCost ? '—' : money(r.units * (r.price - r.cost), currency)}</td>
+                      <td className="text-right num whitespace-nowrap">{money(r.price, currency)}</td>
+                      <td className="text-right num whitespace-nowrap">{money(r.units * r.cost, currency)}</td>
+                      <td className="text-right num whitespace-nowrap text-strong font-semibold">{money(r.units * r.price, currency)}</td>
+                      <td className="text-right num whitespace-nowrap">{noCost ? '—' : money(r.units * (r.price - r.cost), currency)}</td>
                     </tr>
                   );
                 })
@@ -225,9 +413,9 @@ function Valuation({
                   <td className="text-center num text-strong font-semibold">{fmt(totals.units)}</td>
                   <td></td>
                   <td></td>
-                  <td className="text-right num text-strong font-semibold">{money(totals.atCost, currency)}</td>
-                  <td className="text-right num text-strong font-semibold">{money(totals.atRetail, currency)}</td>
-                  <td className="text-right num text-strong font-semibold">{money(totals.margin, currency)}</td>
+                  <td className="text-right num whitespace-nowrap text-strong font-semibold">{money(totals.atCost, currency)}</td>
+                  <td className="text-right num whitespace-nowrap text-strong font-semibold">{money(totals.atRetail, currency)}</td>
+                  <td className="text-right num whitespace-nowrap text-strong font-semibold">{money(totals.margin, currency)}</td>
                 </tr>
               </tfoot>
             )}
@@ -245,6 +433,7 @@ const ENTITY_LABEL: Record<string, string> = {
   SETTINGS: 'Settings',
   STOCK: 'Stock',
   CATEGORY: 'Category',
+  CUSTOMER: 'Customer',
 };
 
 function ActivityLog({ rows }: { rows: AuditRow[] }) {

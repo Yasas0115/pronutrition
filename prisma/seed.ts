@@ -15,7 +15,7 @@ async function main() {
       create: m,
     });
   }
-  console.log('✔ Payment methods ready (Cash 10%, Card 7%, Koko 0%)');
+  console.log('✔ Payment methods ready (Cash 10%, Card 7%, Koko 0%, Bank transfer, Credit)');
 }
 
 main()

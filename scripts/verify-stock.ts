@@ -98,7 +98,7 @@ async function main() {
   console.log('\n▶ Checkout 2× writes SALE movement');
   const beforeSale = await stockAt(main.id, pid);
   const r = await performCheckout({
-    items: [{ productId: pid, qty: 2 }], manualDiscount: 0, method: 'KOKO', paid: 999999,
+    items: [{ productId: pid, qty: 2 }], manualDiscount: 0, method: 'CASH', paid: 999999,
     branchId: main.id, cashierId: null, cashierName: 'Verifier',
   });
   assert((await stockAt(main.id, pid)) === beforeSale - 2, `sale decremented ${beforeSale} → ${beforeSale - 2}`);

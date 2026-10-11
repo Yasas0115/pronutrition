@@ -13,6 +13,7 @@ export type ModuleKey =
   | 'stock'
   | 'categories'
   | 'reports'
+  | 'customers'
   | 'finance'
   | 'users'
   | 'branches'
@@ -24,6 +25,8 @@ export const ALL_MODULES: { key: ModuleKey; label: string; locked?: boolean }[] 
   { key: 'stock', label: 'Stock control' },
   { key: 'categories', label: 'Categories' },
   { key: 'reports', label: 'Sales & reports' },
+  // Customer list, credit balances and collecting payments from customers.
+  { key: 'customers', label: 'Customers & credit' },
   // Accountant-level: buying prices, stock valuation, price history, audit log.
   { key: 'finance', label: 'Accounts & finance (buying prices)' },
   { key: 'branches', label: 'Branches' },
@@ -86,13 +89,14 @@ export const MODULE_ROUTES: Record<ModuleKey, string> = {
   stock: '/stock',
   categories: '/categories',
   reports: '/sales',
+  customers: '/customers',
   finance: '/accounts',
   branches: '/branches',
   users: '/users',
   settings: '/settings',
 };
 
-const LANDING_PRIORITY: ModuleKey[] = ['pos', 'reports', 'finance', 'products', 'stock', 'categories', 'branches', 'users'];
+const LANDING_PRIORITY: ModuleKey[] = ['pos', 'reports', 'customers', 'finance', 'products', 'stock', 'categories', 'branches', 'users'];
 
 export function landingRoute(eff: Set<ModuleKey>): string {
   for (const k of LANDING_PRIORITY) if (eff.has(k)) return MODULE_ROUTES[k];

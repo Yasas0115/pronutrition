@@ -168,7 +168,8 @@ export default function SettingsView({
         <div className="card p-5 flex flex-col gap-3">
           <div className="brand" style={{ fontSize: 17 }}>Payment methods &amp; discounts</div>
           <p className="text-[13px]" style={{ color: 'var(--color-muted)', marginTop: -6 }}>
-            Each method applies its discount automatically at checkout.
+            Each method applies its discount automatically at retail checkout (not on wholesale sales).
+            Walk-in customers can pay by Cash or Card only — Koko, Bank transfer and Credit need a registered customer.
           </p>
           {methods.map((m, i) => (
             <div key={m.key} className="grid grid-cols-[1fr_auto] items-end gap-3">

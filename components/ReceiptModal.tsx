@@ -45,6 +45,7 @@ export default function ReceiptModal({
       ${store.address ? `<div class="c">${escapeHtml(store.address)}</div>` : ''}
       ${store.phone ? `<div class="c">${escapeHtml(store.phone)}</div>` : ''}
       <hr>
+      ${receipt.saleType === 'WHOLESALE' ? '<div class="c"><b>WHOLESALE INVOICE</b></div>' : ''}
       <div class="row"><span>Receipt #${receipt.number}</span><span>${fmtDateTime(receipt.createdAt)}</span></div>
       <div class="row"><span>Cashier: ${escapeHtml(receipt.cashierName ?? '')}</span></div>
       ${receipt.customerName ? `<div class="row"><span>Customer: ${escapeHtml(receipt.customerName)}</span></div>` : ''}
@@ -55,8 +56,9 @@ export default function ReceiptModal({
       ${receipt.discount ? `<div class="row"><span>Discount</span><span>- ${money(receipt.discount, currency)}</span></div>` : ''}
       ${receipt.tax ? `<div class="row"><span>Tax</span><span>${money(receipt.tax, currency)}</span></div>` : ''}
       <div class="row tot"><span>TOTAL</span><span>${money(receipt.total, currency)}</span></div>
-      <div class="row"><span>${receipt.method}</span><span>${money(receipt.paid, currency)}</span></div>
+      <div class="row"><span>${receipt.balanceDue > 0 ? 'Paid now' : receipt.method}</span><span>${money(receipt.paid, currency)}</span></div>
       ${receipt.change ? `<div class="row"><span>Change</span><span>${money(receipt.change, currency)}</span></div>` : ''}
+      ${receipt.balanceDue > 0 ? `<div class="row tot"><span>BALANCE DUE</span><span>${money(receipt.balanceDue, currency)}</span></div>` : ''}
       ${store.note ? `<div class="foot">${escapeHtml(store.note)}</div>` : ''}
       </body></html>`);
     w.document.close();
@@ -86,6 +88,9 @@ export default function ReceiptModal({
           </div>
         </div>
         <hr className="receipt__hr" />
+        {receipt.saleType === 'WHOLESALE' && (
+          <div className="receipt__line"><span>Sale type</span><b>Wholesale invoice</b></div>
+        )}
         {receipt.customerName && (
           <div className="receipt__line"><span>Customer</span><span>{receipt.customerName}</span></div>
         )}
@@ -107,9 +112,17 @@ export default function ReceiptModal({
           <span>TOTAL</span><span className="num" style={{ color: 'var(--color-brand)' }}>{money(receipt.total, currency)}</span>
         </div>
         <hr className="receipt__hr" />
-        <div className="receipt__line"><span>Paid ({receipt.method})</span><span className="num">{money(receipt.paid, currency)}</span></div>
+        <div className="receipt__line">
+          <span>{receipt.balanceDue > 0 ? 'Paid now' : `Paid (${receipt.method})`}</span>
+          <span className="num">{money(receipt.paid, currency)}</span>
+        </div>
         {receipt.change > 0 && (
           <div className="receipt__line" style={{ color: 'var(--color-ok)' }}><span>Change</span><span className="num">{money(receipt.change, currency)}</span></div>
+        )}
+        {receipt.balanceDue > 0 && (
+          <div className="receipt__line" style={{ color: 'var(--color-warn)', fontWeight: 700 }}>
+            <span>Balance due</span><span className="num">{money(receipt.balanceDue, currency)}</span>
+          </div>
         )}
       </div>
     </Modal>

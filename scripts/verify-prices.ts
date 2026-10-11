@@ -1,18 +1,12 @@
 // Integration check for Phase 1: price history, cost snapshot on sales, Sri Lanka
-// date boundaries. Creates its own throw-away branch + product (no seed data is
-// assumed) and removes everything it made, restoring the invoice counter.
+// date boundaries. Uses throw-away fixtures (see scripts/fixtures.ts) and removes
+// everything it made.
 // Run: pnpm exec tsx scripts/verify-prices.ts
 import { prisma } from '../lib/db';
-import { recordStockChange } from '../lib/stock';
 import { recordPriceChange } from '../lib/price-history';
 import { performCheckout } from '../lib/checkout';
 import { startOfDay, startOfMonth, todayStr, parseDay } from '../lib/dates';
-
-let failures = 0;
-function assert(cond: boolean, msg: string) {
-  if (cond) console.log('  ✔', msg);
-  else { console.log('  x FAIL:', msg); failures++; }
-}
+import { setupFixtures, assert, failureCount } from './fixtures';
 
 async function main() {
   // ---- 0. Date helpers (pure) ----
@@ -25,20 +19,10 @@ async function main() {
     'startOfMonth after local midnight rolls into the next month (Nov 1 Colombo)');
   assert(parseDay('2026-10-11')?.toISOString() === '2026-10-10T18:30:00.000Z', 'parseDay anchors a date to Colombo midnight');
 
-  // ---- fixtures ----
-  const storeBefore = await prisma.store.findFirst();
-  const createdStore = !storeBefore;
-  const store = storeBefore ?? (await prisma.store.create({ data: { name: 'Verify Store' } }));
-  const startInvoice = store.nextInvoice;
-
-  const branch = await prisma.branch.create({ data: { name: `VERIFY-${Date.now()}` } });
-  const product = await prisma.product.create({
-    data: { name: 'VERIFY Whey 2lb', category: 'Verify', price: 5000, cost: 3000 },
+  const f = await setupFixtures({
+    products: [{ name: 'VERIFY Whey 2lb', price: 5000, cost: 3000, stock: 10 }],
   });
-  await recordStockChange(prisma, {
-    branchId: branch.id, productId: product.id, productName: product.name,
-    delta: 10, type: 'INITIAL', userName: 'Verifier',
-  });
+  const [product] = f.products;
 
   try {
     // ---- 1. Price history ----
@@ -69,10 +53,12 @@ async function main() {
     // ---- 2. Sale snapshots the buying price ----
     console.log('\n▶ Checkout snapshots unitCost');
     await prisma.product.update({ where: { id: product.id }, data: { price: 5500, cost: 3200 } });
-    const r = await performCheckout({
-      items: [{ productId: product.id, qty: 2 }], manualDiscount: 0, method: 'KOKO', paid: 0,
-      branchId: branch.id, cashierId: null, cashierName: 'Verifier',
-    });
+    const sellOne = (qty: number) =>
+      performCheckout({
+        items: [{ productId: product.id, qty }], manualDiscount: 0, method: 'CASH', paid: 100000,
+        branchId: f.branch.id, cashierId: null, cashierName: 'Verifier',
+      });
+    const r = await sellOne(2);
     const sale = await prisma.sale.findUniqueOrThrow({ where: { number: r.number }, include: { items: true } });
     assert(sale.items[0]?.unitCost === 3200, 'SaleItem.unitCost = buying price at sale time (3200)');
 
@@ -81,27 +67,17 @@ async function main() {
     const again = await prisma.saleItem.findFirstOrThrow({ where: { saleId: sale.id } });
     assert(again.unitCost === 3200, 'past sale keeps its cost after the product cost changes');
 
-    const r2 = await performCheckout({
-      items: [{ productId: product.id, qty: 1 }], manualDiscount: 0, method: 'KOKO', paid: 0,
-      branchId: branch.id, cashierId: null, cashierName: 'Verifier',
-    });
+    const r2 = await sellOne(1);
     const sale2 = await prisma.sale.findUniqueOrThrow({ where: { number: r2.number }, include: { items: true } });
     assert(sale2.items[0]?.unitCost === 4000, 'the next sale snapshots the new cost (4000)');
   } finally {
-    // ---- cleanup ----
     console.log('\n▶ Cleanup');
-    await prisma.sale.deleteMany({ where: { branchId: branch.id } }); // cascades items
-    await prisma.stockMovement.deleteMany({ where: { branchId: branch.id } });
-    await prisma.productPriceHistory.deleteMany({ where: { productId: product.id } });
-    await prisma.branchStock.deleteMany({ where: { branchId: branch.id } });
-    await prisma.product.delete({ where: { id: product.id } });
-    await prisma.branch.delete({ where: { id: branch.id } });
-    if (createdStore) await prisma.store.delete({ where: { id: store.id } });
-    else await prisma.store.update({ where: { id: store.id }, data: { nextInvoice: startInvoice } });
+    await f.teardown();
   }
 
-  console.log(failures === 0 ? '\n✅ ALL CHECKS PASSED\n' : `\n❌ ${failures} CHECK(S) FAILED\n`);
-  process.exit(failures === 0 ? 0 : 1);
+  const bad = failureCount();
+  console.log(bad === 0 ? '\n✅ ALL CHECKS PASSED\n' : `\n❌ ${bad} CHECK(S) FAILED\n`);
+  process.exit(bad === 0 ? 0 : 1);
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });

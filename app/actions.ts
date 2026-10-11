@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/db';
 import { hashPassword, verifyPassword } from '@/lib/password';
-import { requireSession, setSessionCookie, clearSessionCookie } from '@/lib/auth';
+import { requireSession, requireModule, setSessionCookie, clearSessionCookie } from '@/lib/auth';
 import { normalizeRole } from '@/lib/session';
 import {
   getTillBranchId,
@@ -84,9 +84,11 @@ export async function registerAction(
 
     await prisma.branch.create({ data: { name: branchName, active: true } });
 
-    // Fresh database: give checkout its default payment methods + discounts.
-    if ((await prisma.paymentMethod.count()) === 0) {
-      await prisma.paymentMethod.createMany({ data: DEFAULT_PAYMENT_METHODS });
+    // Fresh database: give checkout its default payment methods + rules. Upsert
+    // each one (never overwriting an owner's edits) so a database that already
+    // has some of them still ends up with the full set.
+    for (const m of DEFAULT_PAYMENT_METHODS) {
+      await prisma.paymentMethod.upsert({ where: { key: m.key }, update: {}, create: m });
     }
 
     const owner = await prisma.user.create({
@@ -115,14 +117,18 @@ export async function switchBranchAction(scope: string): Promise<void> {
 }
 
 // ---------- Checkout ----------
-export type CartLine = { productId: string; qty: number };
+// `price` is the per-line price override and is only honoured on wholesale sales.
+export type CartLine = { productId: string; qty: number; price?: number };
 
 export type CheckoutInput = {
   items: CartLine[];
   manualDiscount: number;
   method: string;
   paid: number;
+  paidVia?: string;
+  customerId?: string | null;
   customerName?: string;
+  saleType?: 'RETAIL' | 'WHOLESALE';
 };
 
 export type CheckoutResult =
@@ -130,7 +136,9 @@ export type CheckoutResult =
   | { ok: false; error: string };
 
 export async function checkoutAction(input: CheckoutInput): Promise<CheckoutResult> {
-  const session = await requireSession();
+  // Selling needs the POS module (an accountant-only login must not be able to
+  // ring up sales by calling this action directly).
+  const session = await requireModule('pos');
   const branchId = await getTillBranchId(session);
   if (!branchId) return { ok: false, error: 'No branch is available. Ask the owner to open a branch.' };
   try {
@@ -139,7 +147,10 @@ export async function checkoutAction(input: CheckoutInput): Promise<CheckoutResu
       manualDiscount: input.manualDiscount,
       method: input.method,
       paid: input.paid,
+      paidVia: input.paidVia,
+      customerId: input.customerId,
       customerName: input.customerName,
+      saleType: input.saleType,
       branchId,
       cashierId: session.userId,
       cashierName: session.name,
@@ -147,6 +158,8 @@ export async function checkoutAction(input: CheckoutInput): Promise<CheckoutResu
     revalidatePath('/');
     revalidatePath('/products');
     revalidatePath('/sales');
+    revalidatePath('/customers');
+    revalidatePath('/accounts');
     return { ok: true, receipt };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'Checkout failed.' };

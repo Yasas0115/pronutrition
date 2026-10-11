@@ -69,13 +69,41 @@ model Category {
 // Seeded: CASH 10%, CARD 7%, KOKO 0%.
 model PaymentMethod {
   id              String   @id @default(cuid())
-  key             String   @unique // CASH | CARD | KOKO | …
+  key             String   @unique // CASH | CARD | KOKO | BANK | CREDIT | …
   label           String
   discountPercent Int      @default(0)
+  // Walk-in customers may only pay with methods where this is false (Cash,
+  // Card). Koko / Bank transfer / Credit need a registered customer.
+  requiresCustomer Boolean @default(false)
+  // Credit: the customer may pay part now; the rest stays owing on the sale.
+  allowsPartial   Boolean  @default(false)
   sortOrder       Int      @default(0)
   active          Boolean  @default(true)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+}
+
+// A registered customer — a person (RETAIL) or another shop we sell to in bulk
+// (SHOP). Needed for Koko, Bank transfer, Credit and every wholesale sale; what
+// they still owe is the sum of `balanceDue` over their sales.
+model Customer {
+  id            String   @id @default(cuid())
+  name          String
+  phone         String?
+  address       String?  @db.Text
+  type          String   @default("RETAIL") // RETAIL | SHOP
+  notes         String?  @db.Text
+  active        Boolean  @default(true)
+  createdById   String?
+  createdByName String? // snapshot of who registered them
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  sales    Sale[]
+  payments SalePayment[]
+
+  @@index([name])
+  @@index([phone])
 }
 
 // Staff accounts. OWNER sees everything. A STAFF member only sees the modules
@@ -202,18 +230,54 @@ model Sale {
   total          Int
   paid           Int
   change         Int      @default(0)
-  method         String // CASH | CARD | KOKO
+  method         String // CASH | CARD | KOKO | BANK | CREDIT
+  // Registered customer (null = walk-in). `customerName` stays as a snapshot so
+  // old receipts read correctly even if the customer is later renamed/removed.
+  customerId     String?
+  customer       Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
   customerName   String?
+  saleType       String   @default("RETAIL") // RETAIL | WHOLESALE
+  // Still unpaid on this sale (credit). `paid` is cumulative for credit sales:
+  // the down payment at checkout plus every later settlement.
+  balanceDue     Int      @default(0)
   cashierId      String?
   cashier        User?    @relation(fields: [cashierId], references: [id], onDelete: SetNull)
   cashierName    String?
   createdAt      DateTime @default(now())
 
-  items SaleItem[]
+  items    SaleItem[]
+  payments SalePayment[]
 
   @@index([createdAt])
   @@index([number])
   @@index([branchId])
+  @@index([customerId, balanceDue])
+}
+
+// Every payment received against a sale, each with its own date + time: the
+// money taken at checkout (kind SALE) and any later credit settlements (kind
+// SETTLEMENT). Cash-drawer and collection reports sum this table, so a debt
+// paid next week counts on the day the money actually arrived.
+model SalePayment {
+  id           String    @id @default(cuid())
+  saleId       String
+  sale         Sale      @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  customerId   String?
+  customer     Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  branchId     String? // branch where the money was received
+  amount       Int
+  method       String // CASH | CARD | BANK | KOKO — how this money came in
+  kind         String    @default("SALE") // SALE | SETTLEMENT
+  settlementId String? // groups the allocations of one customer payment
+  note         String?   @db.Text
+  userId       String?
+  userName     String? // snapshot of who took the payment
+  createdAt    DateTime  @default(now())
+
+  @@index([saleId])
+  @@index([customerId, createdAt])
+  @@index([createdAt])
+  @@index([settlementId])
 }
 
 // A line on a sale. Name/price are snapshotted so history stays correct even
@@ -225,9 +289,10 @@ model SaleItem {
   productId String?
   product   Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
   name      String
-  price     Int
+  price     Int // price actually charged per unit (differs from listPrice on a wholesale override)
   qty       Int
   lineTotal Int
+  listPrice Int? // shelf (retail) price at the moment of sale
   // Buying price per unit at the moment of sale, for profit reports. Null on
   // sales made before this column existed (reports fall back to current cost).
   unitCost  Int?

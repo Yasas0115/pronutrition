@@ -17,6 +17,8 @@ type Sale = {
   paid: number;
   change: number;
   method: string;
+  saleType: string; // RETAIL | WHOLESALE
+  balanceDue: number; // still unpaid (credit)
   branchName: string | null;
   customerName: string | null;
   cashierName: string | null;
@@ -170,7 +172,17 @@ export default function SalesView({
                         {showBranchColumn && <td className="text-[13px]">{s.branchName ?? '—'}</td>}
                         <td className="text-[13px] whitespace-nowrap">{fmtDateTime(s.createdAt)}</td>
                         <td className="text-center num">{s.items.reduce((a, b) => a + b.qty, 0)}</td>
-                        <td><span className="badge" style={{ color: 'var(--color-muted)', background: 'var(--color-ink-1)' }}>{s.method}</span></td>
+                        <td className="whitespace-nowrap">
+                          <span className="badge" style={{ color: 'var(--color-muted)', background: 'var(--color-ink-1)' }}>{s.method}</span>
+                          {s.saleType === 'WHOLESALE' && (
+                            <span className="badge ml-1" style={{ color: 'var(--color-strong)', background: 'var(--color-ink-1)' }}>Wholesale</span>
+                          )}
+                          {s.balanceDue > 0 && (
+                            <span className="badge ml-1" style={{ color: 'var(--color-warn)', background: 'var(--color-ink-1)' }}>
+                              Due {money(s.balanceDue, currency)}
+                            </span>
+                          )}
+                        </td>
                         <td className="text-right num text-strong font-semibold">{money(s.total, currency)}</td>
                       </tr>
                     ))
@@ -202,8 +214,22 @@ export default function SalesView({
             <div className="receipt__line" style={{ fontFamily: 'var(--font-head)', fontSize: 20, fontWeight: 700, color: 'var(--color-strong)' }}>
               <span>TOTAL</span><span className="num" style={{ color: 'var(--color-brand)' }}>{money(detail.total, currency)}</span>
             </div>
-            <div className="receipt__line" style={{ marginTop: 4 }}><span>Paid ({detail.method})</span><span className="num">{money(detail.paid, currency)}</span></div>
+            <div className="receipt__line" style={{ marginTop: 4 }}>
+              <span>{detail.balanceDue > 0 || detail.method === 'CREDIT' ? 'Paid so far' : `Paid (${detail.method})`}</span>
+              <span className="num">{money(detail.paid, currency)}</span>
+            </div>
             {detail.change > 0 && <div className="receipt__line"><span>Change</span><span className="num">{money(detail.change, currency)}</span></div>}
+            {detail.balanceDue > 0 && (
+              <div className="receipt__line" style={{ color: 'var(--color-warn)', fontWeight: 700 }}>
+                <span>Balance due</span><span className="num">{money(detail.balanceDue, currency)}</span>
+              </div>
+            )}
+            {detail.saleType === 'WHOLESALE' && (
+              <div className="receipt__line"><span>Sale type</span><b>Wholesale invoice</b></div>
+            )}
+            {detail.customerName && (
+              <div className="receipt__line"><span>Customer</span><span>{detail.customerName}</span></div>
+            )}
           </div>
         </Modal>
       )}

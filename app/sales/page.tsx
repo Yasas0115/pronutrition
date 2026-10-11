@@ -60,6 +60,8 @@ export default async function SalesPage() {
     paid: s.paid,
     change: s.change,
     method: s.method,
+    saleType: s.saleType,
+    balanceDue: s.balanceDue,
     branchName: s.branchName,
     customerName: s.customerName,
     cashierName: s.cashierName,

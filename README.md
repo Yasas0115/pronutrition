@@ -15,6 +15,17 @@ MariaDB** — ready to host on a VPS.
   low-stock & out-of-stock alerts, inline restock, add/edit/delete.
 - **Sales & reports** (owner) — today / month / all-time takings, best sellers,
   recent receipts with detail view, printable report.
+- **Customers & credit** — registered customers and shops. Walk-ins pay Cash or
+  Card only; Koko, Bank transfer and Credit need a registered customer. Credit
+  sales take a "paid now" amount and keep the rest owing; payments received later
+  are applied oldest-sale-first and every one is dated and timed.
+- **Wholesale** — a Retail / Wholesale switch in the POS for selling in bulk to
+  another shop (registered customer required, line prices editable, no automatic
+  payment-method discount).
+- **Accounts** (owner / accountants with the *Accounts & finance* module) — buying
+  vs retail price, stock valuation, price-change history, credit outstanding with
+  ageing, sales mix and an activity log. Buying prices are never sent to anyone
+  without that module.
 - **Settings** (owner) — store name, logo upload, currency, tax %, phone/address,
   receipt footer note.
 - **Auth** — cookie session (JWT via `jose`), roles: `OWNER` and `STAFF`.
@@ -64,7 +75,12 @@ pnpm db:reset     # DROP all tables, re-migrate + reseed (dev only!)
 pnpm db:wipe      # delete all data + users, keep tables & payment methods
 pnpm db:wipe-keep-owner --yes      # delete all data + staff, keep owner login, settings & branches
 pnpm exec tsx scripts/verify-checkout.ts   # integration check for the sale flow
+pnpm exec tsx scripts/verify-credit.ts     # customer rules, credit, wholesale, settlement
+pnpm exec tsx scripts/verify-prices.ts     # price history, cost snapshot, Colombo dates
 ```
+The `verify-*` scripts build their own throw-away branch/products and remove them
+afterwards, but they do write to the database in `DATABASE_URL` — run them against
+a local database, not production.
 
 ## Project layout
 ```

@@ -31,9 +31,25 @@ export default async function ProductsPage() {
   const [shell, store, products, categories, branches] = await Promise.all([
     getShellProps(session),
     prisma.store.findFirst({ select: { currency: true } }),
+    // Buying price is only selected for finance users; everyone else never
+    // has it loaded into this request at all.
     prisma.product.findMany({
       orderBy: [{ active: 'desc' }, { name: 'asc' }],
-      include: { stocks: true },
+      select: {
+        id: true,
+        name: true,
+        category: true,
+        brand: true,
+        flavor: true,
+        sku: true,
+        barcode: true,
+        price: true,
+        imageUrl: true,
+        images: true,
+        active: true,
+        ...(mayCost ? { cost: true } : {}),
+        stocks: true,
+      },
     }),
     prisma.category.findMany({ orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }] }),
     prisma.branch.findMany({
@@ -67,7 +83,7 @@ export default async function ProductsPage() {
       sku: p.sku,
       barcode: p.barcode,
       price: p.price,
-      cost: mayCost ? p.cost : 0,
+      cost: mayCost ? (p as { cost?: number }).cost ?? 0 : 0,
       imageUrl: p.imageUrl,
       images: galleryOf(p),
       stock,
