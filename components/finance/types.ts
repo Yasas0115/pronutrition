@@ -75,7 +75,8 @@ export type FloatHistoryRow = {
 
 export type BranchOpt = { id: string; name: string };
 
-export type FinanceData = {
+// What both money pages share: the period, the branch scope and who is looking.
+type FinanceBase = {
   currency: string;
   storeName: string;
   scopeLabel: string;
@@ -83,18 +84,26 @@ export type FinanceData = {
   scopeBranchId: string | null;
   fromStr: string; // YYYY-MM-DD
   toStr: string;
-  month: string; // YYYY-MM for the Salaries tab
-  monthOptions: { value: string; label: string }[];
   isOwner: boolean;
   pinnedBranchId: string | null; // a staff member locked to one branch
   branches: BranchOpt[];
+};
+
+// Accounting › Expenses & Payroll: money going out.
+export type ExpensesData = FinanceBase & {
+  month: string; // YYYY-MM for the Salaries tab
+  monthOptions: { value: string; label: string }[];
   categories: { id: string; name: string }[];
-  profit: ProfitLoss;
-  drawer: CashDrawer;
   expenses: ExpenseRow[];
   petty: ExpenseRow[];
   workers: WorkerRow[];
   salaries: SalaryRow[];
+};
+
+// Accounting › Profit & Cash: what was earned and what should be in the till.
+export type ProfitData = FinanceBase & {
+  profit: ProfitLoss;
+  drawer: CashDrawer;
   floats: FloatRow[];
   floatHistory: FloatHistoryRow[];
 };

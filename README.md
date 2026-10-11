@@ -11,28 +11,44 @@ MariaDB** — ready to host on a VPS.
 - **Point of Sale** — product grid with search & barcode scan (type/scan then
   Enter), tap-to-add cart, live stock, discount, cash/card, change calculator,
   and a printable receipt.
-- **Products & inventory** — catalogue with categories, price/cost, stock with
-  low-stock & out-of-stock alerts, inline restock, add/edit/delete.
-- **Sales & reports** (owner) — today / month / all-time takings, best sellers,
-  recent receipts with detail view, printable report.
-- **Customers & credit** — registered customers and shops. Walk-ins pay Cash or
-  Card only; Koko, Bank transfer and Credit need a registered customer. Credit
-  sales take a "paid now" amount and keep the rest owing; payments received later
-  are applied oldest-sale-first and every one is dated and timed.
+- **Products & Stock** — catalogue with categories and the retail price, stock
+  with low-stock & out-of-stock alerts, receive / count / transfer, movement
+  ledger. The buying price is only an input box (for staff with the *Expenses,
+  profit & buying prices* grant); its figures are in Accounting › Stock value.
+- **Sidebar** — five entries: *Point of Sale*, *Store* (Products & Stock,
+  Categories), *Customers*, *Accounting* (Sales, Receivables, Expenses & Payroll,
+  Profit & Cash, Stock value, Activity log) and *Administration* (Branches, Staff,
+  Settings). **Every money total, balance, ledger and history lives under
+  Accounting** — the till and the price input boxes are the only other places an
+  amount appears. Each Accounting page is gated by the staff member's own grants
+  (see *Who sees what* below). The old `/sales`, `/accounts` and `/finance` URLs
+  redirect.
+- **Accounting › Sales** (*Sales & takings* grant) — today / month / all-time
+  takings (tax included) with net sales (the figure profit is measured on), best
+  sellers, recent receipts (re-printable), takings by branch and the sales mix by
+  payment method and retail / wholesale.
+- **Customers** — the directory of registered customers and shops (name, phone,
+  address, type, notes). Walk-ins pay Cash or Card only; Koko, Bank transfer and
+  Credit need a registered customer. No balances are shown here.
+- **Accounting › Receivables** (*Customers* grant) — who owes what, aged
+  0–30 / 31–60 / 61–90 / 90+ days. Open a customer for their ledger, receive a
+  payment (applied oldest-sale-first, dated and timed) and print a statement.
 - **Wholesale** — a Retail / Wholesale switch in the POS for selling in bulk to
   another shop (registered customer required, line prices editable, no automatic
   payment-method discount).
-- **Accounts** (owner / accountants with the *Accounts & finance* module) — buying
-  vs retail price, stock valuation, price-change history, credit outstanding with
-  ageing, sales mix and an activity log. Buying prices are never sent to anyone
-  without that module.
-- **Profit & Expenses** (owner / *Accounts & finance* module) — profit & loss for
-  any date range (net sales − cost of goods − expenses, retail vs wholesale),
-  expenses by category, worker salaries (monthly due vs paid, bonus / deduction),
-  petty cash taken by workers, the till float with a full change history, and a
-  cash-drawer report. Entries are never edited or deleted — mistakes are voided
-  with a reason and drop out of the reports. Every entry records the business date
-  *and* the exact time it was entered, plus who entered it.
+- **Accounting › Stock value** (owner / *Expenses, profit & buying prices* grant) —
+  buying vs retail price, what the stock is worth and the margin, plus the
+  price-change history. Buying prices are never sent to anyone without that grant.
+- **Accounting › Expenses & Payroll** (same grant) — expenses by category, worker
+  salaries (monthly due vs paid, bonus / deduction) and petty cash taken by
+  workers.
+- **Accounting › Profit & Cash** (same grant) — profit & loss for any date range
+  (net sales − cost of goods − expenses, retail vs wholesale), the cash-drawer
+  report and the till float with a full change history. Entries are never edited
+  or deleted — mistakes are voided with a reason and drop out of the reports.
+  Every entry records the business date *and* the exact time it was entered, plus
+  who entered it.
+- **Accounting › Activity log** (same grant) — who changed what, and when.
 - **Branch transfers** (owner) — move any number of products between two branches
   as one numbered document (TRF-1001), saved all-or-nothing. The Transfers tab
   shows both branches' before → after balances for every line (−3 / +3) with a
@@ -78,8 +94,21 @@ No demo accounts are created. On first launch, open the app and use
 **Create your company** (`/register`) to set up your store and owner login.
 Add cashiers afterwards from **Users**.
 
-Cashiers see **POS** and **Products**; owners also get **Sales & Reports** and
-**Settings**.
+### Who sees what
+The owner sees everything. A staff member sees only what the owner ticked on the
+Staff page; the grants map onto the sidebar like this:
+
+| Grant | Opens |
+|---|---|
+| Point of Sale | the till |
+| Products & inventory / Stock control | Store › Products & Stock |
+| Categories | Store › Categories |
+| Customers + Accounting: Receivables | Customers, Accounting › Receivables |
+| Accounting: Sales & takings | Accounting › Sales |
+| Accounting: Expenses, profit & buying prices | Accounting › Expenses & Payroll, Profit & Cash, Stock value, Activity log |
+| Branches / Staff | Administration › Branches / Staff |
+
+Settings is owner-only.
 
 ## Handy scripts
 ```bash
@@ -131,8 +160,10 @@ as break-glass; day-to-day changes go through the emailed link.
 pro nutrition/
 ├─ app/
 │  ├─ page.tsx            POS checkout (default route)
-│  ├─ products/           catalogue & inventory
-│  ├─ sales/              sales & reports (owner)
+│  ├─ products/           products & stock
+│  ├─ customers/          customer directory
+│  ├─ accounting/         sales · receivables · expenses · profit · stock-value · activity
+│  ├─ sales/ accounts/ finance/   redirects to the Accounting pages
 │  ├─ settings/           store settings (owner)
 │  ├─ login/              sign-in
 │  ├─ actions.ts          auth + checkout server actions

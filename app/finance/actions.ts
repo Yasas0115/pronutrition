@@ -1,8 +1,8 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/db';
 import { requireModule } from '@/lib/auth';
+import { revalidateAccounting } from '@/lib/revalidate';
 import type { Session } from '@/lib/session';
 import { logAudit, diffFields } from '@/lib/audit';
 import {
@@ -18,8 +18,7 @@ import {
 export type SimpleResult = { ok: true } | { ok: false; error: string };
 
 function revalidateFinance() {
-  revalidatePath('/finance');
-  revalidatePath('/accounts');
+  revalidateAccounting();
 }
 
 function fail(e: unknown, fallback: string): { ok: false; error: string } {

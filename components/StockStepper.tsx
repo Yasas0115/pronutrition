@@ -3,21 +3,24 @@
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from './toast';
-import { setStock } from '@/app/products/actions';
+import { countStock } from '@/app/stock/actions';
 
 /**
  * Inline stock editor for the products table.
  *   • − / + buttons step by 1
  *   • ↑ / ↓ arrow keys step by 1 while the field is focused
  *   • typing sets an absolute value (commits on Enter or blur)
- * Every change writes an absolute value through `setStock`, then refreshes.
+ * Every change writes an absolute count for `branchId` through `countStock`
+ * (which needs the stock grant and leaves a ledger row), then refreshes.
  */
 export default function StockStepper({
   id,
+  branchId,
   value,
   lowStockAt,
 }: {
   id: string;
+  branchId: string;
   value: number;
   lowStockAt: number;
 }) {
@@ -43,7 +46,7 @@ export default function StockStepper({
     setVal(String(n));
     if (n === value) return; // nothing to save
     startTransition(async () => {
-      const res = await setStock(id, n);
+      const res = await countStock({ productId: id, branchId, counted: n, note: 'Inline stock edit' });
       if (res.ok) router.refresh();
       else {
         toast(res.error, true);

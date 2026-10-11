@@ -276,10 +276,7 @@ export default function ProductModal({
           )}
           {canSeeCost && (
             <p className="text-[12px] col-span-2" style={{ color: 'var(--color-muted)', marginTop: -4 }}>
-              {price > 0 && cost > 0
-                ? `Margin ${price - cost >= 0 ? '' : '−'}Rs ${Math.abs(price - cost).toLocaleString('en-LK')} per unit (${Math.round(((price - cost) / price) * 100)}%).`
-                : 'Set both prices to see the margin.'}{' '}
-              Changes are saved to Price history with your name and the time.
+              Price changes are recorded with your name and the time — see Accounting › Stock value › Price history.
             </p>
           )}
         </div>

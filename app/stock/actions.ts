@@ -8,6 +8,7 @@ import { recordStockChange, setStockTo } from '@/lib/stock';
 import { recordPriceChange } from '@/lib/price-history';
 import { createStockTransfer } from '@/lib/transfers';
 import { reconcileStock, type StockCheckResult } from '@/lib/stock-check';
+import { revalidateAccounting } from '@/lib/revalidate';
 
 export type SimpleResult = { ok: true } | { ok: false; error: string };
 
@@ -15,7 +16,7 @@ export type SimpleResult = { ok: true } | { ok: false; error: string };
 function revalidateStock() {
   revalidatePath('/stock');
   revalidatePath('/products');
-  revalidatePath('/accounts');
+  revalidateAccounting();
   revalidatePath('/');
 }
 

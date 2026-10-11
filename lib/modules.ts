@@ -24,11 +24,13 @@ export const ALL_MODULES: { key: ModuleKey; label: string; locked?: boolean }[] 
   { key: 'products', label: 'Products & inventory' },
   { key: 'stock', label: 'Stock control' },
   { key: 'categories', label: 'Categories' },
-  { key: 'reports', label: 'Sales & reports' },
-  // Customer list, credit balances and collecting payments from customers.
-  { key: 'customers', label: 'Customers & credit' },
-  // Accountant-level: buying prices, stock valuation, price history, audit log.
-  { key: 'finance', label: 'Accounts & finance (buying prices)' },
+  // Accounting › Sales: takings, best sellers, receipts, sales mix.
+  { key: 'reports', label: 'Accounting: Sales & takings' },
+  // The customer directory, plus Accounting › Receivables (who owes, collect payments).
+  { key: 'customers', label: 'Customers + Accounting: Receivables' },
+  // Accountant-level: expenses, payroll, profit, cash drawer, buying prices,
+  // stock value, price history, activity log.
+  { key: 'finance', label: 'Accounting: Expenses, profit & buying prices' },
   { key: 'branches', label: 'Branches' },
   { key: 'users', label: 'Staff / users' },
   { key: 'settings', label: 'Settings', locked: true },
@@ -88,9 +90,9 @@ export const MODULE_ROUTES: Record<ModuleKey, string> = {
   products: '/products',
   stock: '/stock',
   categories: '/categories',
-  reports: '/sales',
+  reports: '/accounting/sales',
   customers: '/customers',
-  finance: '/accounts',
+  finance: '/accounting/profit',
   branches: '/branches',
   users: '/users',
   settings: '/settings',

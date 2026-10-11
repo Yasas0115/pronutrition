@@ -8,11 +8,11 @@ import Modal from '../Modal';
 import { toast } from '../toast';
 import VoidModal from './VoidModal';
 import { addPettyCashAction, voidExpenseAction } from '@/app/finance/actions';
-import type { FinanceData, ExpenseRow } from './types';
+import type { ExpensesData, ExpenseRow } from './types';
 
 const OTHER = '__other__';
 
-export default function PettyCashTab({ data }: { data: FinanceData }) {
+export default function PettyCashTab({ data }: { data: ExpensesData }) {
   const router = useRouter();
   const { currency, petty } = data;
   const [adding, setAdding] = useState(false);
@@ -129,7 +129,7 @@ export default function PettyCashTab({ data }: { data: FinanceData }) {
   );
 }
 
-function PettyCashModal({ data, onClose, onSaved }: { data: FinanceData; onClose: () => void; onSaved: () => void }) {
+function PettyCashModal({ data, onClose, onSaved }: { data: ExpensesData; onClose: () => void; onSaved: () => void }) {
   const { workers, branches, currency, pinnedBranchId, scopeBranchId } = data;
   const active = workers.filter((w) => w.active);
   const [who, setWho] = useState(active[0]?.id ?? OTHER);

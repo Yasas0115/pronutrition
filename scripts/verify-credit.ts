@@ -5,6 +5,7 @@
 import { prisma } from '../lib/db';
 import { performCheckout, type CheckoutCore } from '../lib/checkout';
 import { settleCustomerPayment } from '../lib/credit';
+import { receivablesByCustomer, dueByCustomerId, customerBalance } from '../lib/receivables';
 import { setupFixtures, assert, rejects, stockAt, failureCount } from './fixtures';
 
 async function main() {
@@ -111,6 +112,22 @@ async function main() {
     const due = async () =>
       (await prisma.sale.aggregate({ where: { customerId: person.id }, _sum: { balanceDue: true } }))._sum.balanceDue ?? 0;
     assert((await due()) === 6000, `customer owes 4,000 + 2,000 = 6,000 (got ${await due()})`);
+
+    // ------------------------------------------- shared "who owes" roll-ups (lib/receivables)
+    console.log('\n▶ Receivables: one definition of "owes"');
+    const rowOf = async (branchId: string | null) =>
+      (await receivablesByCustomer({ branchId })).find((r) => r.customerId === person.id);
+    const fresh = await rowOf(f.branch.id);
+    assert(!!fresh && fresh.due === 6000 && fresh.count === 2, `Receivables lists Person B owing 6,000 on 2 sales (got ${fresh?.due}/${fresh?.count})`);
+    assert(fresh!.b0 === 6000 && fresh!.b30 + fresh!.b60 + fresh!.b90 === 0, 'new debts sit in the 0–30 day bucket');
+    assert((await dueByCustomerId()).get(person.id) === 6000, 'the till warning sees the same 6,000');
+    const bal = await customerBalance(person.id);
+    assert(bal.due === 6000 && bal.bought === 400 + 400 + 5000 + 2000, `the ledger sees 6,000 owed of 7,800 bought (got ${bal.due}/${bal.bought})`);
+    assert(!(await rowOf('no-such-branch')), 'a branch filter leaves out debts from other branches');
+    // Age the older sale 100 days: it must move to the 90+ bucket and stay the oldest.
+    await prisma.sale.update({ where: { number: c1.number }, data: { createdAt: new Date(Date.now() - 100 * 86_400_000) } });
+    const aged = await rowOf(f.branch.id);
+    assert(aged?.b90 === 4000 && aged?.b0 === 2000 && aged?.due === 6000, `ageing: 4,000 in 90+, 2,000 in 0–30 (got ${aged?.b90}/${aged?.b0})`);
 
     // ------------------------------------------------------------------ 5. settlement
     console.log('\n▶ Settlement: oldest sale first');

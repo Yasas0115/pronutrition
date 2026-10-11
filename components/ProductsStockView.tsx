@@ -7,7 +7,6 @@ import { fmtDateTime } from '@/lib/dates';
 import { MOVEMENT_LABELS, type MovementType } from '@/lib/stock';
 import ProductModal, { type ProductRow } from './ProductModal';
 import StockStepper from './StockStepper';
-import PriceHistoryTable, { type PriceHistoryRow } from './PriceHistoryTable';
 import Modal from './Modal';
 import TransferModal from './TransferModal';
 import TransfersTab from './TransfersTab';
@@ -27,7 +26,6 @@ export type MovementRow = {
   type: string;
   delta: number;
   balanceAfter: number;
-  unitCost: number | null;
   note: string | null;
   userName: string | null;
   createdAt: string;
@@ -35,7 +33,7 @@ export type MovementRow = {
 
 type BranchOpt = { id: string; name: string; active: boolean };
 type StockFilter = 'all' | 'low' | 'out';
-type Tab = 'catalogue' | 'stock' | 'movements' | 'transfers' | 'prices';
+type Tab = 'catalogue' | 'stock' | 'movements' | 'transfers';
 
 // Product thumbnail + name + brand/flavor/sku line (+ per-branch chips on the
 // "All branches" view). Shared by the Catalogue and Stock tables.
@@ -76,7 +74,6 @@ function ProductCell({ p, allBranches }: { p: StockProduct; allBranches: boolean
 export default function ProductsStockView({
   products,
   history,
-  priceHistory = [],
   transfers = [],
   canSeeCost = false,
   canReconcile = false,
@@ -93,8 +90,8 @@ export default function ProductsStockView({
 }: {
   products: StockProduct[];
   history: MovementRow[];
-  priceHistory?: PriceHistoryRow[];
   transfers?: TransferRow[];
+  /** Owner / accountant: the buying-price input boxes are offered (never shown as figures here). */
   canSeeCost?: boolean;
   /** Owner / accountant: may run the stock check. */
   canReconcile?: boolean;
@@ -189,7 +186,8 @@ export default function ProductsStockView({
         </div>
       </div>
 
-      {/* KPI tiles — counts only. Stock value / prices live in Accounts. */}
+      {/* KPI tiles — counts only. Stock value, buying prices and price history
+          live in Accounting › Stock value. */}
       <div className="grid grid-cols-3 gap-3 mb-5">
         <div className="stat">
           <div className="stat__label">Active products</div>
@@ -217,9 +215,6 @@ export default function ProductsStockView({
             Transfers{transfers.length > 0 ? ` (${transfers.length})` : ''}
           </button>
         )}
-        {canSeeCost && (
-          <button className="chip" data-active={tab === 'prices' || undefined} onClick={() => setTab('prices')}>Price history</button>
-        )}
       </div>
 
       {listTab && (
@@ -244,8 +239,9 @@ export default function ProductsStockView({
           </div>
 
           {tab === 'catalogue' ? (
-            /* CATALOGUE — product details and prices. Retail price for everyone
-               who can open this page; buying price only for finance. */
+            /* CATALOGUE — product details and the shelf (retail) price. Buying
+               price is Accounting › Stock value; it is only an input box in the
+               product form for people who hold that grant. */
             <div className="card overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="table">
@@ -254,14 +250,13 @@ export default function ProductsStockView({
                       <th>Product</th>
                       <th>Category</th>
                       <th className="text-right">Retail price</th>
-                      {canSeeCost && <th className="text-right">Buying price</th>}
                       <th className="text-center">In stock</th>
                       <th className="text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filtered.length === 0 ? (
-                      <tr><td colSpan={canSeeCost ? 6 : 5} className="text-center" style={{ color: 'var(--color-faint)', padding: 40 }}>No products found.</td></tr>
+                      <tr><td colSpan={5} className="text-center" style={{ color: 'var(--color-faint)', padding: 40 }}>No products found.</td></tr>
                     ) : (
                       filtered.map((p) => {
                         const out = p.stock <= 0;
@@ -276,11 +271,6 @@ export default function ProductsStockView({
                             </td>
                             <td><span className="chip" style={{ cursor: 'default' }}>{p.category}</span></td>
                             <td className="text-right num text-strong font-semibold">{money(p.price, currency)}</td>
-                            {canSeeCost && (
-                              <td className="text-right num" style={{ color: 'var(--color-muted)' }}>
-                                {p.cost > 0 ? money(p.cost, currency) : <span style={{ color: 'var(--color-faint)' }}>not set</span>}
-                              </td>
-                            )}
                             <td className="text-center num font-semibold" style={{ color }} title={allBranches ? 'Total across branches' : undefined}>{fmt(p.stock)}</td>
                             <td className="text-right">
                               {canEditProducts && <button className="btn btn-ghost btn-sm" onClick={() => setEditing(p)}>Edit</button>}
@@ -321,7 +311,7 @@ export default function ProductsStockView({
                             <td><span className="chip" style={{ cursor: 'default' }}>{p.category}</span></td>
                             <td>
                               {stockEditable ? (
-                                <StockStepper id={p.id} value={p.stock} lowStockAt={p.lowStockAt} />
+                                <StockStepper id={p.id} branchId={activeScope} value={p.stock} lowStockAt={p.lowStockAt} />
                               ) : (
                                 <div className="text-center num font-semibold" style={{ color }} title={allBranches ? 'Total across branches' : undefined}>{fmt(p.stock)}</div>
                               )}
@@ -345,14 +335,12 @@ export default function ProductsStockView({
       )}
 
       {tab === 'movements' && canManageStock && (
-        <HistoryTable history={history} currency={currency} allBranches={allBranches} />
+        <HistoryTable history={history} allBranches={allBranches} />
       )}
 
       {tab === 'transfers' && canManageStock && isOwner && (
         <TransfersTab transfers={transfers} storeName={storeName} />
       )}
-
-      {tab === 'prices' && canSeeCost && <PriceHistoryTable rows={priceHistory} currency={currency} />}
 
       {(creating || editing) && (
         <ProductModal
@@ -480,7 +468,7 @@ const TYPE_TONE: Record<string, string> = {
   ADJUST: 'var(--color-warn)',
 };
 
-function HistoryTable({ history, currency, allBranches }: { history: MovementRow[]; currency: string; allBranches: boolean }) {
+function HistoryTable({ history, allBranches }: { history: MovementRow[]; allBranches: boolean }) {
   const [type, setType] = useState<'all' | MovementType>('all');
   const types = Object.keys(MOVEMENT_LABELS) as MovementType[];
   const shown = type === 'all' ? history : history.filter((m) => m.type === type);
@@ -520,10 +508,7 @@ function HistoryTable({ history, currency, allBranches }: { history: MovementRow
                     <td><span className="chip" style={{ cursor: 'default', color: TYPE_TONE[m.type] }}>{MOVEMENT_LABELS[m.type as MovementType] ?? m.type}</span></td>
                     <td className="text-center num font-semibold" style={{ color: m.delta >= 0 ? 'var(--color-strong)' : 'var(--color-brand)' }}>{m.delta >= 0 ? `+${fmt(m.delta)}` : fmt(m.delta)}</td>
                     <td className="text-center num">{fmt(m.balanceAfter)}</td>
-                    <td style={{ color: 'var(--color-muted)', fontSize: 12 }}>
-                      {m.note || '—'}
-                      {m.unitCost != null && <span className="block" style={{ color: 'var(--color-faint)' }}>@ {money(m.unitCost, currency)}</span>}
-                    </td>
+                    <td style={{ color: 'var(--color-muted)', fontSize: 12 }}>{m.note || '—'}</td>
                     <td style={{ color: 'var(--color-muted)', fontSize: 12 }}>{m.userName || '—'}</td>
                   </tr>
                 ))

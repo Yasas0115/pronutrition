@@ -6,6 +6,8 @@ import { requireModule, requireAnyModule } from '@/lib/auth';
 import { getTillBranchId } from '@/lib/branch';
 import { logAudit, diffFields } from '@/lib/audit';
 import { settleCustomerPayment } from '@/lib/credit';
+import { customerBalance } from '@/lib/receivables';
+import { revalidateAccounting } from '@/lib/revalidate';
 
 export type CustomerType = 'RETAIL' | 'SHOP';
 
@@ -32,8 +34,7 @@ function clean(v: string | undefined): string | null {
 
 function revalidateCustomers() {
   revalidatePath('/customers');
-  revalidatePath('/accounts');
-  revalidatePath('/sales');
+  revalidateAccounting();
   revalidatePath('/');
 }
 
@@ -164,8 +165,8 @@ export async function getCustomerLedger(
   const customer = await prisma.customer.findUnique({ where: { id: customerId } });
   if (!customer) return { ok: false, error: 'Customer not found.' };
 
-  const [agg, sales, payments] = await Promise.all([
-    prisma.sale.aggregate({ where: { customerId }, _sum: { balanceDue: true, total: true } }),
+  const [balance, sales, payments] = await Promise.all([
+    customerBalance(customerId),
     prisma.sale.findMany({
       where: { customerId },
       orderBy: { createdAt: 'desc' },
@@ -187,8 +188,8 @@ export async function getCustomerLedger(
         id: customer.id, name: customer.name, phone: customer.phone, address: customer.address,
         type: customer.type, notes: customer.notes, active: customer.active,
       },
-      totalDue: agg._sum.balanceDue ?? 0,
-      totalSales: agg._sum.total ?? 0,
+      totalDue: balance.due,
+      totalSales: balance.bought,
       sales: sales.map((s) => ({
         id: s.id, number: s.number, createdAt: s.createdAt.toISOString(), total: s.total, paid: s.paid,
         balanceDue: s.balanceDue, method: s.method, saleType: s.saleType, branchName: s.branchName,

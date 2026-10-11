@@ -2,11 +2,12 @@
 
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/db';
-import { requireModule, requireAnyModule, canSeeCost } from '@/lib/auth';
-import { getTillBranchId } from '@/lib/branch';
-import { recordStockChange, setStockTo } from '@/lib/stock';
+import { requireModule, canSeeCost, hasModule } from '@/lib/auth';
+import { getActiveScope, ALL_BRANCHES } from '@/lib/branch';
+import { setStockTo } from '@/lib/stock';
 import { recordPriceChange } from '@/lib/price-history';
 import { logAudit, diffFields } from '@/lib/audit';
+import { revalidateAccounting } from '@/lib/revalidate';
 
 export type ProductInput = {
   id?: string;
@@ -46,7 +47,7 @@ function clean(v: string | undefined): string | null {
 function revalidateCatalog() {
   revalidatePath('/products');
   revalidatePath('/categories');
-  revalidatePath('/accounts');
+  revalidateAccounting();
   revalidatePath('/');
 }
 
@@ -67,7 +68,6 @@ export async function saveProduct(input: ProductInput): Promise<SaveResult> {
   // change names, prices or photos).
   const session = await requireModule('products');
   const mayEditCost = await canSeeCost(session);
-  const branchId = await getTillBranchId(session);
   const name = input.name.trim();
   if (!name) return { ok: false, error: 'Product name is required.' };
   if (input.price < 0) return { ok: false, error: 'Price must be zero or more.' };
@@ -170,15 +170,20 @@ export async function saveProduct(input: ProductInput): Promise<SaveResult> {
     });
 
     await ensureStockRows(product.id);
-    // Apply the stock/low-stock values to the current branch. The stock level
-    // goes through setStockTo so any change is captured in the movement ledger.
-    if (branchId) {
+    // Stock is per-branch and belongs to the `stock` grant, exactly like the
+    // buying price belongs to `finance`. Apply the form's numbers only when the
+    // caller holds it AND is looking at one real branch: on "All branches" the
+    // form shows the company-wide total, which must never be written into a
+    // single branch. The level goes through setStockTo so the change lands in
+    // the movement ledger.
+    const scope = await getActiveScope(session);
+    if (scope !== ALL_BRANCHES && (await hasModule(session, 'stock'))) {
       await prisma.branchStock.update({
-        where: { branchId_productId: { branchId, productId: product.id } },
+        where: { branchId_productId: { branchId: scope, productId: product.id } },
         data: { lowStockAt: Math.max(0, Math.round(input.lowStockAt || 0)) },
       });
       await setStockTo(prisma, {
-        branchId,
+        branchId: scope,
         productId: product.id,
         productName: product.name,
         target: input.stock || 0,
@@ -195,51 +200,8 @@ export async function saveProduct(input: ProductInput): Promise<SaveResult> {
   }
 }
 
-export async function adjustStock(id: string, delta: number): Promise<SimpleResult> {
-  const session = await requireAnyModule(['stock', 'products']);
-  const branchId = await getTillBranchId(session);
-  if (!branchId) return { ok: false, error: 'No active branch.' };
-  try {
-    const product = await prisma.product.findUnique({ where: { id }, select: { name: true } });
-    if (!product) return { ok: false, error: 'Product not found.' };
-    await recordStockChange(prisma, {
-      branchId,
-      productId: id,
-      productName: product.name,
-      delta: Math.round(delta),
-      type: 'ADJUST',
-      userId: session.userId,
-      userName: session.name,
-    });
-    revalidateCatalog();
-    return { ok: true };
-  } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : 'Could not adjust stock.' };
-  }
-}
-
-export async function setStock(id: string, value: number): Promise<SimpleResult> {
-  const session = await requireAnyModule(['stock', 'products']);
-  const branchId = await getTillBranchId(session);
-  if (!branchId) return { ok: false, error: 'No active branch.' };
-  try {
-    const product = await prisma.product.findUnique({ where: { id }, select: { name: true } });
-    if (!product) return { ok: false, error: 'Product not found.' };
-    await setStockTo(prisma, {
-      branchId,
-      productId: id,
-      productName: product.name,
-      target: Number(value) || 0,
-      note: 'Inline stock edit',
-      userId: session.userId,
-      userName: session.name,
-    });
-    revalidateCatalog();
-    return { ok: true };
-  } catch {
-    return { ok: false, error: 'Could not update stock.' };
-  }
-}
+// Stock quantities are changed through app/stock/actions.ts (receive, adjust,
+// count, transfer) — the `stock` grant, an explicit branch, a ledger row each.
 
 export async function deleteProduct(id: string): Promise<SimpleResult> {
   const session = await requireModule('products');

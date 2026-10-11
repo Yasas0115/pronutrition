@@ -1,7 +1,7 @@
 'use client';
 
 import { money } from '@/lib/money';
-import type { FinanceData } from './types';
+import type { ProfitData } from './types';
 
 const KIND_LABEL: Record<string, string> = { GENERAL: 'Expense', SALARY: 'Salaries', PETTY_CASH: 'Petty cash' };
 
@@ -25,7 +25,7 @@ function Line({
   );
 }
 
-export default function ProfitLossTab({ data }: { data: FinanceData }) {
+export default function ProfitLossTab({ data }: { data: ProfitData }) {
   const { profit: p, currency } = data;
   const net = p.netProfit;
   const share = (n: number) => (p.expenses.total > 0 ? Math.round((n / p.expenses.total) * 100) : 0);

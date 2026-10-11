@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { money, parseAmount } from '@/lib/money';
 import { fmtDate, fmtDateTime, todayStr } from '@/lib/dates';
 import Modal from '../Modal';
+import NameListManager from '../NameListManager';
 import { toast } from '../toast';
 import VoidModal from './VoidModal';
 import {
@@ -13,7 +14,7 @@ import {
   addExpenseCategory,
   deleteExpenseCategory,
 } from '@/app/finance/actions';
-import type { FinanceData, ExpenseRow } from './types';
+import type { ExpensesData, ExpenseRow } from './types';
 
 const VIA = [
   { key: 'CASH', label: 'Cash' },
@@ -21,7 +22,7 @@ const VIA = [
   { key: 'CARD', label: 'Card' },
 ];
 
-export default function ExpensesTab({ data }: { data: FinanceData }) {
+export default function ExpensesTab({ data }: { data: ExpensesData }) {
   const router = useRouter();
   const { currency, expenses, categories } = data;
   const [adding, setAdding] = useState(false);
@@ -137,7 +138,7 @@ function AddExpenseModal({
   onClose,
   onSaved,
 }: {
-  data: FinanceData;
+  data: ExpensesData;
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -228,42 +229,17 @@ function CategoriesModal({
   onClose: () => void;
   onChanged: () => void;
 }) {
-  const [name, setName] = useState('');
-  const [busy, setBusy] = useState(false);
-
-  async function add() {
-    if (!name.trim()) return;
-    setBusy(true);
-    const res = await addExpenseCategory(name);
-    setBusy(false);
-    if (res.ok) { setName(''); onChanged(); }
-    else toast(res.error, true);
-  }
-
-  async function remove(id: string) {
-    setBusy(true);
-    const res = await deleteExpenseCategory(id);
-    setBusy(false);
-    if (res.ok) onChanged();
-    else toast(res.error, true);
-  }
-
   return (
     <Modal title="Expense categories" onClose={onClose} maxWidth={440} footer={<button className="btn btn-primary" onClick={onClose}>Done</button>}>
       <div className="flex flex-col gap-3">
-        <div className="flex gap-2">
-          <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="New category, e.g. Insurance" onKeyDown={(e) => e.key === 'Enter' && add()} />
-          <button className="btn btn-primary" onClick={add} disabled={busy}>Add</button>
-        </div>
-        <div className="flex flex-col gap-1.5">
-          {categories.length === 0 && <div className="text-[13px]" style={{ color: 'var(--color-faint)' }}>No categories yet.</div>}
-          {categories.map((c) => (
-            <div key={c.id} className="flex items-center justify-between rounded-lg px-3 py-2" style={{ background: 'var(--color-ink-1)', border: '1px solid var(--color-line-2)' }}>
-              <span className="text-[13.5px]">{c.name}</span>
-              <button className="text-[12px] uppercase tracking-wider" style={{ color: 'var(--color-brand)' }} onClick={() => remove(c.id)} disabled={busy}>Remove</button>
-            </div>
-          ))}
-        </div>
+        <NameListManager
+          items={categories.map((c) => ({ id: c.id, name: c.name }))}
+          placeholder="New category, e.g. Insurance"
+          emptyText="No categories yet."
+          onAdd={addExpenseCategory}
+          onRemove={deleteExpenseCategory}
+          onChanged={onChanged}
+        />
         <p className="text-[12px]" style={{ color: 'var(--color-muted)' }}>
           Removing a category only takes it off this list — past expenses and reports keep it.
         </p>

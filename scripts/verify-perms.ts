@@ -8,7 +8,9 @@ import {
   parseModules,
   landingRoute,
   STAFF_MODULES,
+  type ModuleKey,
 } from '@/lib/modules';
+import { buildNav } from '@/lib/nav';
 
 const prisma = new PrismaClient();
 let failures = 0;
@@ -27,7 +29,7 @@ async function main() {
 
   const acc = effectiveModules('STAFF', company, parseUserModules('reports'));
   check('accountant sees only reports', setEq(acc, ['reports']));
-  check('accountant landing route is /sales', landingRoute(acc) === '/sales');
+  check('accountant landing route is /accounting/sales', landingRoute(acc) === '/accounting/sales');
 
   const cashier = effectiveModules('STAFF', company, parseUserModules('pos,products'));
   check('cashier sees pos + products', setEq(cashier, ['pos', 'products']));
@@ -44,6 +46,34 @@ async function main() {
   check('legacy empty grants -> pos', setEq(legacy, ['pos']));
 
   check('settings not offered to staff', !STAFF_MODULES.some((m) => m.key === 'settings'));
+
+  // ---- sidebar: who sees which pages (lib/nav.ts) ----
+  const everything = parseModules('pos,products,stock,categories,reports,customers,finance,users,branches,settings');
+  const pagesFor = (role: 'OWNER' | 'STAFF', grants: string) => {
+    const eff = effectiveModules(role, everything, parseUserModules(grants));
+    return buildNav((m: ModuleKey) => eff.has(m)).flatMap((i) =>
+      i.kind === 'link' ? [i.href] : i.children.map((c) => c.href),
+    );
+  };
+  const same = (got: string[], want: string[]) => got.length === want.length && want.every((w) => got.includes(w));
+
+  const ownerPages = pagesFor('OWNER', '');
+  check('owner sees every page once', new Set(ownerPages).size === ownerPages.length && ownerPages.length === 13);
+  check(
+    'owner: all money pages sit under /accounting',
+    ['/accounting/sales', '/accounting/receivables', '/accounting/expenses', '/accounting/profit', '/accounting/stock-value', '/accounting/activity']
+      .every((p) => ownerPages.includes(p)),
+  );
+  check('old money URLs are not in the sidebar', !ownerPages.some((p) => ['/sales', '/accounts', '/finance'].includes(p)));
+  check('reports only → Accounting › Sales', same(pagesFor('STAFF', 'reports'), ['/accounting/sales']));
+  check('customers only → Customers + Receivables', same(pagesFor('STAFF', 'customers'), ['/customers', '/accounting/receivables']));
+  check(
+    'finance only → the four finance pages',
+    same(pagesFor('STAFF', 'finance'), ['/accounting/expenses', '/accounting/profit', '/accounting/stock-value', '/accounting/activity']),
+  );
+  check('products only → no Accounting, no Customers', same(pagesFor('STAFF', 'products'), ['/products']));
+  check('pos only → the till', same(pagesFor('STAFF', 'pos'), ['/']));
+  check('staff never see Settings', !pagesFor('STAFF', 'pos,branches,users').includes('/settings'));
 
   const email = `verify-acc-${Date.now()}@example.test`;
   const created = await prisma.user.create({

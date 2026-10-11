@@ -5,6 +5,7 @@ import { prisma } from '@/lib/db';
 import { requireOwner } from '@/lib/auth';
 import { parseModules } from '@/lib/branch';
 import { logAudit, diffFields } from '@/lib/audit';
+import { revalidateAccounting } from '@/lib/revalidate';
 
 export type StoreInput = {
   name: string;
@@ -66,7 +67,7 @@ export async function saveStore(input: StoreInput): Promise<StoreResult> {
     revalidatePath('/settings');
     revalidatePath('/');
     revalidatePath('/products');
-    revalidatePath('/sales');
+    revalidateAccounting();
     return { ok: true };
   } catch {
     return { ok: false, error: 'Could not save settings.' };

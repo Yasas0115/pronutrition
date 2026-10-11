@@ -8,7 +8,7 @@ import Modal from '../Modal';
 import { toast } from '../toast';
 import VoidModal from './VoidModal';
 import { saveWorker, setWorkerActive, paySalaryAction, voidSalaryAction } from '@/app/finance/actions';
-import type { FinanceData, WorkerRow, SalaryRow } from './types';
+import type { ExpensesData, WorkerRow, SalaryRow } from './types';
 
 const VIA = [
   { key: 'CASH', label: 'Cash' },
@@ -20,7 +20,7 @@ export default function SalariesTab({
   data,
   onMonthChange,
 }: {
-  data: FinanceData;
+  data: ExpensesData;
   onMonthChange: (m: string) => void;
 }) {
   const router = useRouter();
@@ -201,7 +201,7 @@ function WorkerModal({
   worker, data, onClose, onSaved,
 }: {
   worker: WorkerRow | null;
-  data: FinanceData;
+  data: ExpensesData;
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -289,7 +289,7 @@ function PaySalaryModal({
   worker, data, onClose, onSaved,
 }: {
   worker: WorkerRow;
-  data: FinanceData;
+  data: ExpensesData;
   onClose: () => void;
   onSaved: () => void;
 }) {

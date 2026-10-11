@@ -3,21 +3,7 @@
 import { useMemo, useState } from 'react';
 import { money, fmt } from '@/lib/money';
 import { fmtDateTime } from '@/lib/dates';
-import { PRICE_SOURCE_LABELS, type PriceChangeSource } from '@/lib/price-history';
-
-export type PriceHistoryRow = {
-  id: string;
-  productName: string;
-  source: string;
-  oldPrice: number;
-  newPrice: number;
-  oldCost: number;
-  newCost: number;
-  onHandUnits: number;
-  note: string | null;
-  userName: string | null;
-  createdAt: string;
-};
+import { PRICE_SOURCE_LABELS, type PriceChangeSource, type PriceHistoryRow } from '@/lib/price-history';
 
 // "Rs 4,500 → Rs 4,800" with the move coloured: a rise is the accent colour, a
 // fall is the warning colour, no change is muted.

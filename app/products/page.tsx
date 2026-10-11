@@ -6,7 +6,6 @@ import { getActiveScope, getEffectiveModules, ALL_BRANCHES } from '@/lib/branch'
 import { landingRoute } from '@/lib/modules';
 import AppShell from '@/components/AppShell';
 import ProductsStockView, { type StockProduct, type MovementRow } from '@/components/ProductsStockView';
-import type { PriceHistoryRow } from '@/components/PriceHistoryTable';
 import { galleryOf } from '@/lib/images';
 import { listTransfers } from '@/lib/transfers';
 import type { TransferRow } from '@/lib/transfer-types';
@@ -23,8 +22,10 @@ export default async function ProductsPage() {
   const canManageStock = eff.has('stock');
   if (!canEditProducts && !canManageStock) redirect(landingRoute(eff));
 
-  // Buying price / unit cost / price history are accountant-level: they are
-  // stripped HERE, on the server, so they never reach a cashier's browser.
+  // The buying price is accountant-level: it is stripped HERE, on the server, so
+  // it never reaches a cashier's browser. Even for accountants it is only used to
+  // pre-fill the buying-price input box — every figure, total and history of
+  // buying prices is shown in Accounting › Stock value, not on this page.
   const mayCost = await canSeeCost(session);
 
   const scope = await getActiveScope(session);
@@ -111,29 +112,9 @@ export default async function ProductsPage() {
         type: m.type,
         delta: m.delta,
         balanceAfter: m.balanceAfter,
-        unitCost: mayCost ? m.unitCost : null,
         note: m.note,
         userName: m.userName,
         createdAt: m.createdAt.toISOString(),
-      }))
-    : [];
-
-  // Selling/buying price change log (company-wide) — accountant-level only.
-  const priceHistory: PriceHistoryRow[] = mayCost
-    ? (
-        await prisma.productPriceHistory.findMany({ orderBy: { createdAt: 'desc' }, take: 100 })
-      ).map((h) => ({
-        id: h.id,
-        productName: h.productName,
-        source: h.source,
-        oldPrice: h.oldPrice,
-        newPrice: h.newPrice,
-        oldCost: h.oldCost,
-        newCost: h.newCost,
-        onHandUnits: h.onHandUnits,
-        note: h.note,
-        userName: h.userName,
-        createdAt: h.createdAt.toISOString(),
       }))
     : [];
 
@@ -146,7 +127,6 @@ export default async function ProductsPage() {
       <ProductsStockView
         products={items}
         history={history}
-        priceHistory={priceHistory}
         transfers={transfers}
         canSeeCost={mayCost}
         canReconcile={mayCost}

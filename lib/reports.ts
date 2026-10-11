@@ -51,8 +51,73 @@ export type ProfitLoss = {
 
 const SALE_TYPES: SaleTypeKey[] = ['RETAIL', 'WHOLESALE'];
 
-function saleWhere(range: DateRange, branchId: string | null): Prisma.SaleWhereInput {
-  return { createdAt: { gte: range.from, lte: range.to }, ...(branchId ? { branchId } : {}) };
+// Either end may be left open (today = from only, all time = no range at all).
+export type OpenRange = { from?: Date; to?: Date } | null;
+
+function saleWhere(range: OpenRange, branchId: string | null): Prisma.SaleWhereInput {
+  const createdAt: Prisma.DateTimeFilter = {};
+  if (range?.from) createdAt.gte = range.from;
+  if (range?.to) createdAt.lte = range.to;
+  return {
+    ...(range?.from || range?.to ? { createdAt } : {}),
+    ...(branchId ? { branchId } : {}),
+  };
+}
+
+// ----------------------------------------------------------- sales summary
+export type SalesSummary = {
+  count: number;
+  gross: number; // Σ subtotal, before discounts
+  discounts: number;
+  net: number; // gross − discounts (tax excluded) — what profit is measured on
+  tax: number;
+  takings: number; // Σ total = net + tax — what went through the till
+};
+
+/**
+ * The single definition of "sales" for a period. Net sales is what P&L uses;
+ * takings is net + tax, i.e. what the customers were actually charged. Both come
+ * from here so the Sales page and the P&L can never show different figures.
+ */
+export async function salesSummary(
+  range: OpenRange,
+  branchId: string | null,
+  saleType?: SaleTypeKey,
+): Promise<SalesSummary> {
+  const agg = await prisma.sale.aggregate({
+    where: { ...saleWhere(range, branchId), ...(saleType ? { saleType } : {}) },
+    _sum: { subtotal: true, discount: true, tax: true, total: true },
+    _count: true,
+  });
+  const gross = agg._sum.subtotal ?? 0;
+  const discounts = agg._sum.discount ?? 0;
+  return {
+    count: agg._count,
+    gross,
+    discounts,
+    net: gross - discounts,
+    tax: agg._sum.tax ?? 0,
+    takings: agg._sum.total ?? 0,
+  };
+}
+
+export type SalesMixRow = { method: string; saleType: string; count: number; total: number; due: number };
+
+/** Sales rolled up by payment method × sale type (what was taken, what is still owed). */
+export async function salesMix(range: OpenRange, branchId: string | null): Promise<SalesMixRow[]> {
+  const rows = await prisma.sale.groupBy({
+    by: ['method', 'saleType'],
+    where: saleWhere(range, branchId),
+    _sum: { total: true, balanceDue: true },
+    _count: true,
+  });
+  return rows.map((r) => ({
+    method: r.method,
+    saleType: r.saleType,
+    count: r._count,
+    total: r._sum.total ?? 0,
+    due: r._sum.balanceDue ?? 0,
+  }));
 }
 
 function expenseWhere(range: DateRange, branchId: string | null): Prisma.ExpenseWhereInput {
@@ -81,11 +146,7 @@ export async function computeProfitLoss(range: DateRange, branchId: string | nul
   const byType = {} as Record<SaleTypeKey, SaleTypePnl>;
   for (const type of SALE_TYPES) {
     const where: Prisma.SaleWhereInput = { ...base, saleType: type };
-    const agg = await prisma.sale.aggregate({
-      where,
-      _sum: { subtotal: true, discount: true, tax: true },
-      _count: true,
-    });
+    const summary = await salesSummary(range, branchId, type);
 
     // Lines with a snapshot: group by (cost, product) and multiply in JS — Prisma
     // can't SUM(qty * unitCost) itself.
@@ -112,17 +173,14 @@ export async function computeProfitLoss(range: DateRange, branchId: string | nul
       }
     }
 
-    const gross = agg._sum.subtotal ?? 0;
-    const discounts = agg._sum.discount ?? 0;
-    const net = gross - discounts;
     byType[type] = {
-      count: agg._count,
-      gross,
-      discounts,
-      net,
-      tax: agg._sum.tax ?? 0,
+      count: summary.count,
+      gross: summary.gross,
+      discounts: summary.discounts,
+      net: summary.net,
+      tax: summary.tax,
       cogs,
-      grossProfit: net - cogs,
+      grossProfit: summary.net - cogs,
     };
   }
 

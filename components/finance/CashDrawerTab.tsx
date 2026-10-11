@@ -1,7 +1,8 @@
 'use client';
 
 import { money } from '@/lib/money';
-import type { FinanceData } from './types';
+import FloatTab from './FloatTab';
+import type { ProfitData } from './types';
 
 function Row({
   label, value, currency, sign, bold, hint,
@@ -21,35 +22,43 @@ function Row({
   );
 }
 
-export default function CashDrawerTab({ data }: { data: FinanceData }) {
+export default function CashDrawerTab({ data }: { data: ProfitData }) {
   const { drawer: d, currency } = data;
   return (
-    <div className="grid lg:grid-cols-[1fr_340px] gap-4 items-start">
-      <div className="card overflow-hidden">
-        <div className="px-4 py-3.5" style={{ borderBottom: '1px solid var(--color-line)' }}>
-          <div className="brand" style={{ fontSize: 17 }}>Cash that should be in the drawer</div>
+    <>
+      <div className="grid lg:grid-cols-[1fr_340px] gap-4 items-start">
+        <div className="card overflow-hidden">
+          <div className="px-4 py-3.5" style={{ borderBottom: '1px solid var(--color-line)' }}>
+            <div className="brand" style={{ fontSize: 17 }}>Cash that should be in the drawer</div>
+          </div>
+          <table className="table">
+            <tbody>
+              <Row label="Till float" value={d.float} currency={currency} hint="the fixed change fund in force at the end of the period" />
+              <Row label="Cash sales" value={d.cashSales} currency={currency} sign="+" hint="cash taken at the till" />
+              <Row label="Credit payments received in cash" value={d.cashSettlements} currency={currency} sign="+" />
+              <Row label="Expenses paid in cash" value={d.cashExpenses} currency={currency} sign="−" />
+              <Row label="Salaries paid in cash" value={d.cashSalaries} currency={currency} sign="−" />
+              <Row label="Petty cash" value={d.cashPettyCash} currency={currency} sign="−" />
+              <Row label="Expected cash in drawer" value={d.expected} currency={currency} bold />
+            </tbody>
+          </table>
         </div>
-        <table className="table">
-          <tbody>
-            <Row label="Till float" value={d.float} currency={currency} hint="the fixed change fund in force at the end of the period" />
-            <Row label="Cash sales" value={d.cashSales} currency={currency} sign="+" hint="cash taken at the till" />
-            <Row label="Credit payments received in cash" value={d.cashSettlements} currency={currency} sign="+" />
-            <Row label="Expenses paid in cash" value={d.cashExpenses} currency={currency} sign="−" />
-            <Row label="Salaries paid in cash" value={d.cashSalaries} currency={currency} sign="−" />
-            <Row label="Petty cash" value={d.cashPettyCash} currency={currency} sign="−" />
-            <Row label="Expected cash in drawer" value={d.expected} currency={currency} bold />
-          </tbody>
-        </table>
-      </div>
-      <div className="card p-4 text-[13px]" style={{ color: 'var(--color-muted)' }}>
-        <div className="brand mb-2" style={{ fontSize: 15 }}>How to use this</div>
-        Count the cash in the drawer and compare it with the expected amount. A gap means a missed entry, a wrong
-        change amount or cash that was banked — check the Expenses and Petty cash tabs for the period.
-        <div className="mt-2">
-          Card, bank-transfer and Koko money never goes in the drawer, so it is left out on both sides. Voided
-          entries are not counted.
+        <div className="card p-4 text-[13px]" style={{ color: 'var(--color-muted)' }}>
+          <div className="brand mb-2" style={{ fontSize: 15 }}>How to use this</div>
+          Count the cash in the drawer and compare it with the expected amount. A gap means a missed entry, a wrong
+          change amount or cash that was banked — check the Expenses &amp; Payroll page for the period.
+          <div className="mt-2">
+            Card, bank-transfer and Koko money never goes in the drawer, so it is left out on both sides. Voided
+            entries are not counted.
+          </div>
         </div>
       </div>
-    </div>
+
+      {/* The float is the same till: its setting and its history sit right here. */}
+      <div className="mt-8 no-print">
+        <div className="brand mb-3" style={{ fontSize: 17 }}>Till float</div>
+        <FloatTab data={data} />
+      </div>
+    </>
   );
 }

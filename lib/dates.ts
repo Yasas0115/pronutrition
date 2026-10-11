@@ -63,6 +63,22 @@ export function parseDay(ymd: string): Date | null {
   return Number.isFinite(t) ? new Date(t - OFFSET_MS) : null;
 }
 
+/**
+ * A report's From/To (`YYYY-MM-DD`, inclusive Sri Lanka days) from the page's
+ * query string. Missing or invalid ends default to month-to-date; a reversed
+ * pair is swapped. `range.to` is the last instant of the "to" day.
+ */
+export function resolveRange(
+  from: string | undefined,
+  to: string | undefined,
+  now = new Date(),
+): { fromDay: Date; toDay: Date; range: { from: Date; to: Date } } {
+  let fromDay = parseDay(from ?? '') ?? startOfMonth(now);
+  let toDay = parseDay(to ?? '') ?? startOfDay(now);
+  if (fromDay.getTime() > toDay.getTime()) [fromDay, toDay] = [toDay, fromDay];
+  return { fromDay, toDay, range: { from: fromDay, to: endOfDay(toDay) } };
+}
+
 export function fmtDateTime(d: Date | string): string {
   const date = typeof d === 'string' ? new Date(d) : d;
   return date.toLocaleString('en-LK', {

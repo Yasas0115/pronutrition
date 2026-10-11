@@ -15,6 +15,7 @@ import {
 } from '@/lib/branch';
 import { performCheckout, type Receipt } from '@/lib/checkout';
 import { DEFAULT_PAYMENT_METHODS } from '@/lib/payment-methods';
+import { revalidateAccounting } from '@/lib/revalidate';
 
 export type { Receipt } from '@/lib/checkout';
 
@@ -157,9 +158,8 @@ export async function checkoutAction(input: CheckoutInput): Promise<CheckoutResu
     });
     revalidatePath('/');
     revalidatePath('/products');
-    revalidatePath('/sales');
     revalidatePath('/customers');
-    revalidatePath('/accounts');
+    revalidateAccounting();
     return { ok: true, receipt };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'Checkout failed.' };

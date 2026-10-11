@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/db';
-import { requireSession } from '@/lib/auth';
+import { requireModule } from '@/lib/auth';
 
 export type SimpleResult = { ok: true } | { ok: false; error: string };
 export type DeleteCategoryResult =
@@ -18,7 +18,7 @@ function revalidateCatalog() {
 }
 
 export async function addCategory(name: string): Promise<SimpleResult> {
-  await requireSession();
+  await requireModule('categories');
   const n = (name ?? '').trim();
   if (!n) return { ok: false, error: 'Enter a category name.' };
   if (n.length > 40) return { ok: false, error: 'Category name is too long.' };
@@ -48,7 +48,7 @@ export async function renameCategory(
   id: string,
   name: string,
 ): Promise<SimpleResult> {
-  await requireSession();
+  await requireModule('categories');
   const n = (name ?? '').trim();
   if (!n) return { ok: false, error: 'Enter a category name.' };
 
@@ -85,7 +85,7 @@ export async function renameCategory(
 // (auto-created) so no product is left pointing at a name that no longer
 // exists in the pick-list. Returns how many products were moved.
 export async function deleteCategory(id: string): Promise<DeleteCategoryResult> {
-  await requireSession();
+  await requireModule('categories');
   try {
     const cat = await prisma.category.findUnique({ where: { id } });
     if (!cat) return { ok: false, error: 'Category not found.' };

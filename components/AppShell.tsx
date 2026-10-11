@@ -8,27 +8,12 @@ import type { ModuleKey, BranchLite } from '@/lib/modules';
 import { ALL_BRANCHES } from '@/lib/modules';
 import { logoutAction, switchBranchAction } from '@/app/actions';
 import { requestOwnPasswordChange } from '@/app/password/actions';
+import { buildNav, isActivePath, type NavIcon, type NavItem } from '@/lib/nav';
 import ThemeToggle from './ThemeToggle';
 import FullscreenToggle from './FullscreenToggle';
 import { toast } from './toast';
 
-type IconName =
-  | 'pos'
-  | 'products'
-  | 'stock'
-  | 'tag'
-  | 'store'
-  | 'reports'
-  | 'sales'
-  | 'accounts'
-  | 'customer'
-  | 'key'
-  | 'settings'
-  | 'branch'
-  | 'users'
-  | 'logout'
-  | 'chevron'
-  | 'menu';
+type IconName = NavIcon | 'key' | 'logout' | 'chevron' | 'menu';
 
 function Icon({ name, className }: { name: IconName; className?: string }) {
   const common = {
@@ -77,14 +62,38 @@ function Icon({ name, className }: { name: IconName; className?: string }) {
           <path d="M9 20v-6h6v6" />
         </>
       )}
-      {name === 'reports' && (
+      {name === 'receipt' && (
         <>
-          <rect x="3" y="3" width="7" height="9" rx="1" />
-          <rect x="14" y="3" width="7" height="5" rx="1" />
-          <rect x="14" y="12" width="7" height="9" rx="1" />
-          <rect x="3" y="16" width="7" height="5" rx="1" />
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+          <polyline points="14 2 14 8 20 8" />
+          <line x1="16" y1="13" x2="8" y2="13" />
+          <line x1="16" y1="17" x2="8" y2="17" />
         </>
       )}
+      {name === 'wallet' && (
+        <>
+          <path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4" />
+          <path d="M4 6v12c0 1.1.9 2 2 2h14v-4" />
+          <path d="M18 12a2 2 0 0 0-2 2c0 1.1.9 2 2 2h4v-4h-4z" />
+        </>
+      )}
+      {name === 'trend' && (
+        <>
+          <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
+          <polyline points="17 6 23 6 23 12" />
+        </>
+      )}
+      {name === 'list' && (
+        <>
+          <line x1="8" y1="6" x2="21" y2="6" />
+          <line x1="8" y1="12" x2="21" y2="12" />
+          <line x1="8" y1="18" x2="21" y2="18" />
+          <line x1="3" y1="6" x2="3.01" y2="6" />
+          <line x1="3" y1="12" x2="3.01" y2="12" />
+          <line x1="3" y1="18" x2="3.01" y2="18" />
+        </>
+      )}
+      {name === 'shield' && <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />}
       {name === 'sales' && (
         <>
           <line x1="12" y1="20" x2="12" y2="10" />
@@ -208,51 +217,12 @@ export default function AppShell({
   const roleLabel = role.charAt(0) + role.slice(1).toLowerCase();
   const initial = (username.trim()[0] || '?').toUpperCase();
 
-  const isActive = (href: string) =>
-    href === '/' ? pathname === '/' : pathname.startsWith(href);
+  const isActive = (href: string) => isActivePath(pathname, href);
 
   // Sidebar as an admin-style treeview: top-level links + collapsible groups
-  // whose children expand/collapse beneath the parent.
-  type NavChild = { href: string; label: string; icon: IconName };
-  type NavItem =
-    | { kind: 'link'; href: string; label: string; icon: IconName }
-    | { kind: 'group'; key: string; label: string; icon: IconName; children: NavChild[] };
-
-  const storeChildren: NavChild[] = [
-    ...(has('categories') ? [{ href: '/categories', label: 'Categories', icon: 'tag' as const }] : []),
-    // Products & Stock are one page now; show it if the person has either grant.
-    ...(has('products') || has('stock')
-      ? [{ href: '/products', label: 'Products & Stock', icon: 'stock' as const }]
-      : []),
-  ];
-
-  const menu: NavItem[] = [
-    ...(has('pos') ? [{ kind: 'link' as const, href: '/', label: 'Point of Sale', icon: 'pos' as const }] : []),
-    ...(storeChildren.length
-      ? [{ kind: 'group' as const, key: 'store', label: 'Store', icon: 'store' as const, children: storeChildren }]
-      : []),
-    ...(has('reports')
-      ? [{ kind: 'link' as const, href: '/sales', label: 'Sales & Reports', icon: 'sales' as const }]
-      : []),
-    ...(has('customers')
-      ? [{ kind: 'link' as const, href: '/customers', label: 'Customers', icon: 'customer' as const }]
-      : []),
-    ...(has('finance')
-      ? [
-          { kind: 'link' as const, href: '/accounts', label: 'Accounts', icon: 'accounts' as const },
-          { kind: 'link' as const, href: '/finance', label: 'Profit & Expenses', icon: 'reports' as const },
-        ]
-      : []),
-    ...(has('branches')
-      ? [{ kind: 'link' as const, href: '/branches', label: 'Branches', icon: 'branch' as const }]
-      : []),
-    ...(has('users')
-      ? [{ kind: 'link' as const, href: '/users', label: 'Staff', icon: 'users' as const }]
-      : []),
-    ...(has('settings')
-      ? [{ kind: 'link' as const, href: '/settings', label: 'Settings', icon: 'settings' as const }]
-      : []),
-  ];
+  // whose children expand/collapse beneath the parent. The tree itself (and who
+  // sees what) is lib/nav.ts.
+  const menu = buildNav(has);
 
   // Which group contains the current route — keep it expanded.
   const activeGroup = menu.find(

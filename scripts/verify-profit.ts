@@ -6,7 +6,7 @@ import { prisma } from '../lib/db';
 import { performCheckout } from '../lib/checkout';
 import { settleCustomerPayment } from '../lib/credit';
 import { addExpense, voidExpense, paySalary, voidSalaryPayment, setBranchFloat } from '../lib/finance';
-import { computeProfitLoss, computeCashDrawer, floatAt } from '../lib/reports';
+import { computeProfitLoss, computeCashDrawer, floatAt, salesSummary, salesMix } from '../lib/reports';
 import { startOfDay, endOfDay, todayStr } from '../lib/dates';
 import { setupFixtures, assert, rejects, failureCount } from './fixtures';
 
@@ -64,6 +64,19 @@ async function main() {
       `wholesale: net 42,000 · gross 12,000 (got ${pl.byType.WHOLESALE.net}/${pl.byType.WHOLESALE.grossProfit})`);
     assert(pl.estimatedLines === 1, `the pre-snapshot line is flagged as estimated (got ${pl.estimatedLines})`);
     assert(pl.expenses.total === 0 && pl.netProfit === 14130, 'no expenses yet → net profit equals gross profit');
+
+    // The Sales page and the P&L read the same definition (lib/reports.salesSummary).
+    console.log('\n▶ Sales summary = P&L net sales; takings = net + tax');
+    const sum = await salesSummary(range, f.branch.id);
+    assert(sum.net === pl.sales.net && sum.count === pl.sales.count, `Sales net ${sum.net} = P&L net sales ${pl.sales.net}`);
+    assert(sum.takings === sum.net + sum.tax, `takings ${sum.takings} = net ${sum.net} + tax ${sum.tax}`);
+    const retailSum = await salesSummary(range, f.branch.id, 'RETAIL');
+    assert(retailSum.net === pl.byType.RETAIL.net && retailSum.count === pl.byType.RETAIL.count, 'retail slice matches the P&L retail line');
+    assert((await salesSummary(null, f.branch.id)).count === 5, 'an open range (all time) counts all 5 sales');
+    assert((await salesSummary({ from: new Date(Date.now() + 86_400_000) }, f.branch.id)).count === 0, 'a range in the future counts nothing');
+    const mix = await salesMix(range, f.branch.id);
+    assert(mix.reduce((n, r) => n + r.total, 0) === sum.takings, 'sales mix (method × type) adds up to the takings');
+    assert(mix.reduce((n, r) => n + r.due, 0) === 0, 'the credit sale was settled, so nothing is still owed in the mix');
 
     // ------------------------------------------------- expense validation
     console.log('\n▶ Expense rules');

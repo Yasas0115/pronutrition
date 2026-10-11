@@ -18,7 +18,7 @@ type Branch = {
   units: number;
 };
 
-export default function BranchesView({ branches }: { branches: Branch[]; currency: string }) {
+export default function BranchesView({ branches }: { branches: Branch[] }) {
   const router = useRouter();
   const [editing, setEditing] = useState<Branch | null>(null);
   const [creating, setCreating] = useState(false);

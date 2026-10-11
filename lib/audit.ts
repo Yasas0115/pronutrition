@@ -42,6 +42,48 @@ export async function logAudit(db: Db, e: AuditEntry): Promise<void> {
   });
 }
 
+// One activity-log line as the Accounting › Activity log shows it: the stored
+// before/after JSON turned into "field: from → to" rows.
+export type AuditRow = {
+  id: string;
+  entity: string;
+  action: string;
+  summary: string;
+  userName: string | null;
+  createdAt: string;
+  changes: { field: string; from: string; to: string }[];
+};
+
+function parseSnapshot(s: string | null): Record<string, unknown> {
+  if (!s) return {};
+  try {
+    const v = JSON.parse(s);
+    return v && typeof v === 'object' ? (v as Record<string, unknown>) : {};
+  } catch {
+    return {};
+  }
+}
+
+const shown = (v: unknown) => (v === undefined || v === null || v === '' ? '—' : String(v));
+
+export async function loadAudit(db: Db, limit = 200): Promise<AuditRow[]> {
+  const rows = await db.auditLog.findMany({ orderBy: { createdAt: 'desc' }, take: limit });
+  return rows.map((a) => {
+    const before = parseSnapshot(a.before);
+    const after = parseSnapshot(a.after);
+    const fields = Array.from(new Set([...Object.keys(before), ...Object.keys(after)]));
+    return {
+      id: a.id,
+      entity: a.entity,
+      action: a.action,
+      summary: a.summary,
+      userName: a.userName,
+      createdAt: a.createdAt.toISOString(),
+      changes: fields.map((f) => ({ field: f, from: shown(before[f]), to: shown(after[f]) })),
+    };
+  });
+}
+
 // Returns only the keys whose value differs, as { before, after } — so an audit
 // row records what actually changed instead of the whole record.
 export function diffFields<T extends Record<string, unknown>>(

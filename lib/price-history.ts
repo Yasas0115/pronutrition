@@ -13,6 +13,40 @@ export const PRICE_SOURCE_LABELS: Record<PriceChangeSource, string> = {
   RESTOCK: 'Stock received',
 };
 
+// Serialisable shape of one ledger row, as the Price history table shows it.
+export type PriceHistoryRow = {
+  id: string;
+  productName: string;
+  source: string;
+  oldPrice: number;
+  newPrice: number;
+  oldCost: number;
+  newCost: number;
+  onHandUnits: number;
+  note: string | null;
+  userName: string | null;
+  createdAt: string;
+};
+
+// Newest-first price ledger. Takes the db client (like recordPriceChange) so this
+// file stays free of the Prisma singleton and safe for client components to import.
+export async function loadPriceHistory(db: Db, limit = 200): Promise<PriceHistoryRow[]> {
+  const rows = await db.productPriceHistory.findMany({ orderBy: { createdAt: 'desc' }, take: limit });
+  return rows.map((h) => ({
+    id: h.id,
+    productName: h.productName,
+    source: h.source,
+    oldPrice: h.oldPrice,
+    newPrice: h.newPrice,
+    oldCost: h.oldCost,
+    newCost: h.newCost,
+    onHandUnits: h.onHandUnits,
+    note: h.note,
+    userName: h.userName,
+    createdAt: h.createdAt.toISOString(),
+  }));
+}
+
 export async function recordPriceChange(
   db: Db,
   c: {

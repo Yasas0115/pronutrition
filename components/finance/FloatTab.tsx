@@ -7,9 +7,9 @@ import { fmtDateTime } from '@/lib/dates';
 import Modal from '../Modal';
 import { toast } from '../toast';
 import { setFloatAction } from '@/app/finance/actions';
-import type { FinanceData, FloatRow } from './types';
+import type { ProfitData, FloatRow } from './types';
 
-export default function FloatTab({ data }: { data: FinanceData }) {
+export default function FloatTab({ data }: { data: ProfitData }) {
   const router = useRouter();
   const { currency, floats, floatHistory, pinnedBranchId } = data;
   const [editing, setEditing] = useState<FloatRow | null>(null);

@@ -10,11 +10,14 @@ export default function ReceiptModal({
   currency,
   store,
   onClose,
+  closeLabel = 'New sale',
 }: {
   receipt: Receipt;
   currency: string;
   store: { name: string; phone: string | null; address: string | null; note: string | null };
   onClose: () => void;
+  /** Text of the dismiss button — "New sale" at the till, "Close" when re-opening an old receipt. */
+  closeLabel?: string;
 }) {
   const print = () => {
     const w = window.open('', 'receipt', 'width=380,height=640');
@@ -73,7 +76,7 @@ export default function ReceiptModal({
       maxWidth={420}
       footer={
         <>
-          <button className="btn btn-ghost" onClick={onClose}>New sale</button>
+          <button className="btn btn-ghost" onClick={onClose}>{closeLabel}</button>
           <button className="btn btn-primary" onClick={print}>Print receipt</button>
         </>
       }

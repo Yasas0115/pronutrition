@@ -8,9 +8,8 @@ export const dynamic = 'force-dynamic';
 
 export default async function BranchesPage() {
   const session = await requireModule('branches');
-  const [shell, store, branches] = await Promise.all([
+  const [shell, branches] = await Promise.all([
     getShellProps(session),
-    prisma.store.findFirst({ select: { currency: true } }),
     prisma.branch.findMany({
       orderBy: [{ active: 'desc' }, { createdAt: 'asc' }],
       include: {
@@ -34,7 +33,7 @@ export default async function BranchesPage() {
 
   return (
     <AppShell {...shell}>
-      <BranchesView branches={items} currency={store?.currency ?? 'Rs'} />
+      <BranchesView branches={items} />
     </AppShell>
   );
 }
