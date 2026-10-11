@@ -5,6 +5,7 @@ import { prisma } from '@/lib/db';
 import { requireModule } from '@/lib/auth';
 import { hashPassword } from '@/lib/password';
 import { STAFF_MODULES, type ModuleKey } from '@/lib/modules';
+import { logAudit, diffFields } from '@/lib/audit';
 
 export type UserInput = {
   id?: string;
@@ -32,7 +33,8 @@ function revalidateUsers() {
 }
 
 export async function saveUser(input: UserInput): Promise<UserResult> {
-  await requireModule('users');
+  const session = await requireModule('users');
+  const actor = { userId: session.userId, userName: session.name };
   const name = input.name.trim();
   const email = input.email.trim().toLowerCase();
   if (!email) return { ok: false, error: 'Email is required.' };
@@ -60,15 +62,41 @@ export async function saveUser(input: UserInput): Promise<UserResult> {
         if (input.password.length < 6) return { ok: false, error: 'Password must be at least 6 characters.' };
         data.passwordHash = hashPassword(input.password);
       }
+      const current = await prisma.user.findUnique({
+        where: { id: input.id },
+        select: { name: true, email: true, role: true, title: true, modules: true, branchId: true },
+      });
       // Never leave the company without an owner (demoting the last owner).
-      if (!isOwner) {
-        const current = await prisma.user.findUnique({ where: { id: input.id }, select: { role: true } });
-        if (current?.role === 'OWNER') {
-          const owners = await prisma.user.count({ where: { role: 'OWNER' } });
-          if (owners <= 1) return { ok: false, error: 'There must be at least one owner.' };
-        }
+      if (!isOwner && current?.role === 'OWNER') {
+        const owners = await prisma.user.count({ where: { role: 'OWNER' } });
+        if (owners <= 1) return { ok: false, error: 'There must be at least one owner.' };
       }
       const u = await prisma.user.update({ where: { id: input.id }, data });
+
+      if (current) {
+        const pick = (x: { name: string | null; email: string; role: string; title: string | null; modules: string; branchId: string | null }) => ({
+          name: x.name, email: x.email, role: x.role, title: x.title, modules: x.modules, branchId: x.branchId,
+        });
+        const { before, after, changed } = diffFields(pick(current), pick(u));
+        const afterOut: Record<string, unknown> = { ...after };
+        if (typeof data.passwordHash === 'string') {
+          // Never store the hash — just the fact that it happened.
+          afterOut.password = '(changed)';
+          changed.push('password');
+        }
+        if (changed.length > 0) {
+          const access = changed.some((f) => ['role', 'modules', 'branchId'].includes(f));
+          await logAudit(prisma, {
+            entity: 'USER',
+            entityId: u.id,
+            action: access ? 'ACCESS_CHANGE' : 'UPDATE',
+            summary: `Edited staff “${u.name || u.email}” — changed ${changed.join(', ')}`,
+            before,
+            after: afterOut,
+            ...actor,
+          });
+        }
+      }
       revalidateUsers();
       return { ok: true, id: u.id };
     }
@@ -87,6 +115,14 @@ export async function saveUser(input: UserInput): Promise<UserResult> {
         passwordHash: hashPassword(input.password),
       },
     });
+    await logAudit(prisma, {
+      entity: 'USER',
+      entityId: u.id,
+      action: 'CREATE',
+      summary: `Added ${u.role === 'OWNER' ? 'owner' : 'staff'} “${u.name || u.email}”`,
+      after: { email: u.email, role: u.role, title: u.title, modules: u.modules, branchId: u.branchId },
+      ...actor,
+    });
     revalidateUsers();
     return { ok: true, id: u.id };
   } catch {
@@ -104,8 +140,17 @@ export async function deleteUser(id: string): Promise<SimpleResult> {
       const owners = await prisma.user.count({ where: { role: 'OWNER' } });
       if (owners <= 1) return { ok: false, error: 'There must be at least one owner.' };
     }
+    const gone = await prisma.user.findUnique({ where: { id }, select: { name: true, email: true } });
     // Sales keep their cashier name snapshot; cashierId is set null on delete.
     await prisma.user.delete({ where: { id } });
+    await logAudit(prisma, {
+      entity: 'USER',
+      entityId: id,
+      action: 'DELETE',
+      summary: `Deleted staff “${gone?.name || gone?.email || id}”`,
+      userId: session.userId,
+      userName: session.name,
+    });
     revalidateUsers();
     return { ok: true };
   } catch {

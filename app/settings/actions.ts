@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/db';
 import { requireOwner } from '@/lib/auth';
 import { parseModules } from '@/lib/branch';
+import { logAudit, diffFields } from '@/lib/audit';
 
 export type StoreInput = {
   name: string;
@@ -18,7 +19,7 @@ export type StoreInput = {
 export type StoreResult = { ok: true } | { ok: false; error: string };
 
 export async function saveStore(input: StoreInput): Promise<StoreResult> {
-  await requireOwner();
+  const session = await requireOwner();
   const name = input.name.trim();
   if (!name) return { ok: false, error: 'Store name is required.' };
   if (input.logoUrl && input.logoUrl.length > 700_000) {
@@ -37,8 +38,30 @@ export async function saveStore(input: StoreInput): Promise<StoreResult> {
 
   try {
     const existing = await prisma.store.findFirst();
-    if (existing) await prisma.store.update({ where: { id: existing.id }, data });
-    else await prisma.store.create({ data: data as never });
+    if (existing) {
+      const saved = await prisma.store.update({ where: { id: existing.id }, data });
+      const pick = (s: typeof existing) => ({
+        name: s.name, currency: s.currency, phone: s.phone, address: s.address,
+        receiptNote: s.receiptNote, taxPercent: s.taxPercent,
+        // The logo is a big data: URL — log only that it changed, not the bytes.
+        logo: s.logoUrl ? 'set' : 'none',
+      });
+      const { before, after, changed } = diffFields(pick(existing), pick(saved));
+      if (changed.length > 0) {
+        await logAudit(prisma, {
+          entity: 'SETTINGS',
+          entityId: existing.id,
+          action: 'UPDATE',
+          summary: `Changed store settings — ${changed.join(', ')}`,
+          before,
+          after,
+          userId: session.userId,
+          userName: session.name,
+        });
+      }
+    } else {
+      await prisma.store.create({ data: data as never });
+    }
 
     revalidatePath('/settings');
     revalidatePath('/');
@@ -53,6 +76,8 @@ export async function saveStore(input: StoreInput): Promise<StoreResult> {
 // ---------- Enabled modules ----------
 export async function saveModules(modules: string[]): Promise<StoreResult> {
   await requireOwner();
+  // (Module switches are not audited: access is controlled per user, and those
+  // edits are logged from the Staff page.)
   const enabled = Array.from(parseModules(modules.join(','))).join(',');
   try {
     const existing = await prisma.store.findFirst();
@@ -69,16 +94,33 @@ export async function saveModules(modules: string[]): Promise<StoreResult> {
 export type PaymentMethodInput = { key: string; label: string; discountPercent: number };
 
 export async function savePaymentMethods(list: PaymentMethodInput[]): Promise<StoreResult> {
-  await requireOwner();
+  const session = await requireOwner();
   try {
     for (const m of list) {
-      await prisma.paymentMethod.update({
+      const prev = await prisma.paymentMethod.findUnique({
         where: { key: m.key },
-        data: {
-          label: m.label.trim() || m.key,
-          discountPercent: Math.max(0, Math.min(100, Math.round(m.discountPercent || 0))),
-        },
+        select: { label: true, discountPercent: true },
       });
+      const next = {
+        label: m.label.trim() || m.key,
+        discountPercent: Math.max(0, Math.min(100, Math.round(m.discountPercent || 0))),
+      };
+      await prisma.paymentMethod.update({ where: { key: m.key }, data: next });
+      if (prev) {
+        const { before, after, changed } = diffFields(prev, next);
+        if (changed.length > 0) {
+          await logAudit(prisma, {
+            entity: 'SETTINGS',
+            entityId: m.key,
+            action: 'UPDATE',
+            summary: `Changed payment method ${m.key} — ${changed.join(', ')}`,
+            before,
+            after,
+            userId: session.userId,
+            userName: session.name,
+          });
+        }
+      }
     }
     revalidatePath('/settings');
     revalidatePath('/');

@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/db';
 import { requireOwner } from '@/lib/auth';
+import { logAudit, diffFields } from '@/lib/audit';
 
 export type BranchInput = {
   id?: string;
@@ -35,7 +36,8 @@ async function seedBranchStock(branchId: string) {
 }
 
 export async function saveBranch(input: BranchInput): Promise<BranchResult> {
-  await requireOwner();
+  const session = await requireOwner();
+  const actor = { userId: session.userId, userName: session.name };
   const name = input.name.trim();
   if (!name) return { ok: false, error: 'Branch name is required.' };
 
@@ -58,12 +60,41 @@ export async function saveBranch(input: BranchInput): Promise<BranchResult> {
 
   try {
     if (input.id) {
+      const prev = await prisma.branch.findUnique({
+        where: { id: input.id },
+        select: { name: true, code: true, phone: true, address: true, active: true },
+      });
       const b = await prisma.branch.update({ where: { id: input.id }, data });
+      if (prev) {
+        const { before, after, changed } = diffFields(prev, {
+          name: b.name, code: b.code, phone: b.phone, address: b.address, active: b.active,
+        });
+        if (changed.length > 0) {
+          await logAudit(prisma, {
+            entity: 'BRANCH',
+            entityId: b.id,
+            action: 'UPDATE',
+            summary: `Edited branch “${b.name}” — changed ${changed.join(', ')}`,
+            before,
+            after,
+            branchId: b.id,
+            ...actor,
+          });
+        }
+      }
       revalidateAll();
       return { ok: true, id: b.id };
     }
     const b = await prisma.branch.create({ data });
     await seedBranchStock(b.id);
+    await logAudit(prisma, {
+      entity: 'BRANCH',
+      entityId: b.id,
+      action: 'CREATE',
+      summary: `Opened branch “${b.name}”`,
+      branchId: b.id,
+      ...actor,
+    });
     revalidateAll();
     return { ok: true, id: b.id };
   } catch {
@@ -77,8 +108,9 @@ export async function saveBranch(input: BranchInput): Promise<BranchResult> {
 // it is deleted regardless: its stock rows and movements cascade away, sales keep
 // their branchName snapshot with branchId set null, and staff are unpinned.
 export async function deleteBranch(id: string, force = false): Promise<SimpleResult> {
-  await requireOwner();
+  const session = await requireOwner();
   try {
+    const gone = await prisma.branch.findUnique({ where: { id }, select: { name: true } });
     if (!force) {
       const [sales, units, users] = await Promise.all([
         prisma.sale.count({ where: { branchId: id } }),
@@ -96,6 +128,14 @@ export async function deleteBranch(id: string, force = false): Promise<SimpleRes
       }
     }
     await prisma.branch.delete({ where: { id } }); // cascades BranchStock + movements; nulls Sale/User
+    await logAudit(prisma, {
+      entity: 'BRANCH',
+      entityId: id,
+      action: 'DELETE',
+      summary: `Deleted branch “${gone?.name ?? id}”${force ? ' (forced)' : ''}`,
+      userId: session.userId,
+      userName: session.name,
+    });
     revalidateAll();
     return { ok: true };
   } catch {
@@ -104,9 +144,20 @@ export async function deleteBranch(id: string, force = false): Promise<SimpleRes
 }
 
 export async function setBranchActive(id: string, active: boolean): Promise<SimpleResult> {
-  await requireOwner();
+  const session = await requireOwner();
   try {
-    await prisma.branch.update({ where: { id }, data: { active } });
+    const b = await prisma.branch.update({ where: { id }, data: { active } });
+    await logAudit(prisma, {
+      entity: 'BRANCH',
+      entityId: id,
+      action: 'UPDATE',
+      summary: `${active ? 'Re-opened' : 'Closed'} branch “${b.name}”`,
+      before: { active: !active },
+      after: { active },
+      branchId: id,
+      userId: session.userId,
+      userName: session.name,
+    });
     revalidateAll();
     return { ok: true };
   } catch {

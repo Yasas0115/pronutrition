@@ -7,9 +7,10 @@ import { fmtDateTime } from '@/lib/dates';
 import { MOVEMENT_LABELS, type MovementType } from '@/lib/stock';
 import ProductModal, { type ProductRow } from './ProductModal';
 import StockStepper from './StockStepper';
+import PriceHistoryTable, { type PriceHistoryRow } from './PriceHistoryTable';
 import Modal from './Modal';
 import { toast } from './toast';
-import { transferStock } from '@/app/stock/actions';
+import { transferStock, receiveStock } from '@/app/stock/actions';
 
 export type PerBranch = { branchId: string; branchName: string; stock: number; lowStockAt: number };
 
@@ -30,10 +31,49 @@ export type MovementRow = {
 
 type BranchOpt = { id: string; name: string; active: boolean };
 type StockFilter = 'all' | 'low' | 'out';
+type Tab = 'catalogue' | 'stock' | 'movements' | 'prices';
+
+// Product thumbnail + name + brand/flavor/sku line (+ per-branch chips on the
+// "All branches" view). Shared by the Catalogue and Stock tables.
+function ProductCell({ p, allBranches }: { p: StockProduct; allBranches: boolean }) {
+  return (
+    <span className="flex items-center gap-3 text-left">
+      <span className="relative grid place-items-center rounded-lg shrink-0 overflow-hidden" style={{ width: 40, height: 40, background: 'var(--color-ink-1)', border: '1px solid var(--color-line-2)' }}>
+        {p.imageUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={p.imageUrl} alt="" style={{ width: 40, height: 40, objectFit: 'cover' }} />
+        ) : (
+          <span style={{ fontSize: 11, color: 'var(--color-faint)' }}>{p.name[0]?.toUpperCase() ?? '?'}</span>
+        )}
+        {p.images.length > 1 && (
+          <span className="absolute bottom-0 right-0 num" style={{ fontSize: 9, lineHeight: 1, padding: '1px 3px', color: '#fff', background: 'var(--color-brand)', borderTopLeftRadius: 4 }}>+{p.images.length - 1}</span>
+        )}
+      </span>
+      <span>
+        <span className="block text-strong font-semibold">{p.name}</span>
+        <span className="block text-[12px]" style={{ color: 'var(--color-muted)' }}>
+          {[p.brand, p.flavor, p.sku].filter(Boolean).join(' · ') || '—'}
+          {!p.active && ' · inactive'}
+        </span>
+        {allBranches && p.perBranch.length > 0 && (
+          <span className="flex flex-wrap gap-1 mt-1">
+            {p.perBranch.map((b) => (
+              <span key={b.branchId} className="chip" style={{ cursor: 'default', fontSize: 10, padding: '1px 7px' }} title={b.branchName}>
+                {b.branchName}: <b style={{ color: b.stock <= 0 ? 'var(--color-brand)' : b.stock <= b.lowStockAt ? 'var(--color-warn)' : 'var(--color-strong)' }}>{b.stock}</b>
+              </span>
+            ))}
+          </span>
+        )}
+      </span>
+    </span>
+  );
+}
 
 export default function ProductsStockView({
   products,
   history,
+  priceHistory = [],
+  canSeeCost = false,
   currency,
   categories: catList = [],
   branches,
@@ -46,6 +86,8 @@ export default function ProductsStockView({
 }: {
   products: StockProduct[];
   history: MovementRow[];
+  priceHistory?: PriceHistoryRow[];
+  canSeeCost?: boolean;
   currency: string;
   categories?: string[];
   branches: BranchOpt[];
@@ -57,7 +99,7 @@ export default function ProductsStockView({
   canManageStock: boolean;
 }) {
   const router = useRouter();
-  const [tab, setTab] = useState<'catalogue' | 'movements'>('catalogue');
+  const [tab, setTab] = useState<Tab>('catalogue');
   const [query, setQuery] = useState('');
   const [cat, setCat] = useState('All');
   const [stockFilter, setStockFilter] = useState<StockFilter>('all');
@@ -65,6 +107,7 @@ export default function ProductsStockView({
   const [editing, setEditing] = useState<ProductRow | null>(null);
   const [creating, setCreating] = useState(false);
   const [transferOpen, setTransferOpen] = useState(false);
+  const [receiving, setReceiving] = useState<StockProduct | null>(null);
 
   const activeBranches = branches.filter((b) => b.active);
   const stockEditable = canManageStock && !allBranches;
@@ -96,14 +139,16 @@ export default function ProductsStockView({
   const active = products.filter((p) => p.active);
   const lowCount = active.filter((p) => p.stock > 0 && p.stock <= p.lowStockAt).length;
   const outCount = active.filter((p) => p.stock <= 0).length;
-  const retailValue = active.reduce((s, p) => s + p.price * p.stock, 0);
 
   function refresh() {
     setEditing(null);
     setCreating(false);
     setTransferOpen(false);
+    setReceiving(null);
     router.refresh();
   }
+
+  const listTab = tab === 'catalogue' || tab === 'stock';
 
   return (
     <>
@@ -127,8 +172,8 @@ export default function ProductsStockView({
         </div>
       </div>
 
-      {/* KPI tiles */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+      {/* KPI tiles — counts only. Stock value / prices live in Accounts. */}
+      <div className="grid grid-cols-3 gap-3 mb-5">
         <div className="stat">
           <div className="stat__label">Active products</div>
           <div className="stat__value">{active.length}</div>
@@ -141,21 +186,21 @@ export default function ProductsStockView({
           <div className="stat__label">Out of stock</div>
           <div className="stat__value" style={{ color: outCount ? 'var(--color-brand)' : undefined }}>{outCount}</div>
         </div>
-        <div className="stat">
-          <div className="stat__label">Stock value (retail)</div>
-          <div className="stat__value accent">{money(retailValue, currency)}</div>
-        </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 mb-4">
+      <div className="flex flex-wrap gap-2 mb-4">
         <button className="chip" data-active={tab === 'catalogue' || undefined} onClick={() => setTab('catalogue')}>Catalogue</button>
+        <button className="chip" data-active={tab === 'stock' || undefined} onClick={() => setTab('stock')}>Stock</button>
         {canManageStock && (
           <button className="chip" data-active={tab === 'movements' || undefined} onClick={() => setTab('movements')}>Movements</button>
         )}
+        {canSeeCost && (
+          <button className="chip" data-active={tab === 'prices' || undefined} onClick={() => setTab('prices')}>Price history</button>
+        )}
       </div>
 
-      {tab === 'catalogue' ? (
+      {listTab && (
         <>
           <div className="mb-4">
             <input
@@ -176,83 +221,112 @@ export default function ProductsStockView({
             </div>
           </div>
 
-          <div className="card overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Product</th>
-                    <th>Category</th>
-                    <th className="text-right">Price</th>
-                    <th className="text-center">Stock</th>
-                    <th className="text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.length === 0 ? (
-                    <tr><td colSpan={5} className="text-center" style={{ color: 'var(--color-faint)', padding: 40 }}>No products found.</td></tr>
-                  ) : (
-                    filtered.map((p) => {
-                      const out = p.stock <= 0;
-                      const low = !out && p.stock <= p.lowStockAt;
-                      const color = out ? 'var(--color-brand)' : low ? 'var(--color-warn)' : 'var(--color-strong)';
-                      return (
-                        <tr key={p.id} style={{ opacity: p.active ? 1 : 0.5 }}>
-                          <td>
-                            <button className="text-left flex items-center gap-3" onClick={() => canEditProducts && setEditing(p)} disabled={!canEditProducts}>
-                              <span className="relative grid place-items-center rounded-lg shrink-0 overflow-hidden" style={{ width: 40, height: 40, background: 'var(--color-ink-1)', border: '1px solid var(--color-line-2)' }}>
-                                {p.imageUrl ? (
-                                  // eslint-disable-next-line @next/next/no-img-element
-                                  <img src={p.imageUrl} alt="" style={{ width: 40, height: 40, objectFit: 'cover' }} />
-                                ) : (
-                                  <span style={{ fontSize: 11, color: 'var(--color-faint)' }}>{p.name[0]?.toUpperCase() ?? '?'}</span>
-                                )}
-                                {p.images.length > 1 && (
-                                  <span className="absolute bottom-0 right-0 num" style={{ fontSize: 9, lineHeight: 1, padding: '1px 3px', color: '#fff', background: 'var(--color-brand)', borderTopLeftRadius: 4 }}>+{p.images.length - 1}</span>
-                                )}
-                              </span>
-                              <span>
-                                <span className="block text-strong font-semibold">{p.name}</span>
-                                <span className="block text-[12px]" style={{ color: 'var(--color-muted)' }}>
-                                  {[p.brand, p.flavor, p.sku].filter(Boolean).join(' · ') || '—'}
-                                  {!p.active && ' · inactive'}
-                                </span>
-                                {allBranches && p.perBranch.length > 0 && (
-                                  <span className="flex flex-wrap gap-1 mt-1">
-                                    {p.perBranch.map((b) => (
-                                      <span key={b.branchId} className="chip" style={{ cursor: 'default', fontSize: 10, padding: '1px 7px' }} title={b.branchName}>
-                                        {b.branchName}: <b style={{ color: b.stock <= 0 ? 'var(--color-brand)' : b.stock <= b.lowStockAt ? 'var(--color-warn)' : 'var(--color-strong)' }}>{b.stock}</b>
-                                      </span>
-                                    ))}
-                                  </span>
-                                )}
-                              </span>
-                            </button>
-                          </td>
-                          <td><span className="chip" style={{ cursor: 'default' }}>{p.category}</span></td>
-                          <td className="text-right num text-strong font-semibold">{money(p.price, currency)}</td>
-                          <td>
-                            {stockEditable ? (
-                              <StockStepper id={p.id} value={p.stock} lowStockAt={p.lowStockAt} />
-                            ) : (
-                              <div className="text-center num font-semibold" style={{ color }} title={allBranches ? 'Total across branches' : undefined}>{fmt(p.stock)}</div>
+          {tab === 'catalogue' ? (
+            /* CATALOGUE — product details and prices. Retail price for everyone
+               who can open this page; buying price only for finance. */
+            <div className="card overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Product</th>
+                      <th>Category</th>
+                      <th className="text-right">Retail price</th>
+                      {canSeeCost && <th className="text-right">Buying price</th>}
+                      <th className="text-center">In stock</th>
+                      <th className="text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.length === 0 ? (
+                      <tr><td colSpan={canSeeCost ? 6 : 5} className="text-center" style={{ color: 'var(--color-faint)', padding: 40 }}>No products found.</td></tr>
+                    ) : (
+                      filtered.map((p) => {
+                        const out = p.stock <= 0;
+                        const low = !out && p.stock <= p.lowStockAt;
+                        const color = out ? 'var(--color-brand)' : low ? 'var(--color-warn)' : 'var(--color-strong)';
+                        return (
+                          <tr key={p.id} style={{ opacity: p.active ? 1 : 0.5 }}>
+                            <td>
+                              <button className="text-left" onClick={() => canEditProducts && setEditing(p)} disabled={!canEditProducts}>
+                                <ProductCell p={p} allBranches={allBranches} />
+                              </button>
+                            </td>
+                            <td><span className="chip" style={{ cursor: 'default' }}>{p.category}</span></td>
+                            <td className="text-right num text-strong font-semibold">{money(p.price, currency)}</td>
+                            {canSeeCost && (
+                              <td className="text-right num" style={{ color: 'var(--color-muted)' }}>
+                                {p.cost > 0 ? money(p.cost, currency) : <span style={{ color: 'var(--color-faint)' }}>not set</span>}
+                              </td>
                             )}
-                          </td>
-                          <td className="text-right">
-                            {canEditProducts && <button className="btn btn-ghost btn-sm" onClick={() => setEditing(p)}>Edit</button>}
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
+                            <td className="text-center num font-semibold" style={{ color }} title={allBranches ? 'Total across branches' : undefined}>{fmt(p.stock)}</td>
+                            <td className="text-right">
+                              {canEditProducts && <button className="btn btn-ghost btn-sm" onClick={() => setEditing(p)}>Edit</button>}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
+          ) : (
+            /* STOCK — quantities only. No price, no value, by design. */
+            <div className="card overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Product</th>
+                      <th>Category</th>
+                      <th className="text-center">Stock</th>
+                      <th className="text-center">Low at</th>
+                      <th className="text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.length === 0 ? (
+                      <tr><td colSpan={5} className="text-center" style={{ color: 'var(--color-faint)', padding: 40 }}>No products found.</td></tr>
+                    ) : (
+                      filtered.map((p) => {
+                        const out = p.stock <= 0;
+                        const low = !out && p.stock <= p.lowStockAt;
+                        const color = out ? 'var(--color-brand)' : low ? 'var(--color-warn)' : 'var(--color-strong)';
+                        return (
+                          <tr key={p.id} style={{ opacity: p.active ? 1 : 0.5 }}>
+                            <td><ProductCell p={p} allBranches={allBranches} /></td>
+                            <td><span className="chip" style={{ cursor: 'default' }}>{p.category}</span></td>
+                            <td>
+                              {stockEditable ? (
+                                <StockStepper id={p.id} value={p.stock} lowStockAt={p.lowStockAt} />
+                              ) : (
+                                <div className="text-center num font-semibold" style={{ color }} title={allBranches ? 'Total across branches' : undefined}>{fmt(p.stock)}</div>
+                              )}
+                            </td>
+                            <td className="text-center num" style={{ color: 'var(--color-muted)' }}>{allBranches ? '—' : fmt(p.lowStockAt)}</td>
+                            <td className="text-right">
+                              {stockEditable && (
+                                <button className="btn btn-ghost btn-sm" onClick={() => setReceiving(p)}>+ Receive</button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </>
-      ) : (
+      )}
+
+      {tab === 'movements' && canManageStock && (
         <HistoryTable history={history} currency={currency} allBranches={allBranches} />
       )}
+
+      {tab === 'prices' && canSeeCost && <PriceHistoryTable rows={priceHistory} currency={currency} />}
 
       {(creating || editing) && (
         <ProductModal
@@ -260,8 +334,21 @@ export default function ProductsStockView({
           categories={categories.filter((c) => c !== 'All')}
           branchLabel={activeBranchName}
           stockEditable={stockEditable}
+          canSeeCost={canSeeCost}
           onClose={() => { setEditing(null); setCreating(false); }}
           onSaved={refresh}
+        />
+      )}
+
+      {receiving && (
+        <ReceiveModal
+          product={receiving}
+          branchId={activeScope}
+          branchName={activeBranchName}
+          canSeeCost={canSeeCost}
+          currency={currency}
+          onClose={() => setReceiving(null)}
+          onDone={refresh}
         />
       )}
 
@@ -275,6 +362,83 @@ export default function ProductsStockView({
         />
       )}
     </>
+  );
+}
+
+// Receive a supplier delivery into the active branch. The buying price field is
+// only offered to finance users; everyone else just records the quantity.
+function ReceiveModal({
+  product, branchId, branchName, canSeeCost, currency, onClose, onDone,
+}: {
+  product: StockProduct;
+  branchId: string;
+  branchName: string;
+  canSeeCost: boolean;
+  currency: string;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const [pending, start] = useTransition();
+  const [qty, setQty] = useState('');
+  const [unitCost, setUnitCost] = useState(product.cost > 0 ? String(product.cost) : '');
+  const [note, setNote] = useState('');
+
+  const q = parseAmount(qty);
+  const cost = parseAmount(unitCost);
+
+  function submit() {
+    if (q <= 0) { toast('Enter the quantity received.', true); return; }
+    start(async () => {
+      const res = await receiveStock({
+        productId: product.id,
+        branchId,
+        qty: q,
+        unitCost: canSeeCost && cost > 0 ? cost : undefined,
+        note,
+      });
+      if (res.ok) { toast(`Received ${q} × ${product.name}`); onDone(); }
+      else toast(res.error, true);
+    });
+  }
+
+  return (
+    <Modal
+      title="Receive stock"
+      onClose={onClose}
+      footer={
+        <>
+          <button className="btn btn-ghost" onClick={onClose} disabled={pending}>Cancel</button>
+          <button className="btn btn-primary" onClick={submit} disabled={pending}>{pending ? 'Saving…' : 'Receive'}</button>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-3">
+        <div>
+          <div className="text-strong font-semibold">{product.name}</div>
+          <div className="text-[13px]" style={{ color: 'var(--color-muted)' }}>
+            {branchName} · on hand now <b className="num" style={{ color: 'var(--color-strong)' }}>{fmt(product.stock)}</b>
+            {q > 0 && <> → <b className="num" style={{ color: 'var(--color-strong)' }}>{fmt(product.stock + q)}</b></>}
+          </div>
+        </div>
+        <label className="block">
+          <span className="field-label">Quantity received</span>
+          <input className="input num" inputMode="numeric" autoFocus value={qty} onChange={(e) => setQty(e.target.value.replace(/[^0-9]/g, ''))} placeholder="0" />
+        </label>
+        {canSeeCost && (
+          <label className="block">
+            <span className="field-label">Buying price per unit ({currency})</span>
+            <input className="input num" inputMode="numeric" value={unitCost} onChange={(e) => setUnitCost(e.target.value.replace(/[^0-9]/g, ''))} placeholder="0" />
+            <span className="text-[12px]" style={{ color: 'var(--color-muted)' }}>
+              If this differs from the current buying price, the product&apos;s buying price is updated and the change is logged in Price history.
+            </span>
+          </label>
+        )}
+        <label className="block">
+          <span className="field-label">Note (optional)</span>
+          <input className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. Supplier invoice no." />
+        </label>
+      </div>
+    </Modal>
   );
 }
 

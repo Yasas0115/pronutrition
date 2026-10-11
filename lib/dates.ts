@@ -1,23 +1,48 @@
 // Date helpers. Sales are timestamped with real DateTime; these format for the
 // UI and compute day boundaries for "today's takings" style reports.
+//
+// Everything is anchored to Sri Lanka time (Asia/Colombo, UTC+05:30, no DST).
+// The server (a UTC VPS) and the browser can sit in different zones, so day
+// and month boundaries must NOT use the host's local zone — otherwise "today"
+// would roll over at 05:30 and reports would be off by half a day.
+export const TIME_ZONE = 'Asia/Colombo';
+const OFFSET_MS = 5.5 * 60 * 60 * 1000; // Asia/Colombo is a fixed UTC+05:30
+const DAY_MS = 24 * 60 * 60 * 1000;
 
+// Wall-clock "shifted" date: its UTC fields read as Colombo local time.
+const shifted = (d: Date) => new Date(d.getTime() + OFFSET_MS);
+
+/** YYYY-MM-DD in Sri Lanka time. */
 export function todayStr(d = new Date()): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
+  const s = shifted(d);
+  const y = s.getUTCFullYear();
+  const m = String(s.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(s.getUTCDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
 }
 
+/** The instant of 00:00 Sri Lanka time on the day containing `d`. */
 export function startOfDay(d = new Date()): Date {
-  const x = new Date(d);
-  x.setHours(0, 0, 0, 0);
-  return x;
+  return new Date(Math.floor((d.getTime() + OFFSET_MS) / DAY_MS) * DAY_MS - OFFSET_MS);
 }
 
+/** The instant of 23:59:59.999 Sri Lanka time on the day containing `d`. */
 export function endOfDay(d = new Date()): Date {
-  const x = new Date(d);
-  x.setHours(23, 59, 59, 999);
-  return x;
+  return new Date(startOfDay(d).getTime() + DAY_MS - 1);
+}
+
+/** The instant of 00:00 on the 1st of the month (Sri Lanka time) containing `d`. */
+export function startOfMonth(d = new Date()): Date {
+  const s = shifted(d);
+  return new Date(Date.UTC(s.getUTCFullYear(), s.getUTCMonth(), 1) - OFFSET_MS);
+}
+
+/** Parse a `YYYY-MM-DD` date input as the start of that day in Sri Lanka time. */
+export function parseDay(ymd: string): Date | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd);
+  if (!m) return null;
+  const t = Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  return Number.isFinite(t) ? new Date(t - OFFSET_MS) : null;
 }
 
 export function fmtDateTime(d: Date | string): string {
@@ -28,10 +53,11 @@ export function fmtDateTime(d: Date | string): string {
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
+    timeZone: TIME_ZONE,
   });
 }
 
 export function fmtTime(d: Date | string): string {
   const date = typeof d === 'string' ? new Date(d) : d;
-  return date.toLocaleTimeString('en-LK', { hour: '2-digit', minute: '2-digit' });
+  return date.toLocaleTimeString('en-LK', { hour: '2-digit', minute: '2-digit', timeZone: TIME_ZONE });
 }

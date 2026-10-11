@@ -1,6 +1,6 @@
 import { requireModule } from '@/lib/auth';
 import { prisma } from '@/lib/db';
-import { startOfDay } from '@/lib/dates';
+import { startOfDay, startOfMonth } from '@/lib/dates';
 import { getShellProps } from '@/lib/shell';
 import { getActiveScope, ALL_BRANCHES } from '@/lib/branch';
 import AppShell from '@/components/AppShell';
@@ -20,7 +20,7 @@ export default async function SalesPage() {
 
   const now = new Date();
   const dayStart = startOfDay(now);
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const monthStart = startOfMonth(now);
 
   const [store, todayAgg, monthAgg, allAgg, topRaw, recent, byBranch] = await Promise.all([
     prisma.store.findFirst({ select: { currency: true, name: true } }),

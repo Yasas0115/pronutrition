@@ -28,6 +28,7 @@ export default function ProductModal({
   categories,
   branchLabel,
   stockEditable = true,
+  canSeeCost = false,
   onClose,
   onSaved,
 }: {
@@ -35,6 +36,9 @@ export default function ProductModal({
   categories: string[];
   branchLabel: string;
   stockEditable?: boolean;
+  // Buying price is accountant-level: the field only exists for the owner and
+  // `finance` users. Everyone else never receives the value.
+  canSeeCost?: boolean;
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -48,9 +52,9 @@ export default function ProductModal({
   const [sku, setSku] = useState(product?.sku ?? '');
   const [barcode, setBarcode] = useState(product?.barcode ?? '');
   const [price, setPrice] = useState(product?.price ?? 0);
-  // Cost is no longer edited on the product form; preserve any existing value
-  // (e.g. one set from a stock "Receive") so saving the product never wipes it.
-  const [cost] = useState(product?.cost ?? 0);
+  // Buying price: editable here only for finance users. For anyone else this is
+  // just a placeholder — the server ignores it and keeps the stored cost.
+  const [cost, setCost] = useState(product?.cost ?? 0);
   const [stock, setStock] = useState(product?.stock ?? 0);
   const [lowStockAt, setLowStockAt] = useState(product?.lowStockAt ?? 5);
   const [active, setActive] = useState(product?.active ?? true);
@@ -259,9 +263,25 @@ export default function ProductModal({
           </div>
         </div>
 
-        <div>
-          <label className="field-label">Selling price (Rs)</label>
-          <input className="input num" inputMode="numeric" value={price ? String(price) : ''} onChange={(e) => setPrice(parseAmount(e.target.value))} placeholder="0" />
+        <div className={canSeeCost ? 'grid grid-cols-2 gap-3' : undefined}>
+          <div>
+            <label className="field-label">Retail price (Rs)</label>
+            <input className="input num" inputMode="numeric" value={price ? String(price) : ''} onChange={(e) => setPrice(parseAmount(e.target.value))} placeholder="0" />
+          </div>
+          {canSeeCost && (
+            <div>
+              <label className="field-label">Buying price (Rs)</label>
+              <input className="input num" inputMode="numeric" value={cost ? String(cost) : ''} onChange={(e) => setCost(parseAmount(e.target.value))} placeholder="0" />
+            </div>
+          )}
+          {canSeeCost && (
+            <p className="text-[12px] col-span-2" style={{ color: 'var(--color-muted)', marginTop: -4 }}>
+              {price > 0 && cost > 0
+                ? `Margin ${price - cost >= 0 ? '' : '−'}Rs ${Math.abs(price - cost).toLocaleString('en-LK')} per unit (${Math.round(((price - cost) / price) * 100)}%).`
+                : 'Set both prices to see the margin.'}{' '}
+              Changes are saved to Price history with your name and the time.
+            </p>
+          )}
         </div>
 
         <div className="grid grid-cols-3 gap-3">

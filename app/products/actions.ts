@@ -2,9 +2,11 @@
 
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/db';
-import { requireSession } from '@/lib/auth';
+import { requireModule, requireAnyModule, canSeeCost } from '@/lib/auth';
 import { getTillBranchId } from '@/lib/branch';
 import { recordStockChange, setStockTo } from '@/lib/stock';
+import { recordPriceChange } from '@/lib/price-history';
+import { logAudit, diffFields } from '@/lib/audit';
 
 export type ProductInput = {
   id?: string;
@@ -14,7 +16,9 @@ export type ProductInput = {
   flavor?: string;
   sku?: string;
   barcode?: string;
-  price: number;
+  price: number; // retail (selling) price
+  // Buying price. Only honoured for the owner / `finance` module — anyone else's
+  // value is ignored and the stored cost is left untouched.
   cost: number;
   active: boolean;
   // Gallery of data: URL photos. undefined = leave unchanged; [] clears them.
@@ -42,6 +46,7 @@ function clean(v: string | undefined): string | null {
 function revalidateCatalog() {
   revalidatePath('/products');
   revalidatePath('/categories');
+  revalidatePath('/accounts');
   revalidatePath('/');
 }
 
@@ -58,11 +63,22 @@ async function ensureStockRows(productId: string) {
 }
 
 export async function saveProduct(input: ProductInput): Promise<SaveResult> {
-  const session = await requireSession();
+  // Editing the catalogue needs the products module (stock-only staff may not
+  // change names, prices or photos).
+  const session = await requireModule('products');
+  const mayEditCost = await canSeeCost(session);
   const branchId = await getTillBranchId(session);
   const name = input.name.trim();
   if (!name) return { ok: false, error: 'Product name is required.' };
   if (input.price < 0) return { ok: false, error: 'Price must be zero or more.' };
+
+  const existing = input.id
+    ? await prisma.product.findUnique({
+        where: { id: input.id },
+        select: { name: true, category: true, brand: true, flavor: true, sku: true, barcode: true, price: true, cost: true, active: true },
+      })
+    : null;
+  if (input.id && !existing) return { ok: false, error: 'Product not found.' };
 
   const data: Record<string, unknown> = {
     name,
@@ -72,9 +88,10 @@ export async function saveProduct(input: ProductInput): Promise<SaveResult> {
     sku: clean(input.sku),
     barcode: clean(input.barcode),
     price: Math.max(0, Math.round(input.price)),
-    cost: Math.max(0, Math.round(input.cost)),
     active: input.active,
   };
+  // Buying price is accountant-level: never take it from a non-finance caller.
+  if (mayEditCost) data.cost = Math.max(0, Math.round(input.cost));
 
   // Normalise the gallery: keep only non-empty data URLs, cap the count, and
   // mirror the first photo into imageUrl so grids that read the cover work.
@@ -94,9 +111,63 @@ export async function saveProduct(input: ProductInput): Promise<SaveResult> {
   }
 
   try {
-    const product = input.id
-      ? await prisma.product.update({ where: { id: input.id }, data })
-      : await prisma.product.create({ data: data as never });
+    // Product row + its price history + audit row commit together.
+    const product = await prisma.$transaction(async (tx) => {
+      const saved = input.id
+        ? await tx.product.update({ where: { id: input.id }, data })
+        : await tx.product.create({ data: data as never });
+
+      const actor = { userId: session.userId, userName: session.name };
+
+      if (existing) {
+        await recordPriceChange(tx, {
+          productId: saved.id,
+          productName: saved.name,
+          oldPrice: existing.price,
+          newPrice: saved.price,
+          oldCost: existing.cost,
+          newCost: saved.cost,
+          source: 'EDIT',
+          ...actor,
+        });
+
+        const tracked = ['name', 'category', 'brand', 'flavor', 'sku', 'barcode', 'price', 'cost', 'active'] as const;
+        const pick = (p: typeof existing) => Object.fromEntries(tracked.map((k) => [k, p[k]]));
+        const { before, after, changed } = diffFields(pick(existing), pick(saved));
+        if (changed.length > 0) {
+          const priceMoved = changed.includes('price') || changed.includes('cost');
+          await logAudit(tx, {
+            entity: 'PRODUCT',
+            entityId: saved.id,
+            action: priceMoved ? 'PRICE_CHANGE' : 'UPDATE',
+            summary: `Edited “${saved.name}” — changed ${changed.join(', ')}`,
+            before,
+            after,
+            ...actor,
+          });
+        }
+      } else {
+        await recordPriceChange(tx, {
+          productId: saved.id,
+          productName: saved.name,
+          oldPrice: 0,
+          newPrice: saved.price,
+          oldCost: 0,
+          newCost: saved.cost,
+          source: 'CREATE',
+          ...actor,
+        });
+        await logAudit(tx, {
+          entity: 'PRODUCT',
+          entityId: saved.id,
+          action: 'CREATE',
+          summary: `Added product “${saved.name}”`,
+          after: { price: saved.price, category: saved.category },
+          ...actor,
+        });
+      }
+      return saved;
+    });
 
     await ensureStockRows(product.id);
     // Apply the stock/low-stock values to the current branch. The stock level
@@ -125,7 +196,7 @@ export async function saveProduct(input: ProductInput): Promise<SaveResult> {
 }
 
 export async function adjustStock(id: string, delta: number): Promise<SimpleResult> {
-  const session = await requireSession();
+  const session = await requireAnyModule(['stock', 'products']);
   const branchId = await getTillBranchId(session);
   if (!branchId) return { ok: false, error: 'No active branch.' };
   try {
@@ -148,7 +219,7 @@ export async function adjustStock(id: string, delta: number): Promise<SimpleResu
 }
 
 export async function setStock(id: string, value: number): Promise<SimpleResult> {
-  const session = await requireSession();
+  const session = await requireAnyModule(['stock', 'products']);
   const branchId = await getTillBranchId(session);
   if (!branchId) return { ok: false, error: 'No active branch.' };
   try {
@@ -171,8 +242,10 @@ export async function setStock(id: string, value: number): Promise<SimpleResult>
 }
 
 export async function deleteProduct(id: string): Promise<SimpleResult> {
-  await requireSession();
+  const session = await requireModule('products');
   try {
+    const product = await prisma.product.findUnique({ where: { id }, select: { name: true } });
+    if (!product) return { ok: false, error: 'Product not found.' };
     // Keep sales history intact: if this product was ever sold, deactivate
     // instead of deleting (SaleItem.productId is set null on delete anyway).
     const sold = await prisma.saleItem.count({ where: { productId: id } });
@@ -181,6 +254,14 @@ export async function deleteProduct(id: string): Promise<SimpleResult> {
     } else {
       await prisma.product.delete({ where: { id } });
     }
+    await logAudit(prisma, {
+      entity: 'PRODUCT',
+      entityId: id,
+      action: 'DELETE',
+      summary: sold > 0 ? `Deactivated “${product.name}” (has sales history)` : `Deleted product “${product.name}”`,
+      userId: session.userId,
+      userName: session.name,
+    });
     revalidateCatalog();
     return { ok: true };
   } catch {

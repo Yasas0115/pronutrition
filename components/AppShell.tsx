@@ -18,6 +18,7 @@ type IconName =
   | 'store'
   | 'reports'
   | 'sales'
+  | 'accounts'
   | 'settings'
   | 'branch'
   | 'users'
@@ -85,6 +86,13 @@ function Icon({ name, className }: { name: IconName; className?: string }) {
           <line x1="12" y1="20" x2="12" y2="10" />
           <line x1="18" y1="20" x2="18" y2="4" />
           <line x1="6" y1="20" x2="6" y2="16" />
+        </>
+      )}
+      {name === 'accounts' && (
+        <>
+          <rect x="2" y="6" width="20" height="13" rx="2" />
+          <path d="M2 10h20" />
+          <path d="M6 15h4" />
         </>
       )}
       {name === 'settings' && (
@@ -165,7 +173,7 @@ export default function AppShell({
   }
 
   const owner = role === 'OWNER';
-  const enabled = new Set<ModuleKey>(modules ?? ['pos', 'products', 'stock', 'categories', 'reports', 'users', 'branches', 'settings']);
+  const enabled = new Set<ModuleKey>(modules ?? ['pos', 'products', 'stock', 'categories', 'reports', 'finance', 'users', 'branches', 'settings']);
   const has = (m: ModuleKey) => enabled.has(m);
   const roleLabel = role.charAt(0) + role.slice(1).toLowerCase();
   const initial = (username.trim()[0] || '?').toUpperCase();
@@ -195,6 +203,9 @@ export default function AppShell({
       : []),
     ...(has('reports')
       ? [{ kind: 'link' as const, href: '/sales', label: 'Sales & Reports', icon: 'sales' as const }]
+      : []),
+    ...(has('finance')
+      ? [{ kind: 'link' as const, href: '/accounts', label: 'Accounts', icon: 'accounts' as const }]
       : []),
     ...(has('branches')
       ? [{ kind: 'link' as const, href: '/branches', label: 'Branches', icon: 'branch' as const }]

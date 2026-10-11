@@ -7,6 +7,8 @@ const prisma = new PrismaClient();
 async function main() {
   const r = await prisma.$transaction([
     prisma.stockMovement.deleteMany(),
+    prisma.productPriceHistory.deleteMany(),
+    prisma.auditLog.deleteMany(),
     prisma.saleItem.deleteMany(),
     prisma.sale.deleteMany(),
     prisma.branchStock.deleteMany(),
@@ -16,7 +18,7 @@ async function main() {
     prisma.branch.deleteMany(),
     prisma.store.deleteMany(),
   ]);
-  const names = ['stockMovements', 'saleItems', 'sales', 'branchStock', 'products', 'categories', 'users', 'branches', 'store'];
+  const names = ['stockMovements', 'priceHistory', 'auditLog', 'saleItems', 'sales', 'branchStock', 'products', 'categories', 'users', 'branches', 'store'];
   names.forEach((n, i) => console.log(`${n}: ${r[i].count} deleted`));
   console.log('paymentMethods kept:', await prisma.paymentMethod.count());
 }

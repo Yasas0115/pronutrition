@@ -1,4 +1,4 @@
-import { requireSession } from '@/lib/auth';
+import { requireSession, canSeeCost } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/db';
 import { getShellProps } from '@/lib/shell';
@@ -6,6 +6,7 @@ import { getActiveScope, getEffectiveModules, ALL_BRANCHES } from '@/lib/branch'
 import { landingRoute } from '@/lib/modules';
 import AppShell from '@/components/AppShell';
 import ProductsStockView, { type StockProduct, type MovementRow } from '@/components/ProductsStockView';
+import type { PriceHistoryRow } from '@/components/PriceHistoryTable';
 import { galleryOf } from '@/lib/images';
 
 export const dynamic = 'force-dynamic';
@@ -19,6 +20,10 @@ export default async function ProductsPage() {
   const canEditProducts = eff.has('products');
   const canManageStock = eff.has('stock');
   if (!canEditProducts && !canManageStock) redirect(landingRoute(eff));
+
+  // Buying price / unit cost / price history are accountant-level: they are
+  // stripped HERE, on the server, so they never reach a cashier's browser.
+  const mayCost = await canSeeCost(session);
 
   const scope = await getActiveScope(session);
   const allBranches = scope === ALL_BRANCHES;
@@ -62,7 +67,7 @@ export default async function ProductsPage() {
       sku: p.sku,
       barcode: p.barcode,
       price: p.price,
-      cost: p.cost,
+      cost: mayCost ? p.cost : 0,
       imageUrl: p.imageUrl,
       images: galleryOf(p),
       stock,
@@ -87,10 +92,29 @@ export default async function ProductsPage() {
         type: m.type,
         delta: m.delta,
         balanceAfter: m.balanceAfter,
-        unitCost: m.unitCost,
+        unitCost: mayCost ? m.unitCost : null,
         note: m.note,
         userName: m.userName,
         createdAt: m.createdAt.toISOString(),
+      }))
+    : [];
+
+  // Selling/buying price change log (company-wide) — accountant-level only.
+  const priceHistory: PriceHistoryRow[] = mayCost
+    ? (
+        await prisma.productPriceHistory.findMany({ orderBy: { createdAt: 'desc' }, take: 100 })
+      ).map((h) => ({
+        id: h.id,
+        productName: h.productName,
+        source: h.source,
+        oldPrice: h.oldPrice,
+        newPrice: h.newPrice,
+        oldCost: h.oldCost,
+        newCost: h.newCost,
+        onHandUnits: h.onHandUnits,
+        note: h.note,
+        userName: h.userName,
+        createdAt: h.createdAt.toISOString(),
       }))
     : [];
 
@@ -99,6 +123,8 @@ export default async function ProductsPage() {
       <ProductsStockView
         products={items}
         history={history}
+        priceHistory={priceHistory}
+        canSeeCost={mayCost}
         currency={store?.currency ?? 'Rs'}
         categories={categories.map((c) => c.name)}
         branches={branches}

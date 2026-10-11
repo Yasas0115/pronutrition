@@ -20,6 +20,8 @@ async function main() {
 
   const counts = {
     stockMovements: await prisma.stockMovement.count(),
+    priceHistory: await prisma.productPriceHistory.count(),
+    auditLog: await prisma.auditLog.count(),
     saleItems: await prisma.saleItem.count(),
     sales: await prisma.sale.count(),
     branchStock: await prisma.branchStock.count(),
@@ -38,6 +40,8 @@ async function main() {
 
   const r = await prisma.$transaction([
     prisma.stockMovement.deleteMany(),
+    prisma.productPriceHistory.deleteMany(),
+    prisma.auditLog.deleteMany(),
     prisma.saleItem.deleteMany(),
     prisma.sale.deleteMany(),
     prisma.branchStock.deleteMany(),

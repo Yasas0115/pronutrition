@@ -3,9 +3,10 @@
 import { randomUUID } from 'crypto';
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/db';
-import { requireModule } from '@/lib/auth';
+import { requireModule, canSeeCost } from '@/lib/auth';
 import type { Session } from '@/lib/session';
 import { recordStockChange, setStockTo } from '@/lib/stock';
+import { recordPriceChange } from '@/lib/price-history';
 
 export type SimpleResult = { ok: true } | { ok: false; error: string };
 
@@ -13,6 +14,7 @@ export type SimpleResult = { ok: true } | { ok: false; error: string };
 function revalidateStock() {
   revalidatePath('/stock');
   revalidatePath('/products');
+  revalidatePath('/accounts');
   revalidatePath('/');
 }
 
@@ -33,8 +35,11 @@ async function productName(id: string): Promise<string | null> {
 }
 
 // Receive new stock into a branch (a supplier delivery). Positive qty, with an
-// optional per-unit cost recorded on the movement for later reporting. When a
-// cost is given it also refreshes the product's `cost` (latest cost).
+// optional per-unit buying price recorded on the movement for later reporting.
+// The buying price is accountant-level: it is only accepted from the owner or a
+// `finance` user (anyone else just receives the quantity). When accepted and it
+// differs from the product's current cost, the product's `cost` is refreshed
+// (latest cost) and the change goes into the price history.
 export async function receiveStock(input: {
   productId: string;
   branchId: string;
@@ -43,6 +48,7 @@ export async function receiveStock(input: {
   note?: string;
 }): Promise<SimpleResult> {
   const session = await requireModule('stock');
+  const mayCost = await canSeeCost(session);
   const branchId = writableBranch(session, input.branchId);
   if (!branchId) return { ok: false, error: 'Pick a branch you can manage.' };
   const qty = Math.round(Number(input.qty) || 0);
@@ -50,7 +56,7 @@ export async function receiveStock(input: {
   const name = await productName(input.productId);
   if (!name) return { ok: false, error: 'Product not found.' };
   const unitCost =
-    input.unitCost != null ? Math.max(0, Math.round(input.unitCost)) : null;
+    mayCost && input.unitCost != null ? Math.max(0, Math.round(input.unitCost)) : null;
   try {
     await prisma.$transaction(async (tx) => {
       await recordStockChange(tx, {
@@ -65,7 +71,25 @@ export async function receiveStock(input: {
         userName: session.name,
       });
       if (unitCost != null && unitCost > 0) {
-        await tx.product.update({ where: { id: input.productId }, data: { cost: unitCost } });
+        const before = await tx.product.findUniqueOrThrow({
+          where: { id: input.productId },
+          select: { price: true, cost: true },
+        });
+        if (before.cost !== unitCost) {
+          await tx.product.update({ where: { id: input.productId }, data: { cost: unitCost } });
+          await recordPriceChange(tx, {
+            productId: input.productId,
+            productName: name,
+            oldPrice: before.price,
+            newPrice: before.price,
+            oldCost: before.cost,
+            newCost: unitCost,
+            source: 'RESTOCK',
+            note: input.note?.trim() || null,
+            userId: session.userId,
+            userName: session.name,
+          });
+        }
       }
     });
     revalidateStock();

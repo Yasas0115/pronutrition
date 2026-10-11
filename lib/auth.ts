@@ -41,6 +41,30 @@ export async function requireModule(key: ModuleKey): Promise<Session> {
   return session;
 }
 
+// Like requireModule, but passes when the person holds ANY of the given modules
+// (e.g. stock edits are allowed to `stock` and `products` holders).
+export async function requireAnyModule(keys: ModuleKey[]): Promise<Session> {
+  const session = await requireSession();
+  const eff = await getEffectiveModules(session);
+  if (!keys.some((k) => eff.has(k))) redirect(landingRoute(eff));
+  return session;
+}
+
+// Does this person hold a module grant? (Owner: always.) Unlike requireModule
+// this never redirects, so server actions can branch on it.
+export async function hasModule(session: Session, key: ModuleKey): Promise<boolean> {
+  return (await getEffectiveModules(session)).has(key);
+}
+
+// Buying price (cost), stock valuation and price history are accountant-level
+// data: only the owner and staff granted the `finance` module may see or set
+// them. Everything that returns `cost` / `unitCost` to a browser must gate on
+// this, server-side.
+export async function canSeeCost(session: Session): Promise<boolean> {
+  if (session.role === 'OWNER') return true;
+  return hasModule(session, 'finance');
+}
+
 export async function setSessionCookie(session: Session): Promise<void> {
   const token = await signSession(session);
   const store = await cookies();

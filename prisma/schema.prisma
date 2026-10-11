@@ -119,12 +119,56 @@ model Product {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  stocks    BranchStock[]
-  saleItems SaleItem[]
-  movements StockMovement[]
+  stocks       BranchStock[]
+  saleItems    SaleItem[]
+  movements    StockMovement[]
+  priceHistory ProductPriceHistory[]
 
   @@index([category])
   @@index([barcode])
+}
+
+// Append-only log of every selling-price / buying-price change on a product.
+// `onHandUnits` snapshots the company-wide stock at the moment of the change so
+// reports can show how much a price change moved the value of the stock held.
+// Product name is snapshotted so the log survives a rename/delete.
+model ProductPriceHistory {
+  id          String   @id @default(cuid())
+  productId   String?
+  product     Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  productName String
+  oldPrice    Int // retail (selling) price before the change
+  newPrice    Int // retail (selling) price after the change
+  oldCost     Int // buying price before the change
+  newCost     Int // buying price after the change
+  onHandUnits Int      @default(0) // company-wide units on hand at change time
+  source      String   @default("EDIT") // CREATE | EDIT | RESTOCK
+  note        String?  @db.Text
+  userId      String?
+  userName    String? // snapshot of who made the change
+  createdAt   DateTime @default(now())
+
+  @@index([productId, createdAt])
+  @@index([createdAt])
+}
+
+// Generic "who changed what, when" trail for edits that don't have a ledger of
+// their own (products, staff, branches, settings…). Written by lib/audit.ts.
+model AuditLog {
+  id        String   @id @default(cuid())
+  entity    String // PRODUCT | USER | BRANCH | SETTINGS …
+  entityId  String?
+  action    String // CREATE | UPDATE | DELETE | PRICE_CHANGE …
+  summary   String   @db.Text // one human-readable line
+  before    String?  @db.LongText // JSON snapshot of the changed fields
+  after     String?  @db.LongText // JSON snapshot of the changed fields
+  branchId  String?
+  userId    String?
+  userName  String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([entity, entityId])
 }
 
 // Per-branch stock level for a product. One row per (branch, product).
@@ -184,6 +228,9 @@ model SaleItem {
   price     Int
   qty       Int
   lineTotal Int
+  // Buying price per unit at the moment of sale, for profit reports. Null on
+  // sales made before this column existed (reports fall back to current cost).
+  unitCost  Int?
 
   @@index([saleId])
   @@index([productId])

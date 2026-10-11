@@ -79,7 +79,7 @@ function checkoutOnce(input: CheckoutCore, items: CartLine[]): Promise<Receipt> 
     const stockByProduct = new Map(stockRows.map((s) => [s.productId, s]));
 
     let subtotal = 0;
-    const lines: (ReceiptItem & { productId: string })[] = [];
+    const lines: (ReceiptItem & { productId: string; unitCost: number })[] = [];
     for (const it of items) {
       const p = byId.get(it.productId);
       if (!p) throw new Error('A product in the cart no longer exists.');
@@ -87,7 +87,9 @@ function checkoutOnce(input: CheckoutCore, items: CartLine[]): Promise<Receipt> 
       if (onHand < it.qty) throw new Error(`Not enough stock for ${p.name} (only ${onHand} left at ${branch.name}).`);
       const lineTotal = p.price * it.qty;
       subtotal += lineTotal;
-      lines.push({ productId: p.id, name: p.name, price: p.price, qty: it.qty, lineTotal });
+      // `unitCost` is the buying price at this moment — frozen on the line so
+      // later cost changes never rewrite the profit on a past sale.
+      lines.push({ productId: p.id, name: p.name, price: p.price, qty: it.qty, lineTotal, unitCost: p.cost });
     }
 
     const methodDiscount = Math.min(subtotal, Math.round((subtotal * methodPercent) / 100));
@@ -138,6 +140,7 @@ function checkoutOnce(input: CheckoutCore, items: CartLine[]): Promise<Receipt> 
             price: l.price,
             qty: l.qty,
             lineTotal: l.lineTotal,
+            unitCost: l.unitCost,
           })),
         },
       },
