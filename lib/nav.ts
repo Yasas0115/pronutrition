@@ -39,7 +39,11 @@ export function buildNav(has: (m: ModuleKey) => boolean): NavItem[] {
     ...group('accounting', 'Accounting', 'accounts', [
       has('reports') && { href: '/accounting/sales', label: 'Sales', icon: 'sales' },
       has('customers') && { href: '/accounting/receivables', label: 'Receivables', icon: 'receipt' },
-      has('finance') && { href: '/accounting/expenses', label: 'Expenses & Payroll', icon: 'wallet' },
+      (has('finance') || has('expenses_add')) && {
+        href: '/accounting/expenses',
+        label: has('finance') ? 'Expenses & Payroll' : 'Add expenses',
+        icon: 'wallet',
+      },
       has('finance') && { href: '/accounting/profit', label: 'Profit & Cash', icon: 'trend' },
       has('finance') && { href: '/accounting/stock-value', label: 'Stock value', icon: 'products' },
       has('finance') && { href: '/accounting/activity', label: 'Activity log', icon: 'list' },

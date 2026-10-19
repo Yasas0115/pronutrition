@@ -43,7 +43,7 @@ export default function ExpensesTab({ data }: { data: ExpensesData }) {
           <b className="num" style={{ color: 'var(--color-strong)' }}>{money(total, currency)}</b>
         </div>
         <div className="flex gap-2">
-          <button className="btn btn-ghost" onClick={() => setManaging(true)}>Categories</button>
+          {!data.limited && <button className="btn btn-ghost" onClick={() => setManaging(true)}>Categories</button>}
           <button className="btn btn-primary" onClick={() => setAdding(true)}>+ Add expense</button>
         </div>
       </div>
@@ -96,7 +96,7 @@ export default function ExpensesTab({ data }: { data: ExpensesData }) {
                         {money(e.amount, currency)}
                       </td>
                       <td className="text-right no-print">
-                        {!v && (
+                        {!v && !data.limited && (
                           <button className="btn btn-ghost btn-sm" style={{ color: 'var(--color-brand)' }} onClick={() => setVoiding(e)}>Void</button>
                         )}
                       </td>

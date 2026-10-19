@@ -1,12 +1,12 @@
 // Plain, serialisable shapes passed from app/finance/page.tsx to the client tabs.
 // Dates travel as ISO strings (business dates are Sri Lanka midnight instants).
-import type { ProfitLoss, CashDrawer } from '@/lib/reports';
+import type { ProfitLoss, CashDrawer, Trend, TrendBucket, TrendGranularity } from '@/lib/reports';
 
-export type { ProfitLoss, CashDrawer };
+export type { ProfitLoss, CashDrawer, Trend, TrendBucket, TrendGranularity };
 
 export type ExpenseRow = {
   id: string;
-  kind: string; // GENERAL | SALARY | PETTY_CASH
+  kind: string; // GENERAL | SALARY
   category: string;
   amount: number;
   description: string | null;
@@ -85,6 +85,7 @@ type FinanceBase = {
   fromStr: string; // YYYY-MM-DD
   toStr: string;
   isOwner: boolean;
+  limited?: boolean; // 'add expenses only' staff
   pinnedBranchId: string | null; // a staff member locked to one branch
   branches: BranchOpt[];
 };
@@ -95,7 +96,6 @@ export type ExpensesData = FinanceBase & {
   monthOptions: { value: string; label: string }[];
   categories: { id: string; name: string }[];
   expenses: ExpenseRow[];
-  petty: ExpenseRow[];
   workers: WorkerRow[];
   salaries: SalaryRow[];
 };
@@ -104,6 +104,8 @@ export type ExpensesData = FinanceBase & {
 export type ProfitData = FinanceBase & {
   profit: ProfitLoss;
   drawer: CashDrawer;
+  trend: Trend;
+  outstandingCredit: number; // everything customers still owe right now
   floats: FloatRow[];
   floatHistory: FloatHistoryRow[];
 };

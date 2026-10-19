@@ -1,4 +1,4 @@
-// Integration check for Phase 3: expenses, petty cash, worker salaries, the till
+// Integration check for Phase 3: expenses, worker salaries, the till
 // float, and the profit & loss / cash-drawer reports — against the real database,
 // with hand-computed expected figures. Uses throw-away fixtures (scripts/fixtures.ts).
 // Run: pnpm exec tsx scripts/verify-profit.ts
@@ -87,19 +87,14 @@ async function main() {
     assert(await rejects(() => addExpense({ ...base, date: todayStr(new Date(Date.now() + 3 * 24 * 3600 * 1000)) }), 'future'),
       'a future date is rejected');
     assert(await rejects(() => addExpense({ ...base, paidVia: 'CRYPTO' }), 'cash, bank or card'), 'an unknown payment way is rejected');
-    assert(await rejects(() => addExpense({ ...base, kind: 'PETTY_CASH', description: 'tea' }), 'who took'),
-      'petty cash must say who took it');
-    assert(await rejects(() => addExpense({ ...base, kind: 'PETTY_CASH', workerName: 'Kasun' }), 'what the cash was for'),
-      'petty cash must say what it was for');
 
     // -------------------------------------------------------- record some
-    console.log('\n▶ Expenses, petty cash, salaries');
+    console.log('\n▶ Expenses, salaries');
     const rent = await addExpense({ ...base, amount: 1000 }); // cash
     const bank = await addExpense({ ...base, amount: 700, paidVia: 'BANK' }); // bank → not in the drawer
     const wrong = await addExpense({ ...base, category: 'VERIFY Transport', amount: 500, paidVia: 'BANK' }); // will be voided
     const workerA = await prisma.worker.create({ data: { name: 'VERIFY Asha', monthlySalary: 20000, branchId: f.branch.id } });
     const workerB = await prisma.worker.create({ data: { name: 'VERIFY Bimal', monthlySalary: 10000, branchId: f.branch.id } });
-    await addExpense({ kind: 'PETTY_CASH', amount: 300, date: today, workerId: workerA.id, description: 'Tea & snacks', branchId: f.branch.id, ...actor });
     const period = today.slice(0, 7);
     const pay = await paySalary({ workerId: workerA.id, period, base: 20000, bonus: 1000, deduction: 500, paidVia: 'CASH', date: today, ...actor });
     assert(pay.netPaid === 20500, 'salary 20,000 + bonus 1,000 − deduction 500 → Rs 20,500 paid out');
@@ -155,13 +150,12 @@ async function main() {
     // ----------------------------------------------------- the reports
     console.log('\n▶ Profit & loss with expenses');
     pl = await computeProfitLoss(range, f.branch.id);
-    // active: rent 1,000 + bank 700 (general 1,700) + petty 300 + salary 20,500 ; voided 500 + 10,000 excluded
+    // active: rent 1,000 + bank 700 (general 1,700) + salary 20,500 ; voided 500 + 10,000 excluded
     assert(pl.expenses.general === 1700, `general expenses = 1,000 + 700 (voided 500 left out) = 1,700 (got ${pl.expenses.general})`);
-    assert(pl.expenses.pettyCash === 300, `petty cash = 300 (got ${pl.expenses.pettyCash})`);
     assert(pl.expenses.salary === 20500, `salaries = 20,500 (voided 10,000 left out) (got ${pl.expenses.salary})`);
-    assert(pl.expenses.total === 22500, `total expenses = 22,500 (got ${pl.expenses.total})`);
-    assert(pl.netProfit === 14130 - 22500, `net profit = 14,130 − 22,500 = −8,370 (got ${pl.netProfit})`);
-    assert(pl.marginPercent === -17.4, `margin = −17.4% of net sales (got ${pl.marginPercent})`);
+    assert(pl.expenses.total === 22200, `total expenses = 22,200 (got ${pl.expenses.total})`);
+    assert(pl.netProfit === 14130 - 22200, `net profit = 14,130 − 22,200 = −8,070 (got ${pl.netProfit})`);
+    assert(pl.marginPercent === -16.8, `margin = −16.8% of net sales (got ${pl.marginPercent})`);
 
     const profitBeforeFloat = pl.netProfit;
     await setBranchFloat({ branchId: f.branch.id, amount: 9000, reason: 'Float must not touch profit', ...actor });
@@ -171,9 +165,9 @@ async function main() {
     console.log('\n▶ Back-dated entries land on their own day');
     await addExpense({ ...base, amount: 111, date: yesterday });
     const todayOnly = await computeProfitLoss(range, f.branch.id);
-    assert(todayOnly.expenses.total === 22500, "yesterday's expense is not in today's report");
+    assert(todayOnly.expenses.total === 22200, "yesterday's expense is not in today's report");
     const both = await computeProfitLoss({ from: startOfDay(new Date(Date.now() - 24 * 3600 * 1000)), to: endOfDay(new Date()) }, f.branch.id);
-    assert(both.expenses.total === 22611, `a range covering both days includes it (got ${both.expenses.total})`);
+    assert(both.expenses.total === 22311, `a range covering both days includes it (got ${both.expenses.total})`);
     const created = await prisma.expense.findFirstOrThrow({ where: { branchId: f.branch.id, amount: 111 } });
     assert(todayStr(created.createdAt) === today && todayStr(created.expenseDate) === yesterday,
       'it records BOTH the business date (yesterday) and the real entry time (now)');
@@ -184,8 +178,8 @@ async function main() {
     assert(drawer.float === 3000, `float in force = 3,000 (got ${drawer.float})`);
     assert(drawer.cashSales === 43080, `cash sales = 720+42,000+360 = 43,080 (got ${drawer.cashSales})`);
     assert(drawer.cashSettlements === 400, `cash credit payments = 400 (got ${drawer.cashSettlements})`);
-    assert(drawer.cashOut === 21800, `cash out = rent 1,000 + petty 300 + salary 20,500 = 21,800 (bank expense & voided left out) (got ${drawer.cashOut})`);
-    assert(drawer.expected === 3000 + 43480 - 21800, `expected in drawer = 3,000 + 43,480 − 21,800 = 24,680 (got ${drawer.expected})`);
+    assert(drawer.cashOut === 21500, `cash out = rent 1,000 + salary 20,500 = 21,500 (bank expense & voided left out) (got ${drawer.cashOut})`);
+    assert(drawer.expected === 3000 + 43480 - 21500, `expected in drawer = 3,000 + 43,480 − 21,500 = 24,980 (got ${drawer.expected})`);
   } finally {
     console.log('\n▶ Cleanup');
     await f.teardown();

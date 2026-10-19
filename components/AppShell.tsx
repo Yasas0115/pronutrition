@@ -212,7 +212,7 @@ export default function AppShell({
   }
 
   const owner = role === 'OWNER';
-  const enabled = new Set<ModuleKey>(modules ?? ['pos', 'products', 'stock', 'categories', 'reports', 'customers', 'finance', 'users', 'branches', 'settings']);
+  const enabled = new Set<ModuleKey>(modules ?? ['pos', 'products', 'stock', 'categories', 'reports', 'customers', 'finance', 'expenses_add', 'users', 'branches', 'settings']);
   const has = (m: ModuleKey) => enabled.has(m);
   const roleLabel = role.charAt(0) + role.slice(1).toLowerCase();
   const initial = (username.trim()[0] || '?').toUpperCase();

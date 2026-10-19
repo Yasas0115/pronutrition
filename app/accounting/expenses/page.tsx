@@ -1,4 +1,4 @@
-import { requireModule } from '@/lib/auth';
+import { requireAnyModule, hasModule } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { getShellProps } from '@/lib/shell';
 import { getActiveScope, ALL_BRANCHES } from '@/lib/branch';
@@ -11,14 +11,16 @@ export const dynamic = 'force-dynamic';
 
 const iso = (d: Date | null) => (d ? d.toISOString() : null);
 
-// Accounting › Expenses & Payroll: money going out — expenses, petty cash and
+// Accounting › Expenses & Payroll: money going out — expenses and
 // worker salaries. Gated by the `finance` module.
 export default async function ExpensesPage({
   searchParams,
 }: {
   searchParams: Promise<{ from?: string; to?: string; month?: string }>;
 }) {
-  const session = await requireModule('finance');
+  const session = await requireAnyModule(['finance', 'expenses_add']);
+  // 'Add expenses only' staff: no salaries, categories or voiding, and only their own entries.
+  const limited = !(await hasModule(session, 'finance'));
   const params = await searchParams;
   const shell = await getShellProps(session);
   const scope = await getActiveScope(session);
@@ -53,25 +55,20 @@ export default async function ExpensesPage({
   const branchScope = branchId ? { branchId } : {};
   const expenseWhere = { expenseDate: { gte: range.from, lte: range.to }, ...branchScope };
 
-  const [store, expenses, petty, categories, workers, salaryPayments] = await Promise.all([
+  const [store, expenses, categories, workers, salaryPayments] = await Promise.all([
     prisma.store.findFirst({ select: { currency: true, name: true } }),
     prisma.expense.findMany({
-      where: { ...expenseWhere, kind: 'GENERAL' },
-      orderBy: [{ expenseDate: 'desc' }, { createdAt: 'desc' }],
-      take: 300,
-    }),
-    prisma.expense.findMany({
-      where: { ...expenseWhere, kind: 'PETTY_CASH' },
+      where: { ...expenseWhere, kind: 'GENERAL', ...(limited ? { userId: session.userId } : {}) },
       orderBy: [{ expenseDate: 'desc' }, { createdAt: 'desc' }],
       take: 300,
     }),
     prisma.expenseCategory.findMany({ orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }] }),
     prisma.worker.findMany({
-      where: branchId ? { OR: [{ branchId }, { branchId: null }] } : undefined,
+      where: limited ? { id: '' } : branchId ? { OR: [{ branchId }, { branchId: null }] } : undefined,
       orderBy: [{ active: 'desc' }, { name: 'asc' }],
     }),
     prisma.salaryPayment.findMany({
-      where: { period: month, ...(branchId ? { OR: [{ branchId }, { branchId: null }] } : {}) },
+      where: { period: month, ...(limited ? { id: '' } : {}), ...(branchId ? { OR: [{ branchId }, { branchId: null }] } : {}) },
       orderBy: [{ paidAt: 'desc' }, { createdAt: 'desc' }],
     }),
   ]);
@@ -155,11 +152,11 @@ export default async function ExpensesPage({
           month,
           monthOptions,
           isOwner: session.role === 'OWNER',
+          limited,
           pinnedBranchId: session.role !== 'OWNER' ? session.branchId : null,
           branches: shell.branches.filter((b) => b.active).map((b) => ({ id: b.id, name: b.name })),
           categories: categories.map((c) => ({ id: c.id, name: c.name })),
           expenses: expenses.map(toExpense),
-          petty: petty.map(toExpense),
           workers: workerRows,
           salaries: salaryRows,
         }}

@@ -5,14 +5,16 @@ import { useRouter } from 'next/navigation';
 import { fmtDate, parseDay } from '@/lib/dates';
 import ProfitLossTab from '../finance/ProfitLossTab';
 import CashDrawerTab from '../finance/CashDrawerTab';
+import TrendTab from '../finance/TrendTab';
 import type { ProfitData } from '../finance/types';
 import PrintHeader from './PrintHeader';
 import RangeBar from './RangeBar';
 
-type Tab = 'profit' | 'drawer';
+type Tab = 'profit' | 'trend' | 'drawer';
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'profit', label: 'Profit & loss' },
+  { key: 'trend', label: 'Day / week / month' },
   { key: 'drawer', label: 'Cash drawer & float' },
 ];
 
@@ -57,6 +59,7 @@ export default function ProfitCashView({ data }: { data: ProfitData }) {
       <RangeBar fromStr={fromStr} toStr={toStr} onChange={go} />
 
       {tab === 'profit' && <ProfitLossTab data={data} />}
+      {tab === 'trend' && <TrendTab data={data} />}
       {tab === 'drawer' && <CashDrawerTab data={data} />}
     </>
   );

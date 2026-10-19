@@ -420,15 +420,14 @@ model SalaryPayment {
 
 // Money that left the business. One ledger for every kind so profit is simply
 // the sum by kind: GENERAL (rent, electricity…), SALARY (written by a
-// SalaryPayment) and PETTY_CASH (cash taken by a worker — always a plain
-// expense, never deducted from salary). Append-only: a mistake is voided with a
+// SalaryPayment). Append-only: a mistake is voided with a
 // reason (kept, struck through, excluded from reports), never edited or deleted.
 model Expense {
   id              String         @id @default(cuid())
   branchId        String? // null = company-wide
   branch          Branch?        @relation(fields: [branchId], references: [id], onDelete: SetNull)
   branchName      String? // snapshot
-  kind            String         @default("GENERAL") // GENERAL | SALARY | PETTY_CASH
+  kind            String         @default("GENERAL") // GENERAL | SALARY
   category        String
   amount          Int
   description     String?        @db.Text

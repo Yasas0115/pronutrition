@@ -3,7 +3,7 @@ import { prisma } from '@/lib/db';
 import { getShellProps } from '@/lib/shell';
 import { getActiveScope, ALL_BRANCHES } from '@/lib/branch';
 import { resolveRange, todayStr } from '@/lib/dates';
-import { computeProfitLoss, computeCashDrawer } from '@/lib/reports';
+import { computeProfitLoss, computeCashDrawer, computeTrend } from '@/lib/reports';
 import AppShell from '@/components/AppShell';
 import ProfitCashView from '@/components/accounting/ProfitCashView';
 import type { FloatRow, FloatHistoryRow } from '@/components/finance/types';
@@ -28,10 +28,12 @@ export default async function ProfitPage({
 
   const { fromDay, toDay, range } = resolveRange(params.from, params.to);
 
-  const [store, profit, drawer, branchRows, floatHistory] = await Promise.all([
+  const [store, profit, drawer, trend, owed, branchRows, floatHistory] = await Promise.all([
     prisma.store.findFirst({ select: { currency: true, name: true } }),
     computeProfitLoss(range, branchId),
     computeCashDrawer(range, branchId),
+    computeTrend(range, branchId),
+    prisma.sale.aggregate({ where: { balanceDue: { gt: 0 }, ...(branchId ? { branchId } : {}) }, _sum: { balanceDue: true } }),
     prisma.branch.findMany({
       where: branchId ? { id: branchId } : undefined,
       orderBy: [{ active: 'desc' }, { createdAt: 'asc' }],
@@ -80,6 +82,8 @@ export default async function ProfitPage({
           branches: shell.branches.filter((b) => b.active).map((b) => ({ id: b.id, name: b.name })),
           profit,
           drawer,
+          trend,
+          outstandingCredit: owed._sum.balanceDue ?? 0,
           floats,
           floatHistory: floatHistoryRows,
         }}

@@ -38,7 +38,6 @@ export default function CashDrawerTab({ data }: { data: ProfitData }) {
               <Row label="Credit payments received in cash" value={d.cashSettlements} currency={currency} sign="+" />
               <Row label="Expenses paid in cash" value={d.cashExpenses} currency={currency} sign="−" />
               <Row label="Salaries paid in cash" value={d.cashSalaries} currency={currency} sign="−" />
-              <Row label="Petty cash" value={d.cashPettyCash} currency={currency} sign="−" />
               <Row label="Expected cash in drawer" value={d.expected} currency={currency} bold />
             </tbody>
           </table>

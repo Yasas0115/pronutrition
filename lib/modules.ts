@@ -15,6 +15,7 @@ export type ModuleKey =
   | 'reports'
   | 'customers'
   | 'finance'
+  | 'expenses_add'
   | 'users'
   | 'branches'
   | 'settings';
@@ -31,6 +32,8 @@ export const ALL_MODULES: { key: ModuleKey; label: string; locked?: boolean }[] 
   // Accountant-level: expenses, payroll, profit, cash drawer, buying prices,
   // stock value, price history, activity log.
   { key: 'finance', label: 'Accounting: Expenses, profit & buying prices' },
+  // Lighter than `finance`: a worker who may only record expenses (and see their own entries).
+  { key: 'expenses_add', label: 'Add expenses only (no reports)' },
   { key: 'branches', label: 'Branches' },
   { key: 'users', label: 'Staff / users' },
   { key: 'settings', label: 'Settings', locked: true },
@@ -93,12 +96,13 @@ export const MODULE_ROUTES: Record<ModuleKey, string> = {
   reports: '/accounting/sales',
   customers: '/customers',
   finance: '/accounting/profit',
+  expenses_add: '/accounting/expenses',
   branches: '/branches',
   users: '/users',
   settings: '/settings',
 };
 
-const LANDING_PRIORITY: ModuleKey[] = ['pos', 'reports', 'customers', 'finance', 'products', 'stock', 'categories', 'branches', 'users'];
+const LANDING_PRIORITY: ModuleKey[] = ['pos', 'reports', 'customers', 'finance', 'expenses_add', 'products', 'stock', 'categories', 'branches', 'users'];
 
 export function landingRoute(eff: Set<ModuleKey>): string {
   for (const k of LANDING_PRIORITY) if (eff.has(k)) return MODULE_ROUTES[k];

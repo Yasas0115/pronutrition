@@ -1,4 +1,4 @@
-// Money-out core: expenses, petty cash, salary payments and the till float.
+// Money-out core: expenses, salary payments and the till float.
 // Kept out of the server actions so it can be exercised directly in tests (like
 // lib/checkout.ts and lib/credit.ts). Every function runs as one transaction and
 // writes its own AuditLog row, so a change and its trail can never disagree.
@@ -17,7 +17,6 @@ import { fmt } from './money';
 export const PAID_VIA = ['CASH', 'BANK', 'CARD'] as const;
 export type PaidVia = (typeof PAID_VIA)[number];
 
-export const PETTY_CASH_CATEGORY = 'Petty cash';
 export const SALARY_CATEGORY = 'Salary';
 
 export type Actor = { userId: string | null; userName: string | null };
@@ -49,51 +48,25 @@ function needReason(reason: string | undefined | null, what: string): string {
 
 // ---------------------------------------------------------------- expenses
 export type NewExpense = Actor & {
-  kind?: 'GENERAL' | 'PETTY_CASH';
   category?: string; // GENERAL: must be on the pick-list
   amount: number;
   description?: string;
   paidVia?: string;
   date: string; // YYYY-MM-DD
   branchId?: string | null;
-  workerId?: string | null; // PETTY_CASH: who took the cash …
-  workerName?: string | null; // … or a free-text name if they are not on the workers list
 };
 
 export async function addExpense(input: NewExpense): Promise<{ id: string }> {
-  const kind = input.kind === 'PETTY_CASH' ? 'PETTY_CASH' : 'GENERAL';
   const amount = whole(input.amount);
   if (amount <= 0) throw new Error('Enter the amount.');
   const expenseDate = businessDate(input.date);
   const description = input.description?.trim() || null;
 
   return prisma.$transaction(async (tx) => {
-    let category: string;
-    let paidVia: PaidVia;
-    let workerId: string | null = null;
-    let workerName: string | null = null;
-
-    if (kind === 'PETTY_CASH') {
-      // Petty cash is cash by definition, always a plain expense (it is never
-      // taken off a salary), and must say who had it and what for.
-      category = PETTY_CASH_CATEGORY;
-      paidVia = 'CASH';
-      if (input.workerId) {
-        const w = await tx.worker.findUnique({ where: { id: input.workerId }, select: { id: true, name: true } });
-        if (!w) throw new Error('That worker no longer exists.');
-        workerId = w.id;
-        workerName = w.name;
-      } else {
-        workerName = input.workerName?.trim() || null;
-        if (!workerName) throw new Error('Say who took the cash.');
-      }
-      if (!description) throw new Error('Say what the cash was for.');
-    } else {
-      paidVia = paidViaOf(input.paidVia);
-      const cat = await tx.expenseCategory.findUnique({ where: { name: (input.category ?? '').trim() } });
-      if (!cat) throw new Error('Pick a category from the list.');
-      category = cat.name;
-    }
+    const paidVia: PaidVia = paidViaOf(input.paidVia);
+    const cat = await tx.expenseCategory.findUnique({ where: { name: (input.category ?? '').trim() } });
+    if (!cat) throw new Error('Pick a category from the list.');
+    const category = cat.name;
 
     const branch = input.branchId
       ? await tx.branch.findUnique({ where: { id: input.branchId }, select: { id: true, name: true } })
@@ -104,14 +77,12 @@ export async function addExpense(input: NewExpense): Promise<{ id: string }> {
       data: {
         branchId: branch?.id ?? null,
         branchName: branch?.name ?? null,
-        kind,
+        kind: 'GENERAL',
         category,
         amount,
         description,
         paidVia,
         expenseDate,
-        workerId,
-        workerName,
         userId: input.userId,
         userName: input.userName,
       },
@@ -121,11 +92,8 @@ export async function addExpense(input: NewExpense): Promise<{ id: string }> {
       entity: 'EXPENSE',
       entityId: e.id,
       action: 'CREATE',
-      summary:
-        kind === 'PETTY_CASH'
-          ? `Petty cash Rs ${fmt(amount)} to ${workerName} — ${description}`
-          : `Expense Rs ${fmt(amount)} — ${category}${branch ? ` (${branch.name})` : ''}`,
-      after: { kind, category, amount, paidVia, date: input.date },
+      summary: `Expense Rs ${fmt(amount)} — ${category}${branch ? ` (${branch.name})` : ''}`,
+      after: { category, amount, paidVia, date: input.date },
       branchId: branch?.id ?? null,
       userId: input.userId,
       userName: input.userName,
@@ -149,7 +117,7 @@ export async function voidExpense(input: Actor & { id: string; reason: string })
       entity: 'EXPENSE',
       entityId: e.id,
       action: 'VOID',
-      summary: `Voided ${e.kind === 'PETTY_CASH' ? 'petty cash' : 'expense'} Rs ${fmt(e.amount)} (${e.category}) — ${reason}`,
+      summary: `Voided expense Rs ${fmt(e.amount)} (${e.category}) — ${reason}`,
       before: { amount: e.amount, category: e.category },
       branchId: e.branchId,
       userId: input.userId,

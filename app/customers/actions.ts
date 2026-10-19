@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/db';
-import { requireModule, requireAnyModule } from '@/lib/auth';
+import { requireModule, requireAnyModule, requireSession } from '@/lib/auth';
 import { getTillBranchId } from '@/lib/branch';
 import { logAudit, diffFields } from '@/lib/audit';
 import { settleCustomerPayment } from '@/lib/credit';
@@ -198,6 +198,49 @@ export async function getCustomerLedger(
       payments: payments.map((p) => ({
         id: p.id, createdAt: p.createdAt.toISOString(), amount: p.amount, method: p.method, kind: p.kind,
         note: p.note, userName: p.userName, saleNumber: p.sale.number, settlementId: p.settlementId,
+      })),
+    },
+  };
+}
+
+// ---------- Read-only balance for the till ----------
+// Any signed-in till user may look up what a customer owes (so the cashier can
+// answer "how much do I still have to pay?"), but only the unpaid bills and the
+// last few payments — the full ledger and settling stay behind `customers`.
+export type TillAccount = {
+  name: string;
+  totalDue: number;
+  openSales: { number: number; createdAt: string; total: number; paid: number; balanceDue: number }[];
+  recentPayments: { createdAt: string; amount: number; method: string; kind: string; saleNumber: number }[];
+};
+
+export async function getTillAccount(
+  customerId: string,
+): Promise<{ ok: true; account: TillAccount } | { ok: false; error: string }> {
+  await requireSession();
+  const customer = await prisma.customer.findUnique({ where: { id: customerId }, select: { name: true } });
+  if (!customer) return { ok: false, error: 'Customer not found.' };
+  const [open, payments] = await Promise.all([
+    prisma.sale.findMany({
+      where: { customerId, balanceDue: { gt: 0 } },
+      orderBy: { createdAt: 'asc' },
+      select: { number: true, createdAt: true, total: true, paid: true, balanceDue: true },
+    }),
+    prisma.salePayment.findMany({
+      where: { customerId },
+      orderBy: { createdAt: 'desc' },
+      take: 8,
+      include: { sale: { select: { number: true } } },
+    }),
+  ]);
+  return {
+    ok: true,
+    account: {
+      name: customer.name,
+      totalDue: open.reduce((n, s) => n + s.balanceDue, 0),
+      openSales: open.map((s) => ({ ...s, createdAt: s.createdAt.toISOString() })),
+      recentPayments: payments.map((p) => ({
+        createdAt: p.createdAt.toISOString(), amount: p.amount, method: p.method, kind: p.kind, saleNumber: p.sale.number,
       })),
     },
   };

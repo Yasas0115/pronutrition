@@ -4,21 +4,19 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { fmtDate, parseDay } from '@/lib/dates';
 import ExpensesTab from '../finance/ExpensesTab';
-import PettyCashTab from '../finance/PettyCashTab';
 import SalariesTab from '../finance/SalariesTab';
 import type { ExpensesData } from '../finance/types';
 import PrintHeader from './PrintHeader';
 import RangeBar from './RangeBar';
 
-type Tab = 'expenses' | 'petty' | 'salaries';
+type Tab = 'expenses' | 'salaries';
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'expenses', label: 'Expenses' },
-  { key: 'petty', label: 'Petty cash' },
   { key: 'salaries', label: 'Salaries' },
 ];
 
-// Expenses and petty cash report over the From/To range; salaries use their own
+// Expenses report over the From/To range; salaries use their own
 // month, so the range bar is hidden there.
 export default function ExpensesPayrollView({ data }: { data: ExpensesData }) {
   const router = useRouter();
@@ -43,7 +41,7 @@ export default function ExpensesPayrollView({ data }: { data: ExpensesData }) {
         <div>
           <h1 className="page-title">Expenses &amp; Payroll</h1>
           <p className="page-sub">
-            Money going out — expenses, petty cash and worker salaries for{' '}
+            Money going out — expenses and worker salaries for{' '}
             <b style={{ color: 'var(--color-strong)' }}>{data.scopeLabel}</b> · switch branch from the top bar.
           </p>
         </div>
@@ -55,7 +53,7 @@ export default function ExpensesPayrollView({ data }: { data: ExpensesData }) {
         line={`${TABS.find((t) => t.key === tab)?.label} · ${data.scopeLabel}${showRange ? ` · ${periodLabel}` : ''}`}
       />
 
-      <div className="flex flex-wrap gap-2 mb-4 no-print">
+      <div className="flex flex-wrap gap-2 mb-4 no-print" hidden={data.limited}>
         {TABS.map((t) => (
           <button key={t.key} className="chip" data-active={tab === t.key || undefined} onClick={() => setTab(t.key)}>
             {t.label}
@@ -66,7 +64,6 @@ export default function ExpensesPayrollView({ data }: { data: ExpensesData }) {
       {showRange && <RangeBar fromStr={fromStr} toStr={toStr} onChange={go} />}
 
       {tab === 'expenses' && <ExpensesTab data={data} />}
-      {tab === 'petty' && <PettyCashTab data={data} />}
       {tab === 'salaries' && <SalariesTab data={data} onMonthChange={(m) => go({ month: m })} />}
     </>
   );

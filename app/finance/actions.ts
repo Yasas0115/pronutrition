@@ -1,7 +1,7 @@
 'use server';
 
 import { prisma } from '@/lib/db';
-import { requireModule } from '@/lib/auth';
+import { requireModule, requireAnyModule } from '@/lib/auth';
 import { revalidateAccounting } from '@/lib/revalidate';
 import type { Session } from '@/lib/session';
 import { logAudit, diffFields } from '@/lib/audit';
@@ -11,7 +11,6 @@ import {
   paySalary,
   voidSalaryPayment,
   setBranchFloat,
-  PETTY_CASH_CATEGORY,
   SALARY_CATEGORY,
 } from '@/lib/finance';
 
@@ -44,10 +43,9 @@ export async function addExpenseAction(input: {
   date: string;
   branchId?: string | null;
 }): Promise<SimpleResult> {
-  const session = await requireModule('finance');
+  const session = await requireAnyModule(['finance', 'expenses_add']);
   try {
     await addExpense({
-      kind: 'GENERAL',
       category: input.category,
       amount: input.amount,
       description: input.description,
@@ -63,33 +61,6 @@ export async function addExpenseAction(input: {
   }
 }
 
-export async function addPettyCashAction(input: {
-  workerId?: string | null;
-  workerName?: string;
-  amount: number;
-  description: string;
-  date: string;
-  branchId?: string | null;
-}): Promise<SimpleResult> {
-  const session = await requireModule('finance');
-  try {
-    await addExpense({
-      kind: 'PETTY_CASH',
-      amount: input.amount,
-      description: input.description,
-      date: input.date,
-      workerId: input.workerId,
-      workerName: input.workerName,
-      branchId: branchFor(session, input.branchId),
-      ...actorOf(session),
-    });
-    revalidateFinance();
-    return { ok: true };
-  } catch (e) {
-    return fail(e, 'Could not save the petty cash entry.');
-  }
-}
-
 export async function voidExpenseAction(id: string, reason: string): Promise<SimpleResult> {
   const session = await requireModule('finance');
   try {
@@ -102,7 +73,7 @@ export async function voidExpenseAction(id: string, reason: string): Promise<Sim
 }
 
 // ------------------------------------------------------ expense categories
-const RESERVED = [SALARY_CATEGORY.toLowerCase(), PETTY_CASH_CATEGORY.toLowerCase()];
+const RESERVED = [SALARY_CATEGORY.toLowerCase()];
 
 export async function addExpenseCategory(name: string): Promise<SimpleResult> {
   await requireModule('finance');
@@ -110,7 +81,7 @@ export async function addExpenseCategory(name: string): Promise<SimpleResult> {
   if (!n) return { ok: false, error: 'Enter a category name.' };
   if (n.length > 40) return { ok: false, error: 'Category name is too long.' };
   if (RESERVED.includes(n.toLowerCase())) {
-    return { ok: false, error: `“${n}” is used automatically for ${n.toLowerCase() === 'salary' ? 'salary payments' : 'petty cash'}.` };
+    return { ok: false, error: `“${n}” is used automatically for salary payments.` };
   }
   try {
     const max = await prisma.expenseCategory.aggregate({ _max: { sortOrder: true } });

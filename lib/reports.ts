@@ -9,11 +9,12 @@
 //                   current buying price and are counted as "estimated".
 //   Gross profit  = Net sales − COGS.
 //   Expenses      = non-voided Expense rows dated in the period (general +
-//                   salary + petty cash).
+//                   salary).
 //   Net profit    = Gross profit − Expenses.
 //   The till float is NOT in here — it is cash on hand, not income or expense.
 import type { Prisma } from '@prisma/client';
 import { prisma } from './db';
+import { todayStr } from './dates';
 
 export type DateRange = { from: Date; to: Date };
 
@@ -39,7 +40,6 @@ export type ProfitLoss = {
   expenses: {
     general: number;
     salary: number;
-    pettyCash: number;
     total: number;
     lines: { kind: string; category: string; amount: number; count: number }[];
   };
@@ -208,7 +208,6 @@ export async function computeProfitLoss(range: DateRange, branchId: string | nul
   const expenses = {
     general: ofKind('GENERAL'),
     salary: ofKind('SALARY'),
-    pettyCash: ofKind('PETTY_CASH'),
     total: lines.reduce((n, l) => n + l.amount, 0),
     lines,
   };
@@ -268,7 +267,6 @@ export type CashDrawer = {
   cashIn: number;
   cashExpenses: number; // general expenses paid in cash
   cashSalaries: number;
-  cashPettyCash: number;
   cashOut: number;
   expected: number; // float + cashIn − cashOut
 };
@@ -276,7 +274,7 @@ export type CashDrawer = {
 /**
  * What should physically be in the drawer: the float plus the cash that came in
  * (sales and credit payments received in cash) minus the cash that went out
- * (expenses, salaries and petty cash paid in cash) over the period. Card and
+ * (expenses, and salaries paid in cash) over the period. Card and
  * bank money is not in the drawer, so it is left out on both sides.
  */
 export async function computeCashDrawer(range: DateRange, branchId: string | null): Promise<CashDrawer> {
@@ -305,9 +303,8 @@ export async function computeCashDrawer(range: DateRange, branchId: string | nul
   const cashSettlements = inOf('SETTLEMENT');
   const cashExpenses = outOf('GENERAL');
   const cashSalaries = outOf('SALARY');
-  const cashPettyCash = outOf('PETTY_CASH');
   const cashIn = cashSales + cashSettlements;
-  const cashOut = cashExpenses + cashSalaries + cashPettyCash;
+  const cashOut = cashExpenses + cashSalaries;
 
   return {
     float,
@@ -316,8 +313,128 @@ export async function computeCashDrawer(range: DateRange, branchId: string | nul
     cashIn,
     cashExpenses,
     cashSalaries,
-    cashPettyCash,
     cashOut,
     expected: float + cashIn - cashOut,
   };
+}
+
+// -------------------------------------------------------------- trend report
+export type TrendGranularity = 'day' | 'week' | 'month';
+
+export type TrendBucket = {
+  key: string; // YYYY-MM-DD (day, or the Monday of the week) or YYYY-MM
+  net: number; // net sales (tax excluded)
+  cogs: number;
+  grossProfit: number;
+  expenses: number;
+  expenseLines: { category: string; amount: number }[]; // by name, biggest first
+  netProfit: number; // grossProfit − expenses (the till float is never in here)
+  creditGiven: number; // sold on credit in the bucket and not paid at the till
+  creditCollected: number; // credit payments received in the bucket
+};
+
+export type Trend = Record<TrendGranularity, TrendBucket[]>;
+
+const dayMs = 86_400_000;
+
+// Monday of the week containing a YYYY-MM-DD day.
+function weekStart(ymd: string): string {
+  const t = Date.UTC(+ymd.slice(0, 4), +ymd.slice(5, 7) - 1, +ymd.slice(8, 10));
+  const back = (new Date(t).getUTCDay() + 6) % 7; // Mon = 0
+  return new Date(t - back * dayMs).toISOString().slice(0, 10);
+}
+
+const keyOf: Record<TrendGranularity, (ymd: string) => string> = {
+  day: (d) => d,
+  week: weekStart,
+  month: (d) => d.slice(0, 7),
+};
+
+/**
+ * Day-by-day, week-by-week and month-by-month figures for a range, using the
+ * same definitions as the P&L: net sales − cost of goods − expenses. Credit is
+ * shown beside profit, not inside it: `creditGiven` is what customers took away
+ * unpaid, `creditCollected` what came back in. Every bucket in the range is
+ * present (quiet days are zeros) so a chart has no gaps.
+ */
+export async function computeTrend(range: DateRange, branchId: string | null): Promise<Trend> {
+  const [sales, payments, expenses] = await Promise.all([
+    prisma.sale.findMany({
+      where: saleWhere(range, branchId),
+      select: {
+        id: true,
+        createdAt: true,
+        subtotal: true,
+        discount: true,
+        total: true,
+        items: { select: { qty: true, unitCost: true, productId: true } },
+      },
+    }),
+    prisma.salePayment.findMany({
+      where: { createdAt: { gte: range.from, lte: range.to }, ...(branchId ? { branchId } : {}) },
+      select: { saleId: true, createdAt: true, amount: true, kind: true },
+    }),
+    prisma.expense.findMany({
+      where: expenseWhere(range, branchId),
+      select: { expenseDate: true, category: true, amount: true },
+    }),
+  ]);
+
+  // Buying price for old lines that have no snapshot (same fallback as the P&L).
+  const needCost = new Set<string>();
+  for (const s of sales) for (const i of s.items) if (i.unitCost == null && i.productId) needCost.add(i.productId);
+  const products = needCost.size
+    ? await prisma.product.findMany({ where: { id: { in: [...needCost] } }, select: { id: true, cost: true } })
+    : [];
+  const costOf = new Map(products.map((p) => [p.id, p.cost]));
+
+  const atSale = new Map<string, number>(); // saleId → paid at the till
+  for (const p of payments) if (p.kind === 'SALE') atSale.set(p.saleId, (atSale.get(p.saleId) ?? 0) + p.amount);
+
+  type Acc = TrendBucket & { cats: Map<string, number> };
+  const result = {} as Trend;
+  const startKey = todayStr(range.from);
+  const endKey = todayStr(range.to);
+
+  for (const g of ['day', 'week', 'month'] as TrendGranularity[]) {
+    const bucketOf = keyOf[g];
+    const buckets = new Map<string, Acc>();
+    const get = (key: string): Acc => {
+      let b = buckets.get(key);
+      if (!b) {
+        b = { key, net: 0, cogs: 0, grossProfit: 0, expenses: 0, expenseLines: [], netProfit: 0, creditGiven: 0, creditCollected: 0, cats: new Map() };
+        buckets.set(key, b);
+      }
+      return b;
+    };
+    // Pre-create every bucket in the range so quiet periods show as zero.
+    const startMs = Date.UTC(+startKey.slice(0, 4), +startKey.slice(5, 7) - 1, +startKey.slice(8, 10));
+    const endMs = Date.UTC(+endKey.slice(0, 4), +endKey.slice(5, 7) - 1, +endKey.slice(8, 10));
+    for (let t = startMs; t <= endMs; t += dayMs) get(bucketOf(new Date(t).toISOString().slice(0, 10)));
+
+    for (const s of sales) {
+      const b = get(bucketOf(todayStr(s.createdAt)));
+      b.net += s.subtotal - s.discount;
+      for (const i of s.items) b.cogs += (i.unitCost ?? (i.productId ? costOf.get(i.productId) ?? 0 : 0)) * i.qty;
+      b.creditGiven += Math.max(0, s.total - (atSale.get(s.id) ?? 0));
+    }
+    for (const p of payments) {
+      if (p.kind === 'SETTLEMENT') get(bucketOf(todayStr(p.createdAt))).creditCollected += p.amount;
+    }
+    for (const e of expenses) {
+      const b = get(bucketOf(todayStr(e.expenseDate)));
+      b.expenses += e.amount;
+      b.cats.set(e.category, (b.cats.get(e.category) ?? 0) + e.amount);
+    }
+
+    result[g] = [...buckets.values()]
+      .sort((a, b) => a.key.localeCompare(b.key))
+      .map(({ cats, ...b }) => ({
+        ...b,
+        grossProfit: b.net - b.cogs,
+        netProfit: b.net - b.cogs - b.expenses,
+        expenseLines: [...cats.entries()].map(([category, amount]) => ({ category, amount })).sort((x, y) => y.amount - x.amount),
+      }));
+  }
+  return result;
 }

@@ -7,7 +7,8 @@ import { toast } from './toast';
 import Modal from './Modal';
 import ReceiptModal from './ReceiptModal';
 import { checkoutAction, type Receipt } from '@/app/actions';
-import { saveCustomer } from '@/app/customers/actions';
+import { saveCustomer, getTillAccount, type TillAccount } from '@/app/customers/actions';
+import { fmtDate } from '@/lib/dates';
 
 type Product = {
   id: string;
@@ -87,6 +88,8 @@ export default function POSView({
   const [custQuery, setCustQuery] = useState('');
   const [custOpen, setCustOpen] = useState(false);
   const [newCustomerOpen, setNewCustomerOpen] = useState(false);
+  const [debtWarn, setDebtWarn] = useState(false); // "this customer already owes" confirm
+  const [account, setAccount] = useState<TillAccount | null>(null); // read-only balance view
   const [extraCustomers, setExtraCustomers] = useState<CustomerOpt[]>([]); // registered this session
   const [priceOverrides, setPriceOverrides] = useState<Map<string, number>>(new Map()); // wholesale
   const [processing, setProcessing] = useState(false);
@@ -288,7 +291,14 @@ export default function POSView({
     chip?.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
   }
 
-  async function checkout() {
+  async function showAccount() {
+    if (!customer) return;
+    const res = await getTillAccount(customer.id);
+    if (res.ok) setAccount(res.account);
+    else toast(res.error, true);
+  }
+
+  async function checkout(confirmedDebt = false) {
     if (lines.length === 0) return;
     if (blockedNoCustomer) {
       toast(wholesale ? 'Pick the customer (shop) for a wholesale sale.' : `${selectedMethod?.label ?? 'This method'} needs a registered customer.`, true);
@@ -300,6 +310,12 @@ export default function POSView({
     }
     if (creditOver) {
       toast('The paid-now amount cannot be more than the total.', true);
+      return;
+    }
+    // A credit sale for someone who already owes: show what they owe and what
+    // they will owe after this bill, and let the cashier confirm.
+    if (isCredit && customer && customer.due > 0 && !confirmedDebt) {
+      setDebtWarn(true);
       return;
     }
     setProcessing(true);
@@ -342,7 +358,7 @@ export default function POSView({
       className="btn btn-primary btn-block"
       style={{ padding: '14px 18px', fontSize: 17 }}
       disabled={lines.length === 0 || processing || blockedNoCustomer || creditOver || (isCash && paid < total)}
-      onClick={checkout}
+      onClick={() => checkout()}
     >
       {processing ? 'Processing…' : chargeLabel}
     </button>
@@ -450,9 +466,14 @@ export default function POSView({
                   )}
                 </div>
               </div>
-              <button className="text-[12px] uppercase tracking-wider shrink-0" style={{ color: 'var(--color-brand)' }} onClick={() => chooseCustomer(null)}>
-                Change
-              </button>
+              <div className="flex items-center gap-3 shrink-0">
+                <button className="text-[12px] uppercase tracking-wider" style={{ color: 'var(--color-muted)' }} onClick={showAccount}>
+                  Balance
+                </button>
+                <button className="text-[12px] uppercase tracking-wider" style={{ color: 'var(--color-brand)' }} onClick={() => chooseCustomer(null)}>
+                  Change
+                </button>
+              </div>
             </div>
           ) : (
             <div className="relative">
@@ -789,6 +810,57 @@ export default function POSView({
         </Modal>
       )}
 
+      {debtWarn && customer && (
+        <Modal
+          title="This customer already owes"
+          onClose={() => setDebtWarn(false)}
+          maxWidth={420}
+          footer={
+            <>
+              <button className="btn btn-ghost" onClick={() => setDebtWarn(false)}>Cancel</button>
+              <button className="btn btn-primary" onClick={() => { setDebtWarn(false); checkout(true); }}>Continue with credit sale</button>
+            </>
+          }
+        >
+          <div className="flex flex-col gap-2 text-[14px]">
+            <div className="text-strong font-semibold">{customer.name}</div>
+            <div className="flex justify-between"><span>Still to pay (before this bill)</span><b className="num">{money(customer.due, currency)}</b></div>
+            <div className="flex justify-between"><span>This bill adds</span><b className="num">+ {money(balanceLater, currency)}</b></div>
+            <div className="flex justify-between pt-2" style={{ borderTop: '1px solid var(--color-line-2)', color: 'var(--color-warn)' }}>
+              <span>Will owe in total</span><b className="num">{money(customer.due + balanceLater, currency)}</b>
+            </div>
+          </div>
+        </Modal>
+      )}
+      {account && (
+        <Modal title={`${account.name} — balance`} onClose={() => setAccount(null)} maxWidth={460} footer={<button className="btn btn-primary" onClick={() => setAccount(null)}>Close</button>}>
+          <div className="flex flex-col gap-3 text-[13.5px]">
+            <div className="flex justify-between text-[15px]"><span>Still to pay</span><b className="num" style={{ color: account.totalDue > 0 ? 'var(--color-warn)' : undefined }}>{money(account.totalDue, currency)}</b></div>
+            {account.openSales.length > 0 && (
+              <div>
+                <div className="field-label">Unpaid bills</div>
+                {account.openSales.map((s) => (
+                  <div key={s.number} className="flex justify-between py-1" style={{ borderBottom: '1px solid var(--color-line-2)' }}>
+                    <span>#{s.number} · {fmtDate(s.createdAt)} <span style={{ color: 'var(--color-muted)' }}>(of {money(s.total, currency)})</span></span>
+                    <b className="num">{money(s.balanceDue, currency)}</b>
+                  </div>
+                ))}
+              </div>
+            )}
+            {account.recentPayments.length > 0 && (
+              <div>
+                <div className="field-label">Recent payments</div>
+                {account.recentPayments.map((p, i) => (
+                  <div key={i} className="flex justify-between py-1 text-[12.5px]" style={{ color: 'var(--color-muted)' }}>
+                    <span>{fmtDate(p.createdAt)} · {p.kind === 'SETTLEMENT' ? 'paid off' : 'paid at sale'} #{p.saleNumber} · {p.method}</span>
+                    <span className="num">{money(p.amount, currency)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </Modal>
+      )}
       {newCustomerOpen && (
         <NewCustomerModal
           defaultType={wholesale ? 'SHOP' : 'RETAIL'}
