@@ -110,9 +110,18 @@ export default function POSView({
     [products],
   );
 
+  // In-stock products first, out-of-stock after; the server's category/name
+  // order is kept inside each group. Uses the stock the till loaded (not the
+  // cart-adjusted count) so tiles don't jump around while a sale is built —
+  // the refresh after checkout re-sorts.
+  const ordered = useMemo(
+    () => [...products.filter((p) => p.stock > 0), ...products.filter((p) => p.stock <= 0)],
+    [products],
+  );
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return products.filter((p) => {
+    return ordered.filter((p) => {
       if (cat !== 'All' && p.category !== cat) return false;
       if (!q) return true;
       return (
@@ -123,7 +132,7 @@ export default function POSView({
         (p.barcode ?? '').toLowerCase().includes(q)
       );
     });
-  }, [products, query, cat]);
+  }, [ordered, query, cat]);
 
   const byId = useMemo(() => new Map(products.map((p) => [p.id, p])), [products]);
 
