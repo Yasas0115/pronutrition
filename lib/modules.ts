@@ -46,6 +46,63 @@ export const STAFF_MODULES: { key: ModuleKey; label: string }[] = ALL_MODULES
   .filter((m) => m.key !== 'settings')
   .map(({ key, label }) => ({ key, label }));
 
+// How the Add/Edit user dialog presents the grantable modules: grouped, with a
+// plain-language description, a short name for the "will see" summary, and a
+// flag for the ones that expose money or people.
+export type ModuleUi = {
+  key: ModuleKey;
+  short: string;
+  description: string;
+  sensitive?: boolean;
+};
+
+export const MODULE_GROUPS: { title: string; items: ModuleUi[] }[] = [
+  {
+    title: 'Selling',
+    items: [
+      { key: 'pos', short: 'Till', description: 'The till: ring up sales and print bills.' },
+    ],
+  },
+  {
+    title: 'Store',
+    items: [
+      { key: 'products', short: 'Products', description: 'View, add and edit products.' },
+      { key: 'stock', short: 'Stock', description: 'See stock levels and adjust quantities.' },
+      { key: 'categories', short: 'Categories', description: 'Create and edit product categories.' },
+    ],
+  },
+  {
+    title: 'Customers & money in',
+    items: [
+      { key: 'customers', short: 'Customers & receivables', description: 'Customer list, plus who owes money and collecting payments.' },
+      { key: 'reports', short: 'Sales', description: 'Daily takings, best sellers, receipts, sales mix.' },
+    ],
+  },
+  {
+    title: 'Money out',
+    items: [
+      { key: 'expenses_add', short: 'Add expenses', description: 'Can record expenses and see only their own entries. No reports, salaries or profit.' },
+      { key: 'finance', short: 'Full finance', description: 'Everything financial: all expenses, salaries, profit, cash drawer, buying prices, stock value.', sensitive: true },
+    ],
+  },
+  {
+    title: 'Administration',
+    items: [
+      { key: 'branches', short: 'Branches', description: 'Add and manage branches.' },
+      { key: 'users', short: 'Staff', description: 'Add, edit and remove other users.', sensitive: true },
+    ],
+  },
+];
+
+// One-click starting points in the Add/Edit user dialog.
+export const ROLE_PRESETS: { id: string; label: string; modules: ModuleKey[] }[] = [
+  { id: 'cashier', label: 'Cashier', modules: ['pos'] },
+  { id: 'cashier-plus', label: 'Cashier + expenses', modules: ['pos', 'customers', 'expenses_add'] },
+  { id: 'stock', label: 'Stock keeper', modules: ['products', 'stock', 'categories'] },
+  { id: 'manager', label: 'Manager', modules: ['pos', 'products', 'stock', 'categories', 'reports', 'customers'] },
+  { id: 'accountant', label: 'Accountant', modules: ['reports', 'customers', 'finance'] },
+];
+
 // Company-wide master switch. POS and Settings are always on so the app is
 // never left unusable for the owner.
 export function parseModules(raw: string | null | undefined): Set<ModuleKey> {

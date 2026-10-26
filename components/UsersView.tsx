@@ -6,7 +6,7 @@ import { toast } from './toast';
 import Modal from './Modal';
 import { saveUser, deleteUser } from '@/app/users/actions';
 import { sendUserResetEmail } from '@/app/password/actions';
-import { STAFF_MODULES, parseUserModules, type ModuleKey } from '@/lib/modules';
+import { STAFF_MODULES, MODULE_GROUPS, ROLE_PRESETS, parseUserModules, type ModuleKey } from '@/lib/modules';
 
 type Role = 'OWNER' | 'STAFF';
 type User = {
@@ -162,10 +162,25 @@ function UserModal({
     setModules((prev) => {
       const next = new Set(prev);
       if (next.has(key)) next.delete(key);
-      else next.add(key);
+      else {
+        next.add(key);
+        // Full finance already covers adding expenses.
+        if (key === 'finance') next.delete('expenses_add');
+      }
       return next;
     });
   }
+
+  function applyPreset(keys: ModuleKey[]) {
+    setModules(new Set(keys));
+  }
+
+  const activePreset =
+    ROLE_PRESETS.find((p) => p.modules.length === modules.size && p.modules.every((k) => modules.has(k)))?.id ?? 'custom';
+
+  const summary = MODULE_GROUPS.flatMap((g) => g.items)
+    .filter((m) => modules.has(m.key))
+    .map((m) => m.short);
 
   async function save() {
     if (!email.trim()) { toast('Enter an email.', true); return; }
@@ -253,23 +268,91 @@ function UserModal({
             </div>
 
             <div>
-              <label className="field-label">Modules this user can open</label>
-              <div className="grid grid-cols-2 gap-2 mt-1">
-                {STAFF_MODULES.map((m) => {
-                  const on = modules.has(m.key);
+              <label className="field-label">What can this user open?</label>
+
+              <div className="text-[12px] mt-1 mb-1.5" style={{ color: 'var(--color-muted)' }}>Quick start — pick a role, then adjust below</div>
+              <div className="flex flex-wrap gap-1.5">
+                {ROLE_PRESETS.map((p) => {
+                  const active = activePreset === p.id;
                   return (
-                    <label key={m.key} className="flex items-center gap-2.5 cursor-pointer select-none rounded-lg px-2.5 py-2"
-                      style={{ background: 'var(--color-ink-1)', border: '1px solid var(--color-line-2)' }}>
-                      <input
-                        type="checkbox"
-                        checked={on}
-                        onChange={() => toggleModule(m.key)}
-                        style={{ width: 16, height: 16, accentColor: 'var(--color-brand)' }}
-                      />
-                      <span className="text-[13px]" style={{ color: 'var(--color-ash)' }}>{m.label}</span>
-                    </label>
+                    <button
+                      key={p.id}
+                      type="button"
+                      className="btn btn-sm"
+                      onClick={() => applyPreset(p.modules)}
+                      style={{
+                        background: active ? 'var(--color-brand)' : 'var(--color-ink-1)',
+                        color: active ? '#fff' : 'var(--color-ash)',
+                        border: '1px solid var(--color-line-2)',
+                      }}
+                    >
+                      {p.label}
+                    </button>
                   );
                 })}
+                <span
+                  className="btn btn-sm"
+                  style={{
+                    pointerEvents: 'none',
+                    background: activePreset === 'custom' ? 'var(--color-brand)' : 'transparent',
+                    color: activePreset === 'custom' ? '#fff' : 'var(--color-muted)',
+                    border: '1px dashed var(--color-line-2)',
+                  }}
+                >
+                  Custom
+                </span>
+              </div>
+
+              <div className="flex flex-col gap-3.5 mt-3.5">
+                {MODULE_GROUPS.map((g) => (
+                  <div key={g.title}>
+                    <div className="text-[11px] font-semibold uppercase tracking-wide mb-1.5" style={{ color: 'var(--color-muted)' }}>
+                      {g.title}
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      {g.items.map((m) => {
+                        const covered = m.key === 'expenses_add' && modules.has('finance');
+                        const on = modules.has(m.key) || covered;
+                        return (
+                          <label
+                            key={m.key}
+                            className="flex items-start gap-2.5 select-none rounded-lg px-3 py-2.5"
+                            style={{
+                              background: 'var(--color-ink-1)',
+                              border: `1px solid ${on && !covered ? 'var(--color-brand)' : 'var(--color-line-2)'}`,
+                              cursor: covered ? 'not-allowed' : 'pointer',
+                              opacity: covered ? 0.55 : 1,
+                            }}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={on}
+                              disabled={covered}
+                              onChange={() => toggleModule(m.key)}
+                              style={{ width: 18, height: 18, marginTop: 1, accentColor: 'var(--color-brand)' }}
+                            />
+                            <span className="flex-1">
+                              <span className="flex items-center gap-2 text-[13px] text-strong font-semibold">
+                                {moduleLabel.get(m.key)}
+                                {m.sensitive && (
+                                  <span className="badge" style={{ color: 'var(--color-brand)', background: 'var(--color-ink-2, var(--color-ink-1))' }}>Sensitive</span>
+                                )}
+                              </span>
+                              <span className="block text-[12px] mt-0.5" style={{ color: 'var(--color-muted)' }}>
+                                {covered ? 'Already included in Full finance.' : m.description}
+                              </span>
+                            </span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="rounded-lg px-3 py-2 mt-3.5 text-[12px]" style={{ background: 'var(--color-ink-1)', border: '1px solid var(--color-line-2)', color: 'var(--color-ash)' }}>
+                <b>This user will see:</b>{' '}
+                {summary.length ? summary.join(' · ') : 'Nothing yet — tick at least one module.'}
               </div>
               <p className="text-[12px] mt-1.5" style={{ color: 'var(--color-muted)' }}>
                 Only company-enabled modules take effect. Settings stays owner-only.
