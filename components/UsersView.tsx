@@ -143,6 +143,8 @@ function UserModal({
   // '' = all branches; otherwise a concrete branch id.
   const [branchId, setBranchId] = useState<string>(user?.branchId ?? '');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false); // eye toggle, shared by both fields
   const [saving, setSaving] = useState(false);
   const [sending, setSending] = useState(false);
   const [confirmDel, setConfirmDel] = useState(false);
@@ -185,6 +187,7 @@ function UserModal({
   async function save() {
     if (!email.trim()) { toast('Enter an email.', true); return; }
     if (role === 'STAFF' && modules.size === 0) { toast('Tick at least one module for this staff member.', true); return; }
+    if (!editing && password !== confirmPassword) { toast('The two passwords do not match.', true); return; }
     setSaving(true);
     const res = await saveUser({
       id: user?.id,
@@ -373,15 +376,83 @@ function UserModal({
             </button>
           </div>
         ) : (
-          <div>
-            <label className="field-label">First password</label>
-            <input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" autoComplete="new-password" />
-            <p className="text-[12px] mt-1" style={{ color: 'var(--color-muted)' }}>
-              At least 6 characters. After this, the password can only be changed through a link sent to their email.
-            </p>
+          <div className="flex flex-col gap-3">
+            <div>
+              <label className="field-label">First password</label>
+              <PasswordInput
+                value={password}
+                onChange={setPassword}
+                shown={showPassword}
+                onToggle={() => setShowPassword((s) => !s)}
+              />
+              <p className="text-[12px] mt-1" style={{ color: 'var(--color-muted)' }}>
+                At least 6 characters. After this, the password can only be changed through a link sent to their email.
+              </p>
+            </div>
+            <div>
+              <label className="field-label">Confirm password</label>
+              <PasswordInput
+                value={confirmPassword}
+                onChange={setConfirmPassword}
+                shown={showPassword}
+                onToggle={() => setShowPassword((s) => !s)}
+              />
+              {confirmPassword && confirmPassword !== password && (
+                <p className="text-[12px] mt-1" style={{ color: 'var(--color-brand)' }}>Passwords do not match.</p>
+              )}
+            </div>
           </div>
         )}
       </div>
     </Modal>
+  );
+}
+
+// Password box with an eye button that shows / hides what was typed.
+function PasswordInput({
+  value,
+  onChange,
+  shown,
+  onToggle,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  shown: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <div className="relative">
+      <input
+        className="input"
+        style={{ paddingRight: '2.75rem' }}
+        type={shown ? 'text' : 'password'}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="••••••••"
+        autoComplete="new-password"
+      />
+      <button
+        type="button"
+        className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md"
+        style={{ color: 'var(--color-muted)' }}
+        onClick={onToggle}
+        aria-label={shown ? 'Hide password' : 'Show password'}
+        aria-pressed={shown}
+      >
+        <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          {shown ? (
+            <>
+              <path d="M17.94 17.94A10.07 10.07 0 0 1 12 19c-7 0-10-7-10-7a18.5 18.5 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 10 7 10 7a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+              <line x1="1" y1="1" x2="23" y2="23" />
+            </>
+          ) : (
+            <>
+              <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" />
+              <circle cx="12" cy="12" r="3" />
+            </>
+          )}
+        </svg>
+      </button>
+    </div>
   );
 }
