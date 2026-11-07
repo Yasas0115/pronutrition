@@ -6,6 +6,7 @@ import { requireOwner } from '@/lib/auth';
 import { parseModules } from '@/lib/branch';
 import { logAudit, diffFields } from '@/lib/audit';
 import { revalidateAccounting } from '@/lib/revalidate';
+import { DEFAULT_PAYMENT_METHODS } from '@/lib/payment-methods';
 
 export type StoreInput = {
   name: string;
@@ -131,9 +132,10 @@ export async function savePaymentMethods(list: PaymentMethodInput[]): Promise<St
   }
 }
 
-// Add / remove payment methods. The five built-ins drive checkout rules (cash
-// change, credit, settlements) so they can be edited but not removed.
-const CORE_METHODS = new Set(['CASH', 'CARD', 'KOKO', 'BANK', 'CREDIT']);
+// Add / remove payment methods. Cash is the till's cash drawer, so it always
+// stays. Every other method (built-in or custom) can be removed; built-ins are
+// only hidden, so they can be added back later with their original rules.
+const BUILTIN = new Map(DEFAULT_PAYMENT_METHODS.map((m) => [m.key, m]));
 
 export async function addPaymentMethod(input: {
   label: string;
@@ -149,8 +151,11 @@ export async function addPaymentMethod(input: {
     const existing = await prisma.paymentMethod.findUnique({ where: { key } });
     if (existing?.active) return { ok: false, error: `A payment method called "${existing.label}" already exists.` };
     const last = await prisma.paymentMethod.findFirst({ orderBy: { sortOrder: 'desc' }, select: { sortOrder: true } });
+    const builtin = BUILTIN.get(key); // re-adding e.g. "Credit" restores its rules
     const data = {
-      label, discountPercent, requiresCustomer: input.requiresCustomer, allowsPartial: false,
+      label, discountPercent,
+      requiresCustomer: builtin ? builtin.requiresCustomer : input.requiresCustomer,
+      allowsPartial: builtin ? builtin.allowsPartial : false,
       active: true, sortOrder: (last?.sortOrder ?? 0) + 1,
     };
     if (existing) await prisma.paymentMethod.update({ where: { key }, data });
@@ -170,12 +175,13 @@ export async function addPaymentMethod(input: {
 
 export async function removePaymentMethod(key: string): Promise<StoreResult> {
   const session = await requireOwner();
-  if (CORE_METHODS.has(key)) return { ok: false, error: 'Built-in payment methods cannot be removed.' };
+  if (key === 'CASH') return { ok: false, error: 'Cash cannot be removed — the till and cash drawer depend on it.' };
   try {
     const pm = await prisma.paymentMethod.findUnique({ where: { key } });
     if (!pm) return { ok: true };
-    // Past sales keep this key, so hide it instead of deleting when it was used.
-    const used = await prisma.sale.count({ where: { method: key } });
+    // Past sales keep this key, so hide it instead of deleting when it was used
+    // (built-ins are always just hidden).
+    const used = BUILTIN.has(key) ? 1 : await prisma.sale.count({ where: { method: key } });
     if (used > 0) await prisma.paymentMethod.update({ where: { key }, data: { active: false } });
     else await prisma.paymentMethod.delete({ where: { key } });
     await logAudit(prisma, {

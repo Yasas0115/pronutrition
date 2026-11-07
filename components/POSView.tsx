@@ -44,7 +44,7 @@ type Line = { product: Product; qty: number };
 type SaleType = 'RETAIL' | 'WHOLESALE';
 
 // How the "paid now" part of a credit sale can be taken.
-const PAID_VIA = [
+const PAID_VIA_ALL = [
   { key: 'CASH', label: 'Cash' },
   { key: 'CARD', label: 'Card' },
   { key: 'BANK', label: 'Bank transfer' },
@@ -665,7 +665,7 @@ export default function POSView({
             />
             {paid > 0 && (
               <div className="grid grid-cols-3 gap-2">
-                {PAID_VIA.map((v) => (
+                {PAID_VIA_ALL.filter((v) => paymentMethods.some((m) => m.key === v.key)).map((v) => (
                   <button
                     key={v.key}
                     className="btn btn-sm"

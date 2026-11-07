@@ -9,7 +9,7 @@ import {
   addPromotion, setPromotionActive, removePromotion,
 } from '@/app/settings/actions';
 
-const CORE_METHODS = ['CASH', 'CARD', 'KOKO', 'BANK', 'CREDIT'];
+const BUILTIN_KEYS = ['CASH', 'CARD', 'KOKO', 'BANK', 'CREDIT'];
 
 type Promotion = {
   id: string; name: string; percent: number; startsOn: string | null; endsOn: string | null; active: boolean;
@@ -213,7 +213,7 @@ export default function SettingsView({
           {methods.map((m, i) => (
             <div key={m.key} className="grid grid-cols-[1fr_auto_auto] items-end gap-3">
               <div>
-                <label className="field-label">{CORE_METHODS.includes(m.key) ? m.key : 'Custom'}</label>
+                <label className="field-label">{BUILTIN_KEYS.includes(m.key) ? m.key : 'Custom'}</label>
                 <input
                   className="input"
                   value={m.label}
@@ -229,7 +229,7 @@ export default function SettingsView({
                   onChange={(e) => setMethods((prev) => prev.map((x, j) => (j === i ? { ...x, discountPercent: parseAmount(e.target.value) } : x)))}
                 />
               </div>
-              {CORE_METHODS.includes(m.key) ? (
+              {m.key === 'CASH' ? (
                 <div style={{ width: 70 }} />
               ) : (
                 <button

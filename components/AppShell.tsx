@@ -424,7 +424,7 @@ export default function AppShell({
           } md:static md:block md:z-auto md:w-[290px] md:shrink-0 md:overflow-visible`}
           style={{ background: 'var(--color-ink-2)', borderRight: '1px solid var(--color-line)' }}
         >
-          <nav className="flex flex-col gap-1.5 px-4 pt-5 md:pt-10 pb-4 md:sticky md:top-0">
+          <nav className="flex flex-col gap-1.5 px-4 pt-5 md:pt-10 pb-4 md:sticky md:top-0 md:max-h-[calc(100dvh-4rem)] md:overflow-y-auto">
             {branches.length > 0 && (
               <div className="sm:hidden flex flex-col gap-2 mb-4">
                 <div className="side-label">Branch</div>
