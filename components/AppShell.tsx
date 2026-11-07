@@ -290,7 +290,9 @@ export default function AppShell({
     // overflow-x: clip is a safety net: anything that ever pokes past the
     // viewport gets cut off instead of making the whole page side-scroll /
     // zoom out on phones. (clip, unlike hidden, keeps the sticky header working.)
-    <div className="min-h-screen flex flex-col" style={{ overflowX: 'clip' }}>
+    // The page scrolls inside the body area (not the window), so the scrollbar
+    // starts below the header instead of running alongside it.
+    <div className="h-screen supports-[height:100dvh]:h-[100dvh] flex flex-col overflow-hidden print:!h-auto print:overflow-visible">
       {/* Header */}
       <header
         className="no-print sticky top-0 z-30 flex items-center justify-between gap-2 px-4 sm:px-6"
@@ -395,7 +397,7 @@ export default function AppShell({
       </header>
 
       {/* Body: sidebar + content */}
-      <div className="flex-1 md:flex">
+      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-clip md:flex print:overflow-visible">
         {navOpen && (
           <button
             className="md:hidden fixed inset-0 z-30 no-print cursor-default"
@@ -411,7 +413,7 @@ export default function AppShell({
           } md:static md:block md:z-auto md:w-[290px] md:shrink-0 md:overflow-visible`}
           style={{ background: 'var(--color-ink-2)', borderRight: '1px solid var(--color-line)' }}
         >
-          <nav className="flex flex-col gap-1.5 px-4 pt-5 md:pt-10 pb-4 md:sticky md:top-16">
+          <nav className="flex flex-col gap-1.5 px-4 pt-5 md:pt-10 pb-4 md:sticky md:top-0">
             {branches.length > 0 && (
               <div className="sm:hidden flex flex-col gap-2 mb-4">
                 <div className="side-label">Branch</div>
