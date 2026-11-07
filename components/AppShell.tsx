@@ -408,7 +408,7 @@ export default function AppShell({
       </header>
 
       {/* Body: sidebar + content */}
-      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-clip md:flex print:overflow-visible">
+      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-clip md:flex md:overflow-hidden print:!overflow-visible">
         {navOpen && (
           <button
             className="md:hidden fixed inset-0 z-30 no-print cursor-default"
@@ -421,7 +421,7 @@ export default function AppShell({
         <aside
           className={`no-print fixed top-16 left-0 bottom-0 z-40 w-[260px] overflow-y-auto ${
             navOpen ? 'block' : 'hidden'
-          } md:sticky md:top-0 md:bottom-auto md:self-start md:block md:z-auto md:w-[290px] md:shrink-0 md:h-[calc(100dvh-4rem)] md:overflow-y-auto`}
+          } md:static md:block md:z-auto md:w-[290px] md:shrink-0 md:h-full md:overflow-y-auto`}
           style={{ background: 'var(--color-ink-2)', borderRight: '1px solid var(--color-line)' }}
         >
           <nav className="flex flex-col gap-1.5 px-4 pt-5 md:pt-10 pb-4">
@@ -489,7 +489,7 @@ export default function AppShell({
         </aside>
 
         <main
-          className="flex-1 min-w-0 px-4 sm:px-6 pt-6 pb-24 lg:pb-16"
+          className="flex-1 min-w-0 px-4 sm:px-6 pt-6 pb-24 lg:pb-16 md:h-full md:overflow-y-auto print:!h-auto print:!overflow-visible"
           style={{ borderTop: '1px solid var(--color-line)' }}
         >
           <div className={wide ? 'max-w-[1400px] mx-auto' : 'max-w-[1100px] mx-auto'}>
