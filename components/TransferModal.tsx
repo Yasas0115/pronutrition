@@ -19,6 +19,64 @@ type Line = { key: number; productId: string; qty: string };
 
 let nextKey = 1;
 
+// Type-to-search product picker (replaces the plain <select>).
+function ProductPicker({
+  options,
+  value,
+  onChange,
+}: {
+  options: { id: string; name: string }[];
+  value: string;
+  onChange: (id: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const [hi, setHi] = useState(0);
+  const selected = options.find((o) => o.id === value);
+  const q = query.trim().toLowerCase();
+  const filtered = q ? options.filter((o) => o.name.toLowerCase().includes(q)) : options;
+
+  const pick = (id: string) => { onChange(id); setOpen(false); setQuery(''); };
+
+  return (
+    <div className="relative">
+      <input
+        className="input"
+        placeholder="Search product…"
+        value={open ? query : selected?.name ?? ''}
+        onFocus={(e) => { setOpen(true); setQuery(''); setHi(0); e.currentTarget.select(); }}
+        onBlur={() => { setOpen(false); setQuery(''); }}
+        onChange={(e) => { setQuery(e.target.value); setHi(0); setOpen(true); }}
+        onKeyDown={(e) => {
+          if (e.key === 'ArrowDown') { e.preventDefault(); setHi((h) => Math.min(h + 1, filtered.length - 1)); }
+          else if (e.key === 'ArrowUp') { e.preventDefault(); setHi((h) => Math.max(h - 1, 0)); }
+          else if (e.key === 'Enter') { e.preventDefault(); if (filtered[hi]) pick(filtered[hi].id); }
+          else if (e.key === 'Escape') { setOpen(false); }
+        }}
+      />
+      {open && (
+        <ul
+          className="absolute left-0 right-0 z-50 mt-1 overflow-auto rounded-md border text-[13px]"
+          style={{ maxHeight: 220, background: 'var(--color-surface, #fff)', borderColor: 'var(--color-line, #ddd)', boxShadow: '0 6px 20px rgba(0,0,0,.12)' }}
+        >
+          {filtered.length === 0 && <li className="px-3 py-2" style={{ color: 'var(--color-muted)' }}>No products found</li>}
+          {filtered.map((o, i) => (
+            <li
+              key={o.id}
+              className="px-3 py-2 cursor-pointer"
+              style={{ background: i === hi ? 'rgba(0,0,0,.06)' : undefined, fontWeight: o.id === value ? 600 : undefined }}
+              onMouseDown={(e) => { e.preventDefault(); pick(o.id); }}
+              onMouseEnter={() => setHi(i)}
+            >
+              {o.name}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 // One document, many products. Both branches' balances are shown as you build
 // it, so you can see what each side will hold afterwards before saving.
 export default function TransferModal({
@@ -118,9 +176,11 @@ export default function TransferModal({
             const tooMany = (wanted.get(l.productId) ?? 0) > sender;
             return (
               <div key={l.key} className="grid gap-2 items-center" style={{ gridTemplateColumns: '1fr 92px 120px 32px' }}>
-                <select className="input" value={l.productId} onChange={(e) => setLine(l.key, { productId: e.target.value })}>
-                  {pool.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-                </select>
+                <ProductPicker
+                  options={pool}
+                  value={l.productId}
+                  onChange={(id) => setLine(l.key, { productId: id })}
+                />
                 <input
                   className="input num text-right"
                   inputMode="numeric"
