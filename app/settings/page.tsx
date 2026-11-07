@@ -8,10 +8,11 @@ export const dynamic = 'force-dynamic';
 
 export default async function SettingsPage() {
   const session = await requireOwner();
-  const [shell, store, methods] = await Promise.all([
+  const [shell, store, methods, promos] = await Promise.all([
     getShellProps(session),
     prisma.store.findFirst(),
-    prisma.paymentMethod.findMany({ orderBy: { sortOrder: 'asc' } }),
+    prisma.paymentMethod.findMany({ where: { active: true }, orderBy: { sortOrder: 'asc' } }),
+    prisma.promotion.findMany({ orderBy: { createdAt: 'desc' } }),
   ]);
 
   return (
@@ -27,6 +28,9 @@ export default async function SettingsPage() {
           logoUrl: store?.logoUrl ?? null,
         }}
         paymentMethods={methods.map((m) => ({ key: m.key, label: m.label, discountPercent: m.discountPercent }))}
+        promotions={promos.map((p) => ({
+          id: p.id, name: p.name, percent: p.percent, startsOn: p.startsOn, endsOn: p.endsOn, active: p.active,
+        }))}
       />
     </AppShell>
   );

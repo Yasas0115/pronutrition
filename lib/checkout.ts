@@ -16,6 +16,7 @@ import { Prisma } from '@prisma/client';
 import { prisma } from './db';
 import { applyStockChange, avgCost } from './stock';
 import { SETTLEMENT_METHODS } from './payment-methods';
+import { livePromotions, promoPercent } from './promotions';
 
 export type SaleType = 'RETAIL' | 'WHOLESALE';
 
@@ -49,6 +50,8 @@ export type Receipt = {
   subtotal: number;
   discount: number;
   methodDiscount: number;
+  promoDiscount: number;
+  promoLabel: string | null;
   manualDiscount: number;
   tax: number;
   total: number;
@@ -112,6 +115,11 @@ function checkoutOnce(input: CheckoutCore, items: CartLine[]): Promise<Receipt> 
     // is priced by hand, so the auto method discount does not apply.
     const methodPercent = wholesale ? 0 : Math.max(0, Math.min(100, pm.discountPercent));
 
+    // Seasonal discounts that are switched on today also apply to retail sales
+    // and stack with the method %.
+    const promos = wholesale ? [] : await livePromotions(tx);
+    const seasonPercent = Math.min(promoPercent(promos), 100 - methodPercent);
+
     const ids = items.map((i) => i.productId);
     const products = await tx.product.findMany({ where: { id: { in: ids } } });
     const byId = new Map(products.map((p) => [p.id, p]));
@@ -147,8 +155,13 @@ function checkoutOnce(input: CheckoutCore, items: CartLine[]): Promise<Receipt> 
     }
 
     const methodDiscount = Math.min(subtotal, Math.round((subtotal * methodPercent) / 100));
-    const manualDiscount = Math.max(0, Math.min(Math.round(input.manualDiscount || 0), subtotal - methodDiscount));
-    const discount = methodDiscount + manualDiscount;
+    const promoDiscount = Math.min(subtotal - methodDiscount, Math.round((subtotal * seasonPercent) / 100));
+    const promoLabel = promoDiscount > 0 ? promos.map((p) => `${p.name} ${p.percent}%`).join(', ').slice(0, 190) : null;
+    const manualDiscount = Math.max(
+      0,
+      Math.min(Math.round(input.manualDiscount || 0), subtotal - methodDiscount - promoDiscount),
+    );
+    const discount = methodDiscount + promoDiscount + manualDiscount;
     const taxed = subtotal - discount;
     const tax = Math.round((taxed * taxPercent) / 100);
     const total = taxed + tax;
@@ -207,6 +220,8 @@ function checkoutOnce(input: CheckoutCore, items: CartLine[]): Promise<Receipt> 
         subtotal,
         discount,
         methodDiscount,
+        promoDiscount,
+        promoLabel,
         manualDiscount,
         tax,
         total,
@@ -278,6 +293,8 @@ function checkoutOnce(input: CheckoutCore, items: CartLine[]): Promise<Receipt> 
       subtotal,
       discount,
       methodDiscount,
+      promoDiscount,
+      promoLabel,
       manualDiscount,
       tax,
       total,

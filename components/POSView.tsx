@@ -53,6 +53,7 @@ const PAID_VIA = [
 export default function POSView({
   products,
   paymentMethods,
+  promotions,
   customers,
   currency,
   taxPercent,
@@ -65,6 +66,7 @@ export default function POSView({
 }: {
   products: Product[];
   paymentMethods: PaymentMethod[];
+  promotions: { id: string; name: string; percent: number }[]; // seasonal discounts live today
   customers: CustomerOpt[];
   currency: string;
   taxPercent: number;
@@ -169,8 +171,12 @@ export default function POSView({
   // (the server enforces the same rule).
   const methodPercent = wholesale ? 0 : selectedMethod?.discountPercent ?? 0;
   const methodDiscount = Math.min(subtotal, Math.round((subtotal * methodPercent) / 100));
-  const manualDiscount = Math.max(0, Math.min(discount, subtotal - methodDiscount));
-  const totalDiscount = methodDiscount + manualDiscount;
+  // Seasonal discounts that are on today stack with the method % (retail only).
+  const activePromos = wholesale ? [] : promotions;
+  const promoPct = Math.min(activePromos.reduce((s, p) => s + p.percent, 0), 100 - methodPercent);
+  const promoDiscount = Math.min(subtotal - methodDiscount, Math.round((subtotal * promoPct) / 100));
+  const manualDiscount = Math.max(0, Math.min(discount, subtotal - methodDiscount - promoDiscount));
+  const totalDiscount = methodDiscount + promoDiscount + manualDiscount;
   const taxed = subtotal - totalDiscount;
   const tax = Math.round((taxed * taxPercent) / 100);
   const total = taxed + tax;
@@ -554,6 +560,12 @@ export default function POSView({
             <div className="summary-row" style={{ color: 'var(--color-brand)' }}>
               <span>{selectedMethod?.label ?? method} discount ({methodPercent}%)</span>
               <span className="num">− {money(methodDiscount, currency)}</span>
+            </div>
+          )}
+          {promoDiscount > 0 && (
+            <div className="summary-row" style={{ color: 'var(--color-brand)' }}>
+              <span>{activePromos.map((p) => `${p.name} ${p.percent}%`).join(' + ')}</span>
+              <span className="num">− {money(promoDiscount, currency)}</span>
             </div>
           )}
           {manualDiscount > 0 && (

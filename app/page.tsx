@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db';
 import { getShellProps } from '@/lib/shell';
 import { getTillBranchId } from '@/lib/branch';
 import { dueByCustomerId } from '@/lib/receivables';
+import { livePromotions } from '@/lib/promotions';
 import AppShell from '@/components/AppShell';
 import POSView from '@/components/POSView';
 
@@ -13,7 +14,7 @@ export default async function POSPage() {
   const session = await requireModule('pos');
   const [shell, branchId] = await Promise.all([getShellProps(session), getTillBranchId(session)]);
 
-  const [store, products, methods, tillBranch, customerRows, dueByCustomer] = await Promise.all([
+  const [store, products, methods, tillBranch, customerRows, dueByCustomer, promotions] = await Promise.all([
     prisma.store.findFirst(),
     // The till never needs the buying price, so it is not even loaded here
     // (explicit select) — cost can't leak through this page by accident.
@@ -42,6 +43,7 @@ export default async function POSPage() {
     }),
     // What each customer already owes, so the till can warn before more credit.
     dueByCustomerId(),
+    livePromotions(prisma),
   ]);
 
   const customers = customerRows.map((c) => ({
@@ -82,6 +84,7 @@ export default async function POSPage() {
       <POSView
         products={items}
         paymentMethods={paymentMethods}
+        promotions={promotions}
         customers={customers}
         currency={store?.currency ?? 'Rs'}
         taxPercent={store?.taxPercent ?? 0}

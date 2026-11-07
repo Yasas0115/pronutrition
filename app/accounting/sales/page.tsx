@@ -64,6 +64,8 @@ export default async function SalesPage() {
     subtotal: s.subtotal,
     discount: s.discount,
     methodDiscount: s.methodDiscount,
+    promoDiscount: s.promoDiscount,
+    promoLabel: s.promoLabel,
     manualDiscount: s.manualDiscount,
     tax: s.tax,
     total: s.total,

@@ -263,6 +263,19 @@ model StockBatch {
 }
 
 // One completed sale (a printed receipt / invoice), belonging to a branch.
+// A seasonal / promotional discount (e.g. "Avurudu sale 5%"). While it is
+// switched on and today falls inside its optional date window, checkout applies
+// it automatically to every RETAIL sale, on top of the payment-method %.
+model Promotion {
+  id        String   @id @default(cuid())
+  name      String
+  percent   Int
+  startsOn  String? // YYYY-MM-DD (Sri Lanka day), null = from now
+  endsOn    String? // YYYY-MM-DD inclusive, null = until switched off
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
 model Sale {
   id             String   @id @default(cuid())
   number         Int      @unique // human-friendly invoice no, starts at 1001
@@ -270,8 +283,10 @@ model Sale {
   branch         Branch?  @relation(fields: [branchId], references: [id], onDelete: SetNull)
   branchName     String? // snapshot of the branch name at sale time
   subtotal       Int
-  discount       Int      @default(0) // total discount = method + manual
+  discount       Int      @default(0) // total discount = method + promo + manual
   methodDiscount Int      @default(0) // portion from the payment-method %
+  promoDiscount  Int      @default(0) // portion from seasonal discounts
+  promoLabel     String? // names of the seasonal discounts applied
   manualDiscount Int      @default(0) // portion typed by the cashier
   tax            Int      @default(0)
   total          Int
