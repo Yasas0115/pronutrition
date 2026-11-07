@@ -546,6 +546,10 @@ textarea.input { resize: vertical; min-height: 64px; }
 .table tbody td { padding: 13px 14px; border-bottom: 1px solid var(--color-line); font-size: 14px; color: var(--color-ash); }
 .table tbody tr:hover td { background: var(--color-ink-1); }
 .table tbody tr:last-child td { border-bottom: 0; }
+.table tfoot td {
+  padding: 13px 14px; font-size: 14px; color: var(--color-strong);
+  border-top: 1px solid var(--color-line); background: var(--color-ink-1);
+}
 .num { font-variant-numeric: tabular-nums; }
 
 /* ---------- Phones ---------- */
@@ -562,7 +566,7 @@ textarea.input { resize: vertical; min-height: 64px; }
   .table thead th,
   .table td.num,
   .table td.text-right { white-space: nowrap; }
-  .table thead th, .table tbody td { padding-left: 12px; padding-right: 12px; }
+  .table thead th, .table tbody td, .table tfoot td { padding-left: 12px; padding-right: 12px; }
 }
 
 /* Receipt (printable) */
