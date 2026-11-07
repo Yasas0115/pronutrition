@@ -13,6 +13,7 @@ export default function ForgotPasswordPage() {
     <AuthShell>
       <div className="auth-card">
         <div className="auth-card__logo">
+          <img src="/logo-mark.png" alt="" className="auth-card__mark" />
           <span className="brand" style={{ fontSize: 34 }}>
             PRO<span className="accent">NUTRITION</span>
           </span>

@@ -17,6 +17,7 @@ export default async function RegisterPage() {
     <AuthShell>
       <div className="auth-card" style={{ maxWidth: 460 }}>
         <div className="auth-card__logo">
+          <img src="/logo-mark.png" alt="" className="auth-card__mark" />
           <span className="brand" style={{ fontSize: 32 }}>
             PRO<span className="accent">NUTRITION</span>
           </span>

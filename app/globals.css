@@ -127,6 +127,13 @@
   line-height: 1;
   text-align: center;
 }
+.auth-card__mark {
+  display: block;
+  width: 84px;
+  height: 84px;
+  margin: 0 auto 14px;
+  object-fit: contain;
+}
 .auth-card__rule {
   display: block;
   width: 44px;
@@ -177,6 +184,12 @@
   flex-direction: column;
   align-items: center;
   gap: 22px;
+}
+.splash__mark {
+  width: clamp(88px, 22vw, 132px);
+  height: auto;
+  object-fit: contain;
+  animation: splashRise .55s cubic-bezier(.2, .7, .2, 1) both;
 }
 .splash__logo {
   position: relative;

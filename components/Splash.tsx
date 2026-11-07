@@ -30,6 +30,7 @@ export default function Splash({ label = 'Loading' }: { label?: string }) {
       aria-label={label}
     >
       <div className="splash__inner">
+        <img src="/logo-mark.png" alt="" className="splash__mark" />
         <div className="splash__logo" style={{ fontSize: 'clamp(48px, 12vw, 92px)' }}>
           PRO<span className="accent">NUTRITION</span>
         </div>
