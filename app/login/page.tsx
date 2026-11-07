@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import { prisma } from '@/lib/db';
 import { getSession } from '@/lib/auth';
 import AuthShell from '@/components/AuthShell';
 import LoginForm from './login-form';
@@ -9,6 +10,8 @@ export const dynamic = 'force-dynamic';
 export default async function LoginPage() {
   const session = await getSession();
   if (session) redirect('/');
+  // /register only works on a fresh, unclaimed installation.
+  const ownerCount = await prisma.user.count({ where: { role: 'OWNER' } });
 
   return (
     <AuthShell>
@@ -23,9 +26,11 @@ export default async function LoginPage() {
         <div className="auth-card__body">
           <LoginForm />
         </div>
-        <div className="auth-card__foot">
-          New here? <Link href="/register" className="accent">Create your company</Link>
-        </div>
+        {ownerCount === 0 && (
+          <div className="auth-card__foot">
+            New here? <Link href="/register" className="accent">Create your company</Link>
+          </div>
+        )}
       </div>
     </AuthShell>
   );
