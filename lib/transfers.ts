@@ -10,7 +10,7 @@
 import { randomUUID } from 'node:crypto';
 import { Prisma } from '@prisma/client';
 import { prisma } from './db';
-import { recordStockChange } from './stock';
+import { applyStockChange } from './stock';
 import { logAudit } from './audit';
 import { transferLabel, type TransferLine, type TransferRow } from './transfer-types';
 
@@ -89,16 +89,19 @@ function transferOnce(input: NewTransfer, merged: Map<string, number>) {
     for (const [productId, qty] of merged) {
       const productName = nameOf.get(productId)!;
       // OUT first: the on-hand guard rejects an over-transfer before anything is credited.
-      const fromAfter = await recordStockChange(tx, {
+      const out = await applyStockChange(tx, {
         branchId: from.id, productId, productName, delta: -qty, type: 'TRANSFER_OUT',
         transferId: id, note: note ?? `To ${to.name} · ${transferLabel(number)}`,
         userId: input.userId, userName: input.userName,
       });
-      const toAfter = await recordStockChange(tx, {
+      const fromAfter = out.balance;
+      // The units keep the buying price they were bought at (batch slices move across).
+      const toAfter = (await applyStockChange(tx, {
         branchId: to.id, productId, productName, delta: qty, type: 'TRANSFER_IN',
+        costParts: out.parts,
         transferId: id, note: note ?? `From ${from.name} · ${transferLabel(number)}`,
         userId: input.userId, userName: input.userName,
-      });
+      })).balance;
       lines.push({ productName, qty, fromBefore: fromAfter + qty, fromAfter, toBefore: toAfter - qty, toAfter });
     }
 

@@ -51,6 +51,7 @@ model Branch {
   updatedAt DateTime @updatedAt
 
   stocks           BranchStock[]
+  batches          StockBatch[]
   sales            Sale[]
   users            User[]
   movements        StockMovement[]
@@ -174,6 +175,7 @@ model Product {
   updatedAt DateTime @updatedAt
 
   stocks       BranchStock[]
+  batches      StockBatch[]
   saleItems    SaleItem[]
   movements    StockMovement[]
   priceHistory ProductPriceHistory[]
@@ -239,6 +241,25 @@ model BranchStock {
   @@unique([branchId, productId])
   @@index([branchId])
   @@index([productId])
+}
+
+// A "layer" of stock received at one buying price (FIFO costing). Every unit
+// added to a branch (restock, opening, transfer-in, count-up) creates a batch;
+// every unit removed (sale, transfer-out, write-off) consumes the OLDEST batches
+// first, so a sale's profit uses the cost of the units that were really sold,
+// even when the retail price has since been raised for the whole shelf.
+model StockBatch {
+  id           String   @id @default(cuid())
+  branchId     String
+  branch       Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  productId    String
+  product      Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  unitCost     Int // buying price per unit for this batch
+  qtyReceived  Int
+  qtyRemaining Int
+  receivedAt   DateTime @default(now())
+
+  @@index([branchId, productId, receivedAt])
 }
 
 // One completed sale (a printed receipt / invoice), belonging to a branch.

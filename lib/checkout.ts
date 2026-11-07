@@ -14,7 +14,7 @@
 //     `balanceDue` and on the customer's account.
 import { Prisma } from '@prisma/client';
 import { prisma } from './db';
-import { recordStockChange } from './stock';
+import { applyStockChange, avgCost } from './stock';
 import { SETTLEMENT_METHODS } from './payment-methods';
 
 export type SaleType = 'RETAIL' | 'WHOLESALE';
@@ -244,8 +244,16 @@ function checkoutOnce(input: CheckoutCore, items: CartLine[]): Promise<Receipt> 
       },
     });
 
+    // Take the units out FIFO (oldest batch first). What those units really cost
+    // is then frozen on the sale line: if a line spans an old and a new batch,
+    // its unitCost is the weighted average of the two.
+    const created = await tx.saleItem.findMany({
+      where: { saleId: sale.id },
+      orderBy: { id: 'asc' },
+      select: { id: true, productId: true },
+    });
     for (const l of lines) {
-      await recordStockChange(tx, {
+      const { parts } = await applyStockChange(tx, {
         branchId: branch.id,
         productId: l.productId,
         productName: l.name,
@@ -256,6 +264,11 @@ function checkoutOnce(input: CheckoutCore, items: CartLine[]): Promise<Receipt> 
         userId: input.cashierId,
         userName: input.cashierName,
       });
+      const row = created.find((r) => r.productId === l.productId);
+      if (row) {
+        created.splice(created.indexOf(row), 1);
+        await tx.saleItem.update({ where: { id: row.id }, data: { unitCost: avgCost(parts) } });
+      }
     }
 
     return {

@@ -36,6 +36,8 @@ export type StockChange = {
   delta: number;
   type: MovementType;
   unitCost?: number | null;
+  /** For additions only: carry these cost slices into new batches (transfer-in). */
+  costParts?: CostPart[];
   note?: string | null;
   saleId?: string | null;
   transferId?: string | null;
@@ -50,11 +52,58 @@ export type StockChange = {
  * A zero delta is a no-op (no ledger noise) and returns the current balance.
  */
 export async function recordStockChange(db: Db, c: StockChange): Promise<number> {
+  return (await applyStockChange(db, c)).balance;
+}
+
+/** A slice of units that share one buying price. */
+export type CostPart = { qty: number; unitCost: number };
+
+/** Weighted-average buying price of some cost slices (rounded to whole rupees). */
+export function avgCost(parts: CostPart[]): number {
+  const q = parts.reduce((n, p) => n + p.qty, 0);
+  if (q <= 0) return 0;
+  return Math.round(parts.reduce((n, p) => n + p.qty * p.unitCost, 0) / q);
+}
+
+/**
+ * FIFO-consume `qty` units from the oldest batches of (branch, product) and
+ * return the slices taken, each with its own buying price. Units the batches
+ * can't cover (legacy drift) are costed at the product's current buying price.
+ */
+async function consumeBatches(db: Db, branchId: string, productId: string, qty: number): Promise<CostPart[]> {
+  const parts: CostPart[] = [];
+  let need = qty;
+  const batches = await db.stockBatch.findMany({
+    where: { branchId, productId, qtyRemaining: { gt: 0 } },
+    orderBy: [{ receivedAt: 'asc' }, { id: 'asc' }],
+  });
+  for (const b of batches) {
+    if (need <= 0) break;
+    const take = Math.min(b.qtyRemaining, need);
+    await db.stockBatch.update({ where: { id: b.id }, data: { qtyRemaining: { decrement: take } } });
+    parts.push({ qty: take, unitCost: b.unitCost });
+    need -= take;
+  }
+  if (need > 0) {
+    const p = await db.product.findUnique({ where: { id: productId }, select: { cost: true } });
+    parts.push({ qty: need, unitCost: p?.cost ?? 0 });
+  }
+  return parts;
+}
+
+/**
+ * Same as recordStockChange but also reports the cost slices: for a removal,
+ * what the units cost (FIFO); for an addition, the batches that were created.
+ */
+export async function applyStockChange(
+  db: Db,
+  c: StockChange,
+): Promise<{ balance: number; parts: CostPart[] }> {
   const key = { branchId_productId: { branchId: c.branchId, productId: c.productId } };
   const delta = Math.round(c.delta);
   if (delta === 0) {
     const row = await db.branchStock.findUnique({ where: key, select: { stock: true } });
-    return row?.stock ?? 0;
+    return { balance: row?.stock ?? 0, parts: [] };
   }
 
   // Apply the change as an atomic increment in the database (not read-then-
@@ -84,6 +133,36 @@ export async function recordStockChange(db: Db, c: StockChange): Promise<number>
   }
   const next = (await db.branchStock.findUniqueOrThrow({ where: key, select: { stock: true } })).stock;
 
+  // Batch (FIFO) bookkeeping. The branchStock change above already took the row
+  // lock, so concurrent tills reach this point one at a time.
+  let parts: CostPart[];
+  if (delta < 0) {
+    parts = await consumeBatches(db, c.branchId, c.productId, -delta);
+  } else {
+    // Additions arrive with their own cost slices (transfer-in), a single buying
+    // price (restock), or fall back to the product's current buying price.
+    if (c.costParts && c.costParts.length > 0) {
+      parts = c.costParts;
+    } else {
+      let cost = c.unitCost;
+      if (cost == null || cost < 0 || (cost === 0 && c.type === 'RESTOCK')) {
+        cost = (await db.product.findUnique({ where: { id: c.productId }, select: { cost: true } }))?.cost ?? 0;
+      }
+      parts = [{ qty: delta, unitCost: cost }];
+    }
+    for (const p of parts) {
+      await db.stockBatch.create({
+        data: {
+          branchId: c.branchId,
+          productId: c.productId,
+          unitCost: p.unitCost,
+          qtyReceived: p.qty,
+          qtyRemaining: p.qty,
+        },
+      });
+    }
+  }
+
   await db.stockMovement.create({
     data: {
       branchId: c.branchId,
@@ -101,7 +180,7 @@ export async function recordStockChange(db: Db, c: StockChange): Promise<number>
     },
   });
 
-  return next;
+  return { balance: next, parts };
 }
 
 /**
