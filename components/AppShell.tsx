@@ -239,6 +239,17 @@ export default function AppShell({
     if (activeGroup) setOpenGroups((prev) => new Set(prev).add(activeGroup));
   }, [activeGroup]);
 
+  // The shell scrolls inside its body area, so switch off the window scrollbar
+  // (otherwise its track still runs alongside the header).
+  useEffect(() => {
+    const el = document.documentElement;
+    const prev = el.style.overflow;
+    el.style.overflow = 'hidden';
+    return () => {
+      el.style.overflow = prev;
+    };
+  }, []);
+
   // Mobile drawer: stop the page behind it from scrolling while it's open.
   useEffect(() => {
     if (!navOpen) return;
