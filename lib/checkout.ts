@@ -15,7 +15,7 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from './db';
 import { applyStockChange, avgCost } from './stock';
-import { SETTLEMENT_METHODS } from './payment-methods';
+import { SETTLEMENT_METHODS, SPLIT_METHOD } from './payment-methods';
 import { livePromotions, promoPercent } from './promotions';
 import { logAudit } from './audit';
 import { fmtDate, fmtDateTime } from './dates';
@@ -34,6 +34,11 @@ export type CheckoutCore = {
   paid: number;
   // How the "paid now" part of a CREDIT sale was taken (CASH | CARD | BANK).
   paidVia?: string;
+  // Split payment: one sale paid with several of CASH | CARD | BANK (e.g. 4000
+  // cash + 1000 card). When given, `method` is ignored (the sale is stored as
+  // SPLIT), no payment-method % discount applies, and `amount` is what the
+  // customer handed over for that part (cash may exceed its share → change).
+  splits?: { method: string; amount: number }[];
   // Free-text name for a walk-in. Ignored when a registered customer is chosen.
   customerName?: string;
   customerId?: string | null;
@@ -99,7 +104,12 @@ function checkoutOnce(input: CheckoutCore, items: CartLine[]): Promise<Receipt> 
 
     // The payment method must exist and be switched on — an unknown key used to
     // sail through with a 0% discount.
-    const pm = await tx.paymentMethod.findUnique({ where: { key: input.method } });
+    const isSplit = !!input.splits && input.splits.length > 0;
+    // A split sale has no single method: use a neutral stand-in (no discount,
+    // no partial pay); each part is validated below.
+    const pm = isSplit
+      ? { key: SPLIT_METHOD, label: 'Split', active: true, discountPercent: 0, requiresCustomer: false, allowsPartial: false }
+      : await tx.paymentMethod.findUnique({ where: { key: input.method } });
     if (!pm || !pm.active) throw new Error('That payment method is not available.');
 
     // ---- Customer rules ----
@@ -178,7 +188,43 @@ function checkoutOnce(input: CheckoutCore, items: CartLine[]): Promise<Receipt> 
     let balanceDue = 0;
     const payments: { amount: number; method: string }[] = [];
 
-    if (pm.allowsPartial) {
+    if (isSplit) {
+      // Merge repeated methods, drop empty parts.
+      const parts = new Map<string, number>();
+      for (const s of input.splits!) {
+        const amt = Math.max(0, Math.round(Number(s.amount) || 0));
+        if (amt <= 0) continue;
+        if (!(SETTLEMENT_METHODS as readonly string[]).includes(s.method)) {
+          throw new Error('Split payments can use cash, card or bank transfer only.');
+        }
+        parts.set(s.method, (parts.get(s.method) ?? 0) + amt);
+      }
+      if (parts.size < 2) throw new Error('Enter an amount for at least two payment methods, or use a single method.');
+      for (const key of parts.keys()) {
+        const m = await tx.paymentMethod.findUnique({ where: { key } });
+        if (!m || !m.active) throw new Error(`${key} is not available as a payment method.`);
+        if (m.requiresCustomer && !customer) {
+          throw new Error(`${m.label} payments need a registered customer.`);
+        }
+      }
+      const nonCash = [...parts].filter(([k]) => k !== 'CASH').reduce((s, [, a]) => s + a, 0);
+      const cashGiven = parts.get('CASH') ?? 0;
+      if (nonCash > total) throw new Error('Card / bank amounts are more than the total.');
+      const cashDue = total - nonCash;
+      if (cashGiven < cashDue) {
+        throw new Error(`The amounts add up to ${nonCash + cashGiven}, which is less than the total ${total}.`);
+      }
+      if (cashGiven === 0 && cashDue > 0) throw new Error('The amounts are less than the total.');
+      // Only cash can be over-tendered (and returned as change): card / bank
+      // parts that already cover the total leave no room for cash.
+      if (cashDue === 0 && cashGiven > 0) throw new Error('Card / bank amounts already cover the total — remove the cash part.');
+      paid = total;
+      change = cashGiven - cashDue;
+      for (const [method, amount] of parts) {
+        const rec = method === 'CASH' ? cashDue : amount;
+        if (rec > 0) payments.push({ amount: rec, method });
+      }
+    } else if (pm.allowsPartial) {
       // Credit: "paid now" may be 0..total; the remainder stays owing.
       if (tendered > total) throw new Error('The paid-now amount cannot be more than the total.');
       paid = tendered;
@@ -241,7 +287,7 @@ function checkoutOnce(input: CheckoutCore, items: CartLine[]): Promise<Receipt> 
         change,
         balanceDue,
         saleType,
-        method: input.method,
+        method: isSplit ? SPLIT_METHOD : input.method,
         customerId: customer?.id ?? null,
         customerName,
         cashierId: input.cashierId,

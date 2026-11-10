@@ -59,7 +59,7 @@ export default function ReceiptModal({
       ${receipt.discount ? `<div class="row"><span>Discount</span><span>- ${money(receipt.discount, currency)}</span></div>` : ''}
       ${receipt.tax ? `<div class="row"><span>Tax</span><span>${money(receipt.tax, currency)}</span></div>` : ''}
       <div class="row tot"><span>TOTAL</span><span>${money(receipt.total, currency)}</span></div>
-      <div class="row"><span>${receipt.balanceDue > 0 ? 'Paid now' : receipt.method}</span><span>${money(receipt.paid, currency)}</span></div>
+      <div class="row"><span>${receipt.balanceDue > 0 ? 'Paid now' : receipt.method === 'SPLIT' ? 'Paid (split)' : receipt.method}</span><span>${money(receipt.paid, currency)}</span></div>
       ${receipt.change ? `<div class="row"><span>Change</span><span>${money(receipt.change, currency)}</span></div>` : ''}
       ${receipt.balanceDue > 0 ? `<div class="row tot"><span>BALANCE DUE</span><span>${money(receipt.balanceDue, currency)}</span></div>` : ''}
       ${store.note ? `<div class="foot">${escapeHtml(store.note)}</div>` : ''}
@@ -116,7 +116,7 @@ export default function ReceiptModal({
         </div>
         <hr className="receipt__hr" />
         <div className="receipt__line">
-          <span>{receipt.balanceDue > 0 ? 'Paid now' : `Paid (${receipt.method})`}</span>
+          <span>{receipt.balanceDue > 0 ? 'Paid now' : `Paid (${receipt.method === 'SPLIT' ? 'split' : receipt.method})`}</span>
           <span className="num">{money(receipt.paid, currency)}</span>
         </div>
         {receipt.change > 0 && (

@@ -128,6 +128,7 @@ export type CheckoutInput = {
   method: string;
   paid: number;
   paidVia?: string;
+  splits?: { method: string; amount: number }[];
   customerId?: string | null;
   customerName?: string;
   saleType?: 'RETAIL' | 'WHOLESALE';
@@ -163,6 +164,7 @@ export async function checkoutAction(input: CheckoutInput): Promise<CheckoutResu
       method: input.method,
       paid: input.paid,
       paidVia: input.paidVia,
+      splits: input.splits,
       customerId: input.customerId,
       customerName: input.customerName,
       saleType: input.saleType,

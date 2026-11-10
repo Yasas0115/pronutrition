@@ -87,6 +87,9 @@ export default function POSView({
   const [method, setMethod] = useState<string>(paymentMethods[0]?.key ?? 'CASH');
   const [paid, setPaid] = useState<number>(0); // cash received, or credit "paid now"
   const [paidVia, setPaidVia] = useState('CASH'); // how the credit "paid now" was taken
+  // Split payment: one sale paid with several methods (no method % discount).
+  const [split, setSplit] = useState(false);
+  const [splitAmts, setSplitAmts] = useState<Record<string, number>>({});
   const [saleType, setSaleType] = useState<SaleType>('RETAIL');
   const [customerId, setCustomerId] = useState<string | null>(null);
   const [custQuery, setCustQuery] = useState('');
@@ -172,7 +175,7 @@ export default function POSView({
   const selectedMethod = paymentMethods.find((m) => m.key === method);
   // Wholesale is priced by hand, so the payment-method % discount is skipped
   // (the server enforces the same rule).
-  const methodPercent = wholesale ? 0 : selectedMethod?.discountPercent ?? 0;
+  const methodPercent = wholesale || split ? 0 : selectedMethod?.discountPercent ?? 0;
   const methodDiscount = Math.min(subtotal, Math.round((subtotal * methodPercent) / 100));
   // Seasonal discounts that are on today stack with the method % (retail only).
   const activePromos = wholesale ? [] : promotions;
@@ -184,16 +187,27 @@ export default function POSView({
   const tax = Math.round((taxed * taxPercent) / 100);
   const total = taxed + tax;
   const count = lines.reduce((s, l) => s + l.qty, 0);
-  const isCash = method === 'CASH';
-  const isCredit = !!selectedMethod?.allowsPartial;
+  const isCash = !split && method === 'CASH';
+  const isCredit = !split && !!selectedMethod?.allowsPartial;
   const change = isCash ? Math.max(0, paid - total) : 0;
   const shortfall = isCash ? Math.max(0, total - paid) : 0;
+
+  // Split: cash / card / bank amounts. Only cash may exceed its share (change).
+  const splitMethods = PAID_VIA_ALL.filter((v) => paymentMethods.some((m) => m.key === v.key));
+  const splitCash = splitAmts.CASH ?? 0;
+  const splitNonCash = splitMethods.filter((v) => v.key !== 'CASH').reduce((s, v) => s + (splitAmts[v.key] ?? 0), 0);
+  const splitCashDue = total - splitNonCash;
+  const splitFilled = splitMethods.filter((v) => (splitAmts[v.key] ?? 0) > 0).length;
+  const splitRemaining = Math.max(0, splitCashDue - splitCash);
+  const splitChange = Math.max(0, splitCash - Math.max(0, splitCashDue));
+  const splitBad =
+    split && (splitFilled < 2 || splitNonCash > total || splitRemaining > 0 || (splitCashDue <= 0 && splitCash > 0));
   const balanceLater = isCredit ? Math.max(0, total - paid) : 0;
   const creditOver = isCredit && paid > total;
 
   // Walk-ins can only use methods that don't need a registered customer, and a
   // wholesale sale always needs one.
-  const needsCustomer = wholesale || !!selectedMethod?.requiresCustomer;
+  const needsCustomer = wholesale || (!split && !!selectedMethod?.requiresCustomer);
   const blockedNoCustomer = needsCustomer && !customer;
   const firstWalkInMethod = paymentMethods.find((m) => !m.requiresCustomer)?.key ?? paymentMethods[0]?.key ?? 'CASH';
 
@@ -244,6 +258,10 @@ export default function POSView({
 
   function changeSaleType(next: SaleType) {
     setSaleType(next);
+    if (next === 'WHOLESALE') {
+      setSplit(false);
+      setSplitAmts({});
+    }
     if (next === 'RETAIL') {
       setPriceOverrides(new Map());
       if (!customer && selectedMethod?.requiresCustomer) {
@@ -258,9 +276,21 @@ export default function POSView({
       toast(`${m.label} needs a registered customer — pick one first.`, true);
       return;
     }
+    setSplit(false);
+    setSplitAmts({});
     setMethod(m.key);
     setPaid(0);
     setPaidVia('CASH');
+  }
+
+  function chooseSplit() {
+    if (wholesale) {
+      toast('Split payment is for retail sales.', true);
+      return;
+    }
+    setSplit(true);
+    setSplitAmts({});
+    setPaid(0);
   }
 
   function clearCart() {
@@ -268,6 +298,8 @@ export default function POSView({
     setDiscount(0);
     setPaid(0);
     setPaidVia('CASH');
+    setSplit(false);
+    setSplitAmts({});
     setCustomerId(null);
     setCustQuery('');
     setSaleType('RETAIL');
@@ -323,6 +355,10 @@ export default function POSView({
       toast(wholesale ? 'Pick the customer (shop) for a wholesale sale.' : `${selectedMethod?.label ?? 'This method'} needs a registered customer.`, true);
       return;
     }
+    if (splitBad) {
+      toast('Split amounts must cover the total, using at least two methods.', true);
+      return;
+    }
     if (isCash && paid < total) {
       toast('Cash received is less than the total.', true);
       return;
@@ -348,6 +384,9 @@ export default function POSView({
       method,
       paid: isCash || isCredit ? paid : total,
       paidVia: isCredit && paid > 0 ? paidVia : undefined,
+      ...(split
+        ? { splits: splitMethods.map((v) => ({ method: v.key, amount: splitAmts[v.key] ?? 0 })).filter((s) => s.amount > 0) }
+        : {}),
       customerId: customer?.id ?? null,
       saleType,
       ...(canBackdate && saleDate ? { saleDate } : {}),
@@ -377,7 +416,7 @@ export default function POSView({
     <button
       className="btn btn-primary btn-block"
       style={{ padding: '14px 18px', fontSize: 17 }}
-      disabled={lines.length === 0 || processing || blockedNoCustomer || creditOver || (isCash && paid < total)}
+      disabled={lines.length === 0 || processing || blockedNoCustomer || creditOver || splitBad || (isCash && paid < total)}
       onClick={() => checkout()}
     >
       {processing ? 'Processing…' : chargeLabel}
@@ -612,7 +651,7 @@ export default function POSView({
             {paymentMethods.map((m) => {
               // A walk-in can't pick a method that needs a registered customer.
               const locked = m.requiresCustomer && !customer && !wholesale;
-              const selected = method === m.key;
+              const selected = !split && method === m.key;
               return (
                 <button
                   key={m.key}
@@ -644,6 +683,19 @@ export default function POSView({
               );
             })}
           </div>
+          {!wholesale && (
+            <button
+              className="btn btn-sm btn-block mt-2"
+              onClick={chooseSplit}
+              style={
+                split
+                  ? { background: 'rgba(239,68,68,.12)', color: 'var(--color-brand)', borderColor: 'var(--color-brand)' }
+                  : { background: 'var(--color-ink-1)', color: 'var(--color-ash)', borderColor: 'var(--color-line-2)' }
+              }
+            >
+              Split payment (cash + card / bank) · no method discount
+            </button>
+          )}
           {blockedNoCustomer && (
             <p className="text-[12px] mt-1.5" style={{ color: 'var(--color-warn)' }}>
               {wholesale
@@ -676,6 +728,46 @@ export default function POSView({
               </span>
               <span className="num" style={{ color: shortfall > 0 ? 'var(--color-brand)' : 'var(--color-ok)' }}>
                 {money(shortfall > 0 ? shortfall : change, currency)}
+              </span>
+            </div>
+          </div>
+        )}
+
+        {split && (
+          <div className="flex flex-col gap-2">
+            <label className="field-label">Split the {money(total, currency)} between methods</label>
+            {splitMethods.map((v) => (
+              <div key={v.key} className="flex items-center gap-2">
+                <span className="text-[13px]" style={{ width: 84, color: 'var(--color-ash)' }}>{v.label}</span>
+                <input
+                  className="input num"
+                  inputMode="numeric"
+                  value={splitAmts[v.key] ? String(splitAmts[v.key]) : ''}
+                  placeholder="0"
+                  onChange={(e) => setSplitAmts((prev) => ({ ...prev, [v.key]: parseAmount(e.target.value) }))}
+                />
+                {v.key !== 'CASH' && (
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    title="Put everything not covered by the other methods here"
+                    onClick={() =>
+                      setSplitAmts((prev) => {
+                        const others = splitMethods.filter((x) => x.key !== v.key).reduce((s, x) => s + (prev[x.key] ?? 0), 0);
+                        return { ...prev, [v.key]: Math.max(0, total - others) };
+                      })
+                    }
+                  >
+                    Rest
+                  </button>
+                )}
+              </div>
+            ))}
+            <div className="summary-row pt-1">
+              <span style={{ color: splitRemaining > 0 || splitNonCash > total ? 'var(--color-brand)' : 'var(--color-ok)' }}>
+                {splitNonCash > total ? 'Card / bank more than total' : splitRemaining > 0 ? 'Still to collect' : 'Change'}
+              </span>
+              <span className="num" style={{ color: splitRemaining > 0 || splitNonCash > total ? 'var(--color-brand)' : 'var(--color-ok)' }}>
+                {money(splitNonCash > total ? splitNonCash - total : splitRemaining > 0 ? splitRemaining : splitChange, currency)}
               </span>
             </div>
           </div>

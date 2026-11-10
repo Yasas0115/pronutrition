@@ -21,11 +21,15 @@ export const DEFAULT_PAYMENT_METHODS = [
 // Koko is a way of financing a purchase, not a way of settling a debt.
 export const SETTLEMENT_METHODS = ['CASH', 'CARD', 'BANK'] as const;
 
+// Stored in Sale.method when one sale is paid with several methods. It is not a
+// row in PaymentMethod; the per-method money lives in the SalePayment rows.
+export const SPLIT_METHOD = 'SPLIT';
+
 // key → label as the owner has named them in Settings (falls back to the
 // default name). Reports use this so a renamed method is renamed everywhere.
 export async function methodLabels(db: Db): Promise<Record<string, string>> {
   const out: Record<string, string> = Object.fromEntries(
-    DEFAULT_PAYMENT_METHODS.map((m) => [m.key, m.label]),
+    [...DEFAULT_PAYMENT_METHODS.map((m) => [m.key, m.label]), [SPLIT_METHOD, 'Split (mixed)']],
   );
   const rows = await db.paymentMethod.findMany({ select: { key: true, label: true } });
   for (const r of rows) out[r.key] = r.label;
