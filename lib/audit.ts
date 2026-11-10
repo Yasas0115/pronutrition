@@ -10,7 +10,7 @@ type Db = PrismaClient | Prisma.TransactionClient;
 
 export type AuditEntity =
   | 'PRODUCT' | 'USER' | 'BRANCH' | 'SETTINGS' | 'STOCK' | 'CATEGORY' | 'CUSTOMER'
-  | 'EXPENSE' | 'SALARY' | 'WORKER' | 'FLOAT';
+  | 'EXPENSE' | 'SALARY' | 'WORKER' | 'FLOAT' | 'SALE';
 export type AuditAction =
   | 'CREATE' | 'UPDATE' | 'DELETE' | 'PRICE_CHANGE' | 'ACCESS_CHANGE' | 'PAYMENT' | 'VOID';
 

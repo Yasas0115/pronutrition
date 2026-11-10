@@ -8,7 +8,7 @@ import Modal from './Modal';
 import ReceiptModal from './ReceiptModal';
 import { checkoutAction, type Receipt } from '@/app/actions';
 import { saveCustomer, getTillAccount, type TillAccount } from '@/app/customers/actions';
-import { fmtDate } from '@/lib/dates';
+import { fmtDate, todayStr } from '@/lib/dates';
 
 type Product = {
   id: string;
@@ -63,6 +63,7 @@ export default function POSView({
   receiptNote,
   branchName,
   cashierName,
+  canBackdate,
 }: {
   products: Product[];
   paymentMethods: PaymentMethod[];
@@ -76,6 +77,7 @@ export default function POSView({
   receiptNote: string | null;
   branchName: string;
   cashierName: string;
+  canBackdate: boolean; // owner / accountant may set an earlier invoice date
 }) {
   const router = useRouter();
   const [query, setQuery] = useState('');
@@ -95,6 +97,7 @@ export default function POSView({
   const [extraCustomers, setExtraCustomers] = useState<CustomerOpt[]>([]); // registered this session
   const [priceOverrides, setPriceOverrides] = useState<Map<string, number>>(new Map()); // wholesale
   const [processing, setProcessing] = useState(false);
+  const [saleDate, setSaleDate] = useState(''); // '' = today
   const [receipt, setReceipt] = useState<Receipt | null>(null);
   const [mobileCartOpen, setMobileCartOpen] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
@@ -269,6 +272,7 @@ export default function POSView({
     setCustQuery('');
     setSaleType('RETAIL');
     setPriceOverrides(new Map());
+    setSaleDate('');
     setMethod(firstWalkInMethod);
   }
 
@@ -346,6 +350,7 @@ export default function POSView({
       paidVia: isCredit && paid > 0 ? paidVia : undefined,
       customerId: customer?.id ?? null,
       saleType,
+      ...(canBackdate && saleDate ? { saleDate } : {}),
     });
     setProcessing(false);
     if (res.ok) {
@@ -576,6 +581,29 @@ export default function POSView({
           )}
           <div className="summary-row total pt-1"><span>Total</span><span className="num amt">{money(total, currency)}</span></div>
         </div>
+
+        {canBackdate && (
+          <div>
+            <label className="field-label">Invoice date</label>
+            <div className="flex gap-2">
+              <input
+                type="date"
+                className="input"
+                value={saleDate || todayStr()}
+                max={todayStr()}
+                onChange={(e) => setSaleDate(e.target.value === todayStr() ? '' : e.target.value)}
+              />
+              {saleDate && (
+                <button type="button" className="btn btn-ghost btn-sm" onClick={() => setSaleDate('')}>Today</button>
+              )}
+            </div>
+            {saleDate && (
+              <p className="text-[12px] mt-1.5" style={{ color: 'var(--color-warn)' }}>
+                Back-dated: this sale will count in profit and reports on {fmtDate(saleDate + 'T12:00:00+05:30')}.
+              </p>
+            )}
+          </div>
+        )}
 
         {/* Payment method */}
         <div>

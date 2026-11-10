@@ -7,7 +7,7 @@
 //
 // Rules enforced HERE (the server), never trusted from the browser:
 //   • Walk-ins may only pay with methods that don't need a registered customer
-//     (Cash, Card). Koko, Bank transfer and Credit require one.
+//     (Cash). Koko and Credit require one.
 //   • A wholesale sale always needs a registered customer, skips the
 //     payment-method % discount, and may carry a per-line price override.
 //   • Credit takes a "paid now" amount; the rest stays on the sale as
@@ -17,6 +17,8 @@ import { prisma } from './db';
 import { applyStockChange, avgCost } from './stock';
 import { SETTLEMENT_METHODS } from './payment-methods';
 import { livePromotions, promoPercent } from './promotions';
+import { logAudit } from './audit';
+import { fmtDate, fmtDateTime } from './dates';
 
 export type SaleType = 'RETAIL' | 'WHOLESALE';
 
@@ -39,6 +41,9 @@ export type CheckoutCore = {
   branchId: string;
   cashierId: string | null;
   cashierName: string | null;
+  // Back-dated sale: the business date the sale belongs to. Omit for "now".
+  // The caller (server action) is responsible for checking who may set it.
+  soldAt?: Date | null;
 };
 
 export type ReceiptItem = { name: string; price: number; qty: number; lineTotal: number };
@@ -107,7 +112,7 @@ function checkoutOnce(input: CheckoutCore, items: CartLine[]): Promise<Receipt> 
     if (!customer) {
       if (wholesale) throw new Error('Wholesale sales need a registered customer.');
       if (pm.requiresCustomer) {
-        throw new Error(`${pm.label} payments need a registered customer. Walk-ins can pay by cash or card.`);
+        throw new Error(`${pm.label} payments need a registered customer. Walk-ins can pay by cash, card or bank transfer.`);
       }
     }
 
@@ -212,9 +217,16 @@ function checkoutOnce(input: CheckoutCore, items: CartLine[]): Promise<Receipt> 
     // Registered customers always show under their own name on the receipt.
     const customerName = customer?.name ?? (input.customerName?.trim() || null);
 
+    // A back-dated sale takes the chosen date everywhere it is reported (sale,
+    // payments → profit, takings, cash drawer, receivables). The stock ledger and
+    // activity log keep the real time the sale was keyed in.
+    const soldAt = input.soldAt ?? new Date();
+    const backdated = !!input.soldAt;
+
     const sale = await tx.sale.create({
       data: {
         number,
+        createdAt: soldAt,
         branchId: branch.id,
         branchName: branch.name,
         subtotal,
@@ -252,6 +264,7 @@ function checkoutOnce(input: CheckoutCore, items: CartLine[]): Promise<Receipt> 
             amount: p.amount,
             method: p.method,
             kind: 'SALE',
+            createdAt: soldAt,
             userId: input.cashierId,
             userName: input.cashierName,
           })),
@@ -275,7 +288,7 @@ function checkoutOnce(input: CheckoutCore, items: CartLine[]): Promise<Receipt> 
         delta: -l.qty,
         type: 'SALE',
         saleId: sale.id,
-        note: `Invoice #${sale.number}`,
+        note: backdated ? `Invoice #${sale.number} (back-dated to ${fmtDate(soldAt)})` : `Invoice #${sale.number}`,
         userId: input.cashierId,
         userName: input.cashierName,
       });
@@ -284,6 +297,17 @@ function checkoutOnce(input: CheckoutCore, items: CartLine[]): Promise<Receipt> 
         created.splice(created.indexOf(row), 1);
         await tx.saleItem.update({ where: { id: row.id }, data: { unitCost: avgCost(parts) } });
       }
+    }
+
+    if (backdated) {
+      await logAudit(tx, {
+        entity: 'SALE', entityId: sale.id, action: 'CREATE',
+        summary: `Back-dated invoice #${sale.number} to ${fmtDate(soldAt)} (keyed in ${fmtDateTime(new Date())})`,
+        after: { invoice: sale.number, saleDate: fmtDate(soldAt), total },
+        branchId: branch.id,
+        userId: input.cashierId,
+        userName: input.cashierName,
+      });
     }
 
     return {

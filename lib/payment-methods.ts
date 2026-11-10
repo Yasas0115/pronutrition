@@ -12,7 +12,7 @@ export const DEFAULT_PAYMENT_METHODS = [
   { key: 'CASH', label: 'Cash', discountPercent: 10, requiresCustomer: false, allowsPartial: false, sortOrder: 0 },
   { key: 'CARD', label: 'Card', discountPercent: 7, requiresCustomer: false, allowsPartial: false, sortOrder: 1 },
   { key: 'KOKO', label: 'Koko', discountPercent: 0, requiresCustomer: true, allowsPartial: false, sortOrder: 2 },
-  { key: 'BANK', label: 'Bank transfer', discountPercent: 0, requiresCustomer: true, allowsPartial: false, sortOrder: 3 },
+  { key: 'BANK', label: 'Bank transfer', discountPercent: 0, requiresCustomer: false, allowsPartial: false, sortOrder: 3 },
   { key: 'CREDIT', label: 'Credit', discountPercent: 0, requiresCustomer: true, allowsPartial: true, sortOrder: 4 },
 ];
 

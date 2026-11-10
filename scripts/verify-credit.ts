@@ -35,7 +35,7 @@ async function main() {
     const person = await f.makeCustomer('Person B', 'RETAIL');
 
     // ---------------------------------------------------------------- 1. walk-in
-    console.log('\n▶ Walk-in customers: Cash / Card only');
+    console.log('\n▶ Walk-in customers: Cash / Card / Bank');
     const cash = await performCheckout(base({ method: 'CASH' }));
     assert(cash.methodDiscount === 40, 'walk-in cash sale gets the 10% method discount (Rs 40)');
     assert(cash.total === 360 && cash.change === 100000 - 360, 'cash total + change correct');
@@ -44,11 +44,16 @@ async function main() {
     assert(cashSale.payments.length === 1 && cashSale.payments[0].amount === 360 && cashSale.payments[0].method === 'CASH',
       'one CASH payment row for the amount kept (change excluded)');
 
-    const card = await performCheckout(base({ method: 'CARD', paid: 0 }));
-    assert(card.total === 372 && card.paid === 372, 'walk-in card sale ok (7% off, paid = total)');
+    const card = await performCheckout(base({ method: 'CARD', paid: 0, customerId: person.id }));
+    assert(card.total === 372 && card.paid === 372, 'registered customer card sale ok (7% off, paid = total)');
+
+    // Back-dated sale: sale + payment rows carry the chosen date.
+    const past = new Date(Date.now() - 3 * 86400000);
+    const bd = await performCheckout(base({ method: 'CASH', soldAt: past }));
+    const bdSale = await sale(bd.number);
+    assert(bdSale.createdAt.getTime() === past.getTime() && bdSale.payments[0].createdAt.getTime() === past.getTime(), 'back-dated sale and payment use the chosen date');
 
     assert(await rejects(() => performCheckout(base({ method: 'KOKO' })), 'registered customer'), 'walk-in + Koko is rejected');
-    assert(await rejects(() => performCheckout(base({ method: 'BANK', paid: 0 })), 'registered customer'), 'walk-in + Bank transfer is rejected');
     assert(await rejects(() => performCheckout(base({ method: 'CREDIT', paid: 0 })), 'registered customer'), 'walk-in + Credit is rejected');
     assert(await rejects(() => performCheckout(base({ method: 'NOPE' })), 'not available'), 'unknown payment method is rejected');
 
@@ -81,7 +86,7 @@ async function main() {
     assert(whSale.items[0].price === 4200 && whSale.items[0].listPrice === 5000, 'actual price 4,200 vs list price 5,000 both kept');
     assert(whSale.items[0].unitCost === 3000, 'buying price snapshotted for profit');
 
-    const retailOverride = await performCheckout(base({ items: [{ productId: whey.id, qty: 1, price: 1 }], method: 'CARD', paid: 0 }));
+    const retailOverride = await performCheckout(base({ items: [{ productId: whey.id, qty: 1, price: 1 }], method: 'CARD', paid: 0, customerId: person.id }));
     assert(retailOverride.subtotal === 5000, 'a price override is ignored on a retail sale');
 
     // --------------------------------------------------------------------- 4. credit

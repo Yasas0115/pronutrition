@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/db';
 import { hashPassword, verifyPassword } from '@/lib/password';
-import { requireSession, requireModule, setSessionCookie, clearSessionCookie } from '@/lib/auth';
+import { requireSession, requireModule, canSeeCost, setSessionCookie, clearSessionCookie } from '@/lib/auth';
 import { normalizeRole } from '@/lib/session';
 import {
   getTillBranchId,
@@ -16,6 +16,7 @@ import {
 import { performCheckout, type Receipt } from '@/lib/checkout';
 import { DEFAULT_PAYMENT_METHODS } from '@/lib/payment-methods';
 import { revalidateAccounting } from '@/lib/revalidate';
+import { parseDay, startOfDay, todayStr } from '@/lib/dates';
 
 export type { Receipt } from '@/lib/checkout';
 
@@ -130,6 +131,8 @@ export type CheckoutInput = {
   customerId?: string | null;
   customerName?: string;
   saleType?: 'RETAIL' | 'WHOLESALE';
+  // YYYY-MM-DD back-dated invoice date. Owner / accountant only; never in the future.
+  saleDate?: string;
 };
 
 export type CheckoutResult =
@@ -142,6 +145,17 @@ export async function checkoutAction(input: CheckoutInput): Promise<CheckoutResu
   const session = await requireModule('pos');
   const branchId = await getTillBranchId(session);
   if (!branchId) return { ok: false, error: 'No branch is available. Ask the owner to open a branch.' };
+  // Back-dating: only the owner or an accountant (finance module) may do it.
+  // The sale keeps today's time-of-day on the chosen day.
+  let soldAt: Date | null = null;
+  if (input.saleDate && input.saleDate !== todayStr()) {
+    if (!(await canSeeCost(session))) return { ok: false, error: 'Only the owner or an accountant can change the invoice date.' };
+    const day = parseDay(input.saleDate);
+    if (!day) return { ok: false, error: 'Enter a valid invoice date.' };
+    if (day.getTime() > startOfDay().getTime()) return { ok: false, error: 'The invoice date cannot be in the future.' };
+    const now = new Date();
+    soldAt = new Date(day.getTime() + (now.getTime() - startOfDay(now).getTime()));
+  }
   try {
     const receipt = await performCheckout({
       items: input.items,
@@ -152,6 +166,7 @@ export async function checkoutAction(input: CheckoutInput): Promise<CheckoutResu
       customerId: input.customerId,
       customerName: input.customerName,
       saleType: input.saleType,
+      soldAt,
       branchId,
       cashierId: session.userId,
       cashierName: session.name,

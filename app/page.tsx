@@ -1,4 +1,4 @@
-import { requireModule } from '@/lib/auth';
+import { requireModule, canSeeCost } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { getShellProps } from '@/lib/shell';
 import { getTillBranchId } from '@/lib/branch';
@@ -94,6 +94,7 @@ export default async function POSPage() {
         receiptNote={store?.receiptNote ?? null}
         branchName={tillBranch?.name ?? 'No branch — open one first'}
         cashierName={session.name}
+        canBackdate={await canSeeCost(session)}
       />
     </AppShell>
   );

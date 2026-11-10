@@ -16,6 +16,7 @@ const ENTITY_LABEL: Record<string, string> = {
   SALARY: 'Salary',
   WORKER: 'Worker',
   FLOAT: 'Float',
+  SALE: 'Sale',
 };
 
 // Who changed what, when — products, prices, staff, settings, money.
