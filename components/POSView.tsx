@@ -90,6 +90,7 @@ export default function POSView({
   // Split payment: one sale paid with several methods (no method % discount).
   const [split, setSplit] = useState(false);
   const [splitAmts, setSplitAmts] = useState<Record<string, number>>({});
+  const [splitVia, setSplitVia] = useState('CARD'); // the non-cash part: CARD | BANK
   const [saleType, setSaleType] = useState<SaleType>('RETAIL');
   const [customerId, setCustomerId] = useState<string | null>(null);
   const [custQuery, setCustQuery] = useState('');
@@ -193,15 +194,12 @@ export default function POSView({
   const shortfall = isCash ? Math.max(0, total - paid) : 0;
 
   // Split: cash / card / bank amounts. Only cash may exceed its share (change).
-  const splitMethods = PAID_VIA_ALL.filter((v) => paymentMethods.some((m) => m.key === v.key));
+  // Cash + ONE other method (card or bank transfer). The cashier types the cash
+  // part; the other method automatically takes the rest.
+  const splitOthers = PAID_VIA_ALL.filter((v) => v.key !== 'CASH' && paymentMethods.some((m) => m.key === v.key));
   const splitCash = splitAmts.CASH ?? 0;
-  const splitNonCash = splitMethods.filter((v) => v.key !== 'CASH').reduce((s, v) => s + (splitAmts[v.key] ?? 0), 0);
-  const splitCashDue = total - splitNonCash;
-  const splitFilled = splitMethods.filter((v) => (splitAmts[v.key] ?? 0) > 0).length;
-  const splitRemaining = Math.max(0, splitCashDue - splitCash);
-  const splitChange = Math.max(0, splitCash - Math.max(0, splitCashDue));
-  const splitBad =
-    split && (splitFilled < 2 || splitNonCash > total || splitRemaining > 0 || (splitCashDue <= 0 && splitCash > 0));
+  const splitOther = Math.max(0, total - splitCash);
+  const splitBad = split && (splitCash <= 0 || splitCash >= total);
   const balanceLater = isCredit ? Math.max(0, total - paid) : 0;
   const creditOver = isCredit && paid > total;
 
@@ -356,7 +354,7 @@ export default function POSView({
       return;
     }
     if (splitBad) {
-      toast('Split amounts must cover the total, using at least two methods.', true);
+      toast('Enter a cash amount that is less than the total.', true);
       return;
     }
     if (isCash && paid < total) {
@@ -385,7 +383,7 @@ export default function POSView({
       paid: isCash || isCredit ? paid : total,
       paidVia: isCredit && paid > 0 ? paidVia : undefined,
       ...(split
-        ? { splits: splitMethods.map((v) => ({ method: v.key, amount: splitAmts[v.key] ?? 0 })).filter((s) => s.amount > 0) }
+        ? { splits: [{ method: 'CASH', amount: splitCash }, { method: splitVia, amount: splitOther }] }
         : {}),
       customerId: customer?.id ?? null,
       saleType,
@@ -735,39 +733,36 @@ export default function POSView({
 
         {split && (
           <div className="flex flex-col gap-2">
-            <label className="field-label">Split the {money(total, currency)} between methods</label>
-            {splitMethods.map((v) => (
-              <div key={v.key} className="flex items-center gap-2">
-                <span className="text-[13px]" style={{ width: 84, color: 'var(--color-ash)' }}>{v.label}</span>
-                <input
-                  className="input num"
-                  inputMode="numeric"
-                  value={splitAmts[v.key] ? String(splitAmts[v.key]) : ''}
-                  placeholder="0"
-                  onChange={(e) => setSplitAmts((prev) => ({ ...prev, [v.key]: parseAmount(e.target.value) }))}
-                />
-                {v.key !== 'CASH' && (
-                  <button
-                    className="btn btn-ghost btn-sm"
-                    title="Put everything not covered by the other methods here"
-                    onClick={() =>
-                      setSplitAmts((prev) => {
-                        const others = splitMethods.filter((x) => x.key !== v.key).reduce((s, x) => s + (prev[x.key] ?? 0), 0);
-                        return { ...prev, [v.key]: Math.max(0, total - others) };
-                      })
-                    }
-                  >
-                    Rest
-                  </button>
-                )}
-              </div>
-            ))}
+            <label className="field-label">Cash part ({currency}) — the rest is paid by</label>
+            <input
+              className="input num"
+              inputMode="numeric"
+              value={splitCash ? String(splitCash) : ''}
+              placeholder="0"
+              onChange={(e) => setSplitAmts({ CASH: parseAmount(e.target.value) })}
+            />
+            <div className="grid grid-cols-2 gap-2">
+              {splitOthers.map((v) => (
+                <button
+                  key={v.key}
+                  className="btn btn-sm"
+                  onClick={() => setSplitVia(v.key)}
+                  style={
+                    splitVia === v.key
+                      ? { background: 'rgba(239,68,68,.12)', color: 'var(--color-brand)', borderColor: 'var(--color-brand)' }
+                      : { background: 'var(--color-ink-1)', color: 'var(--color-ash)', borderColor: 'var(--color-line-2)' }
+                  }
+                >
+                  {v.label}
+                </button>
+              ))}
+            </div>
             <div className="summary-row pt-1">
-              <span style={{ color: splitRemaining > 0 || splitNonCash > total ? 'var(--color-brand)' : 'var(--color-ok)' }}>
-                {splitNonCash > total ? 'Card / bank more than total' : splitRemaining > 0 ? 'Still to collect' : 'Change'}
+              <span style={{ color: splitBad ? 'var(--color-brand)' : 'var(--color-ok)' }}>
+                {splitCash >= total && total > 0 ? 'Cash must be less than the total' : `${splitOthers.find((v) => v.key === splitVia)?.label ?? 'Other'} part`}
               </span>
-              <span className="num" style={{ color: splitRemaining > 0 || splitNonCash > total ? 'var(--color-brand)' : 'var(--color-ok)' }}>
-                {money(splitNonCash > total ? splitNonCash - total : splitRemaining > 0 ? splitRemaining : splitChange, currency)}
+              <span className="num" style={{ color: splitBad ? 'var(--color-brand)' : 'var(--color-ok)' }}>
+                {money(splitOther, currency)}
               </span>
             </div>
           </div>

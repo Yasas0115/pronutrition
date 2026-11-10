@@ -34,8 +34,7 @@ export type CheckoutCore = {
   paid: number;
   // How the "paid now" part of a CREDIT sale was taken (CASH | CARD | BANK).
   paidVia?: string;
-  // Split payment: one sale paid with several of CASH | CARD | BANK (e.g. 4000
-  // cash + 1000 card). When given, `method` is ignored (the sale is stored as
+  // Split payment: cash plus ONE of CARD | BANK (e.g. 4000 cash + 1000 card). When given, `method` is ignored (the sale is stored as
   // SPLIT), no payment-method % discount applies, and `amount` is what the
   // customer handed over for that part (cash may exceed its share → change).
   splits?: { method: string; amount: number }[];
@@ -199,7 +198,10 @@ function checkoutOnce(input: CheckoutCore, items: CartLine[]): Promise<Receipt> 
         }
         parts.set(s.method, (parts.get(s.method) ?? 0) + amt);
       }
-      if (parts.size < 2) throw new Error('Enter an amount for at least two payment methods, or use a single method.');
+      // A split is cash plus exactly one other method (card OR bank transfer).
+      if (parts.size !== 2 || !parts.has('CASH')) {
+        throw new Error('A split payment is cash plus one other method (card or bank transfer).');
+      }
       for (const key of parts.keys()) {
         const m = await tx.paymentMethod.findUnique({ where: { key } });
         if (!m || !m.active) throw new Error(`${key} is not available as a payment method.`);
