@@ -193,14 +193,14 @@ function checkoutOnce(input: CheckoutCore, items: CartLine[]): Promise<Receipt> 
       for (const s of input.splits!) {
         const amt = Math.max(0, Math.round(Number(s.amount) || 0));
         if (amt <= 0) continue;
-        if (!(SETTLEMENT_METHODS as readonly string[]).includes(s.method)) {
-          throw new Error('Split payments can use cash, card or bank transfer only.');
+        if (s.method !== 'CREDIT' && !(SETTLEMENT_METHODS as readonly string[]).includes(s.method)) {
+          throw new Error('Split payments can use cash, card, bank transfer or credit only.');
         }
         parts.set(s.method, (parts.get(s.method) ?? 0) + amt);
       }
-      // A split is cash plus exactly one other method (card OR bank transfer).
+      // A split is cash plus exactly one other method (card, bank transfer or credit).
       if (parts.size !== 2 || !parts.has('CASH')) {
-        throw new Error('A split payment is cash plus one other method (card or bank transfer).');
+        throw new Error('A split payment is cash plus one other method (card, bank transfer or credit).');
       }
       for (const key of parts.keys()) {
         const m = await tx.paymentMethod.findUnique({ where: { key } });
@@ -211,7 +211,8 @@ function checkoutOnce(input: CheckoutCore, items: CartLine[]): Promise<Receipt> 
       }
       const nonCash = [...parts].filter(([k]) => k !== 'CASH').reduce((s, [, a]) => s + a, 0);
       const cashGiven = parts.get('CASH') ?? 0;
-      if (nonCash > total) throw new Error('Card / bank amounts are more than the total.');
+      if (nonCash > total) throw new Error('Card / bank / credit amounts are more than the total.');
+      const creditPart = parts.get('CREDIT') ?? 0;
       const cashDue = total - nonCash;
       if (cashGiven < cashDue) {
         throw new Error(`The amounts add up to ${nonCash + cashGiven}, which is less than the total ${total}.`);
@@ -220,9 +221,13 @@ function checkoutOnce(input: CheckoutCore, items: CartLine[]): Promise<Receipt> 
       // Only cash can be over-tendered (and returned as change): card / bank
       // parts that already cover the total leave no room for cash.
       if (cashDue === 0 && cashGiven > 0) throw new Error('Card / bank amounts already cover the total — remove the cash part.');
-      paid = total;
+      // The credit part is not money received: it stays owing on the sale and on
+      // the customer's account (needs a registered customer, checked above).
+      paid = total - creditPart;
+      balanceDue = creditPart;
       change = cashGiven - cashDue;
       for (const [method, amount] of parts) {
+        if (method === 'CREDIT') continue;
         const rec = method === 'CASH' ? cashDue : amount;
         if (rec > 0) payments.push({ amount: rec, method });
       }

@@ -196,16 +196,19 @@ export default function POSView({
   // Split: cash / card / bank amounts. Only cash may exceed its share (change).
   // Cash + ONE other method (card or bank transfer). The cashier types the cash
   // part; the other method automatically takes the rest.
-  const splitOthers = PAID_VIA_ALL.filter((v) => v.key !== 'CASH' && paymentMethods.some((m) => m.key === v.key));
+  const splitOthers = [...PAID_VIA_ALL, { key: 'CREDIT', label: 'Credit (pay later)' }].filter(
+    (v) => v.key !== 'CASH' && paymentMethods.some((m) => m.key === v.key),
+  );
+  const splitCredit = split && splitVia === 'CREDIT';
   const splitCash = splitAmts.CASH ?? 0;
   const splitOther = Math.max(0, total - splitCash);
   const splitBad = split && (splitCash <= 0 || splitCash >= total);
-  const balanceLater = isCredit ? Math.max(0, total - paid) : 0;
+  const balanceLater = isCredit ? Math.max(0, total - paid) : splitCredit ? splitOther : 0;
   const creditOver = isCredit && paid > total;
 
   // Walk-ins can only use methods that don't need a registered customer, and a
   // wholesale sale always needs one.
-  const needsCustomer = wholesale || (!split && !!selectedMethod?.requiresCustomer);
+  const needsCustomer = wholesale || splitCredit || (!split && !!selectedMethod?.requiresCustomer);
   const blockedNoCustomer = needsCustomer && !customer;
   const firstWalkInMethod = paymentMethods.find((m) => !m.requiresCustomer)?.key ?? paymentMethods[0]?.key ?? 'CASH';
 
@@ -350,7 +353,14 @@ export default function POSView({
   async function checkout(confirmedDebt = false) {
     if (lines.length === 0) return;
     if (blockedNoCustomer) {
-      toast(wholesale ? 'Pick the customer (shop) for a wholesale sale.' : `${selectedMethod?.label ?? 'This method'} needs a registered customer.`, true);
+      toast(
+        wholesale
+          ? 'Pick the customer (shop) for a wholesale sale.'
+          : splitCredit
+            ? 'Credit needs a registered customer — pick one first.'
+            : `${selectedMethod?.label ?? 'This method'} needs a registered customer.`,
+        true,
+      );
       return;
     }
     if (splitBad) {
@@ -367,7 +377,7 @@ export default function POSView({
     }
     // A credit sale for someone who already owes: show what they owe and what
     // they will owe after this bill, and let the cashier confirm.
-    if (isCredit && customer && customer.due > 0 && !confirmedDebt) {
+    if ((isCredit || splitCredit) && customer && customer.due > 0 && !confirmedDebt) {
       setDebtWarn(true);
       return;
     }
@@ -691,14 +701,16 @@ export default function POSView({
                   : { background: 'var(--color-ink-1)', color: 'var(--color-ash)', borderColor: 'var(--color-line-2)' }
               }
             >
-              Split payment (cash + card / bank) · no method discount
+              Split payment (cash + card / bank / credit) · no method discount
             </button>
           )}
           {blockedNoCustomer && (
             <p className="text-[12px] mt-1.5" style={{ color: 'var(--color-warn)' }}>
               {wholesale
                 ? 'Wholesale sales need a registered customer — pick the shop above.'
-                : `${selectedMethod?.label ?? 'This method'} needs a registered customer — pick one above.`}
+                : splitCredit
+                  ? 'Credit needs a registered customer — pick one above.'
+                  : `${selectedMethod?.label ?? 'This method'} needs a registered customer — pick one above.`}
             </p>
           )}
         </div>
