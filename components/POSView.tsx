@@ -90,7 +90,8 @@ export default function POSView({
   // Split payment: one sale paid with several methods (no method % discount).
   const [split, setSplit] = useState(false);
   const [splitAmts, setSplitAmts] = useState<Record<string, number>>({});
-  const [splitVia, setSplitVia] = useState('CARD'); // the non-cash part: CARD | BANK
+  const [splitFirst, setSplitFirst] = useState('CASH'); // typed part: CASH | CARD | BANK
+  const [splitVia, setSplitVia] = useState('CARD'); // the rest: CARD | BANK | CREDIT
   const [saleType, setSaleType] = useState<SaleType>('RETAIL');
   const [customerId, setCustomerId] = useState<string | null>(null);
   const [custQuery, setCustQuery] = useState('');
@@ -196,11 +197,15 @@ export default function POSView({
   // Split: cash / card / bank amounts. Only cash may exceed its share (change).
   // Cash + ONE other method (card or bank transfer). The cashier types the cash
   // part; the other method automatically takes the rest.
+  // The cashier picks the FIRST method (cash / card / bank) and types its amount;
+  // the SECOND method (anything else, incl. credit) takes the rest.
+  const splitFirsts = PAID_VIA_ALL.filter((v) => paymentMethods.some((m) => m.key === v.key));
   const splitOthers = [...PAID_VIA_ALL, { key: 'CREDIT', label: 'Credit (pay later)' }].filter(
-    (v) => v.key !== 'CASH' && paymentMethods.some((m) => m.key === v.key),
+    (v) => v.key !== splitFirst && paymentMethods.some((m) => m.key === v.key),
   );
-  const splitCredit = split && splitVia === 'CREDIT';
-  const splitCash = splitAmts.CASH ?? 0;
+  const splitSecond = splitOthers.some((v) => v.key === splitVia) ? splitVia : splitOthers[0]?.key ?? 'CARD';
+  const splitCredit = split && splitSecond === 'CREDIT';
+  const splitCash = splitAmts[splitFirst] ?? 0; // amount of the first method
   const splitOther = Math.max(0, total - splitCash);
   const splitBad = split && (splitCash <= 0 || splitCash >= total);
   const balanceLater = isCredit ? Math.max(0, total - paid) : splitCredit ? splitOther : 0;
@@ -364,7 +369,7 @@ export default function POSView({
       return;
     }
     if (splitBad) {
-      toast('Enter a cash amount that is less than the total.', true);
+      toast('Enter a first-part amount that is less than the total.', true);
       return;
     }
     if (isCash && paid < total) {
@@ -393,7 +398,7 @@ export default function POSView({
       paid: isCash || isCredit ? paid : total,
       paidVia: isCredit && paid > 0 ? paidVia : undefined,
       ...(split
-        ? { splits: [{ method: 'CASH', amount: splitCash }, { method: splitVia, amount: splitOther }] }
+        ? { splits: [{ method: splitFirst, amount: splitCash }, { method: splitSecond, amount: splitOther }] }
         : {}),
       customerId: customer?.id ?? null,
       saleType,
@@ -701,7 +706,7 @@ export default function POSView({
                   : { background: 'var(--color-ink-1)', color: 'var(--color-ash)', borderColor: 'var(--color-line-2)' }
               }
             >
-              Split payment (cash + card / bank / credit) · no method discount
+              Split payment (cash / card / bank + credit) · no method discount
             </button>
           )}
           {blockedNoCustomer && (
@@ -745,13 +750,32 @@ export default function POSView({
 
         {split && (
           <div className="flex flex-col gap-2">
-            <label className="field-label">Cash part ({currency}) — the rest is paid by</label>
+            <label className="field-label">Paid first by</label>
+            <div className="grid grid-cols-3 gap-2">
+              {splitFirsts.map((v) => (
+                <button
+                  key={v.key}
+                  className="btn btn-sm"
+                  onClick={() => { setSplitFirst(v.key); setSplitAmts({}); }}
+                  style={
+                    splitFirst === v.key
+                      ? { background: 'rgba(239,68,68,.12)', color: 'var(--color-brand)', borderColor: 'var(--color-brand)' }
+                      : { background: 'var(--color-ink-1)', color: 'var(--color-ash)', borderColor: 'var(--color-line-2)' }
+                  }
+                >
+                  {v.label}
+                </button>
+              ))}
+            </div>
+            <label className="field-label">
+              {splitFirsts.find((v) => v.key === splitFirst)?.label} amount ({currency}) — the rest is paid by
+            </label>
             <input
               className="input num"
               inputMode="numeric"
               value={splitCash ? String(splitCash) : ''}
               placeholder="0"
-              onChange={(e) => setSplitAmts({ CASH: parseAmount(e.target.value) })}
+              onChange={(e) => setSplitAmts({ [splitFirst]: parseAmount(e.target.value) })}
             />
             <div className="grid grid-cols-2 gap-2">
               {splitOthers.map((v) => (
@@ -760,7 +784,7 @@ export default function POSView({
                   className="btn btn-sm"
                   onClick={() => setSplitVia(v.key)}
                   style={
-                    splitVia === v.key
+                    splitSecond === v.key
                       ? { background: 'rgba(239,68,68,.12)', color: 'var(--color-brand)', borderColor: 'var(--color-brand)' }
                       : { background: 'var(--color-ink-1)', color: 'var(--color-ash)', borderColor: 'var(--color-line-2)' }
                   }
@@ -771,7 +795,7 @@ export default function POSView({
             </div>
             <div className="summary-row pt-1">
               <span style={{ color: splitBad ? 'var(--color-brand)' : 'var(--color-ok)' }}>
-                {splitCash >= total && total > 0 ? 'Cash must be less than the total' : `${splitOthers.find((v) => v.key === splitVia)?.label ?? 'Other'} part`}
+                {splitCash >= total && total > 0 ? 'Amount must be less than the total' : `${splitOthers.find((v) => v.key === splitSecond)?.label ?? 'Other'} part`}
               </span>
               <span className="num" style={{ color: splitBad ? 'var(--color-brand)' : 'var(--color-ok)' }}>
                 {money(splitOther, currency)}

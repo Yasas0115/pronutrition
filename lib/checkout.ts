@@ -198,9 +198,10 @@ function checkoutOnce(input: CheckoutCore, items: CartLine[]): Promise<Receipt> 
         }
         parts.set(s.method, (parts.get(s.method) ?? 0) + amt);
       }
-      // A split is cash plus exactly one other method (card, bank transfer or credit).
-      if (parts.size !== 2 || !parts.has('CASH')) {
-        throw new Error('A split payment is cash plus one other method (card, bank transfer or credit).');
+      // A split is exactly two different methods from cash / card / bank transfer
+      // / credit (e.g. bank transfer + credit, or cash + credit).
+      if (parts.size !== 2) {
+        throw new Error('A split payment uses two different methods (cash, card, bank transfer or credit).');
       }
       for (const key of parts.keys()) {
         const m = await tx.paymentMethod.findUnique({ where: { key } });
@@ -214,10 +215,13 @@ function checkoutOnce(input: CheckoutCore, items: CartLine[]): Promise<Receipt> 
       if (nonCash > total) throw new Error('Card / bank / credit amounts are more than the total.');
       const creditPart = parts.get('CREDIT') ?? 0;
       const cashDue = total - nonCash;
+      if (!parts.has('CASH') && nonCash !== total) {
+        throw new Error(`The amounts add up to ${nonCash}, but the total is ${total}.`);
+      }
       if (cashGiven < cashDue) {
         throw new Error(`The amounts add up to ${nonCash + cashGiven}, which is less than the total ${total}.`);
       }
-      if (cashGiven === 0 && cashDue > 0) throw new Error('The amounts are less than the total.');
+      if (cashGiven === 0 && cashDue > 0 && parts.has('CASH')) throw new Error('The amounts are less than the total.');
       // Only cash can be over-tendered (and returned as change): card / bank
       // parts that already cover the total leave no room for cash.
       if (cashDue === 0 && cashGiven > 0) throw new Error('Card / bank amounts already cover the total — remove the cash part.');
