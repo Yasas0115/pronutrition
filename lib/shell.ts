@@ -21,6 +21,7 @@ export type ShellProps = {
   branches: BranchLite[];
   activeScope: string; // branch id or ALL_BRANCHES
   activeBranchName: string;
+  canSwitchBranch: boolean;
 };
 
 export async function getShellProps(session: Session): Promise<ShellProps> {
@@ -45,5 +46,6 @@ export async function getShellProps(session: Session): Promise<ShellProps> {
     branches,
     activeScope: scope,
     activeBranchName,
+    canSwitchBranch: session.role === 'OWNER' || !session.branchId,
   };
 }

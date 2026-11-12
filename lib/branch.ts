@@ -33,8 +33,10 @@ export async function listBranches(activeOnly = false): Promise<BranchLite[]> {
 // The owner's chosen scope: a concrete branch id, or ALL_BRANCHES. Cashiers are
 // always locked to their own branch regardless of the cookie.
 export async function getActiveScope(session: Session): Promise<string> {
-  if (session.role !== 'OWNER') {
-    return session.branchId ?? ALL_BRANCHES;
+  // Staff pinned to a branch stay there; the owner and staff given "All
+  // branches" may pick any branch (or all) via the switcher.
+  if (session.role !== 'OWNER' && session.branchId) {
+    return session.branchId;
   }
   const raw = (await cookies()).get(BRANCH_COOKIE)?.value;
   if (raw === ALL_BRANCHES) return ALL_BRANCHES;

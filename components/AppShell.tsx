@@ -172,6 +172,7 @@ export default function AppShell({
   branches = [],
   activeScope = ALL_BRANCHES,
   activeBranchName = '',
+  canSwitchBranch,
   wide = false,
   children,
 }: {
@@ -183,6 +184,7 @@ export default function AppShell({
   branches?: BranchLite[];
   activeScope?: string;
   activeBranchName?: string;
+  canSwitchBranch?: boolean;
   wide?: boolean;
   children: React.ReactNode;
 }) {
@@ -263,7 +265,7 @@ export default function AppShell({
   // has no room for it.
   const branchControl = (compact: boolean) =>
     branches.length > 0 &&
-    (owner ? (
+    ((canSwitchBranch ?? owner) ? (
       <select
         aria-label="Active branch"
         className="input"

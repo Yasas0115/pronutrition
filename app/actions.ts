@@ -113,7 +113,7 @@ export async function registerAction(
 // ---------- Branch switching (owner) ----------
 export async function switchBranchAction(scope: string): Promise<void> {
   const session = await requireSession();
-  if (session.role !== 'OWNER') return; // cashiers are locked to their branch
+  if (session.role !== 'OWNER' && session.branchId) return; // branch-pinned staff are locked
   await setActiveScopeCookie(scope || ALL_BRANCHES);
   revalidatePath('/', 'layout');
 }
