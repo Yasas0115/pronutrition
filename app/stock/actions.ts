@@ -134,6 +134,41 @@ export async function adjustStockManual(input: {
 }
 
 // Set on-hand to a counted value (a stock-take).
+// Write off expired or damaged units: removes them from stock (oldest batches
+// first) and logs a loss at their FIFO cost, which the profit report subtracts.
+export async function writeOffStock(input: {
+  productId: string;
+  branchId: string;
+  qty: number;
+  reason: 'EXPIRED' | 'DAMAGED';
+  note?: string;
+}): Promise<SimpleResult> {
+  const session = await requireModule('stock');
+  const branchId = writableBranch(session, input.branchId);
+  if (!branchId) return { ok: false, error: 'Pick a branch you can manage.' };
+  if (input.reason !== 'EXPIRED' && input.reason !== 'DAMAGED') return { ok: false, error: 'Pick a reason.' };
+  const qty = Math.round(Number(input.qty) || 0);
+  if (qty <= 0) return { ok: false, error: 'Enter how many units to write off.' };
+  const name = await productName(input.productId);
+  if (!name) return { ok: false, error: 'Product not found.' };
+  try {
+    await recordStockChange(prisma, {
+      branchId,
+      productId: input.productId,
+      productName: name,
+      delta: -qty,
+      type: input.reason,
+      note: input.note?.trim() || null,
+      userId: session.userId,
+      userName: session.name,
+    });
+    revalidateStock();
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'Could not write off stock.' };
+  }
+}
+
 export async function countStock(input: {
   productId: string;
   branchId: string;

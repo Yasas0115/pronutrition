@@ -47,6 +47,9 @@ export default function ProfitLossTab({ data }: { data: ProfitData }) {
           <div className="stat__label">Expenses</div>
           <div className="stat__value">{money(p.expenses.total, currency)}</div>
           <div className="text-[12px] mt-1" style={{ color: 'var(--color-muted)' }}>incl. salaries</div>
+          {p.losses.total > 0 && (
+            <div className="text-[12px]" style={{ color: 'var(--color-brand)' }}>+ {money(p.losses.total, currency)} stock losses ({p.losses.units} units)</div>
+          )}
         </div>
         <div className="stat">
           <div className="stat__label">Net profit</div>
@@ -92,6 +95,8 @@ export default function ProfitLossTab({ data }: { data: ProfitData }) {
               <Line label="General expenses" value={p.expenses.general} currency={currency} minus indent />
               <Line label="Worker salaries" value={p.expenses.salary} currency={currency} minus indent />
               <Line label="Total expenses" value={p.expenses.total} currency={currency} bold />
+              <Line label="Expired stock" value={p.losses.expired} currency={currency} minus indent />
+              <Line label="Damaged stock" value={p.losses.damaged} currency={currency} minus indent />
               <Line label="Net profit" value={net} currency={currency} bold tone={net >= 0 ? 'good' : 'bad'} />
             </tbody>
           </table>

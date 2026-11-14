@@ -16,7 +16,12 @@ export type MovementType =
   | 'RESTOCK'      // received new stock from a supplier (carries unitCost)
   | 'SALE'         // sold at the till (negative)
   | 'TRANSFER_IN'  // received from another branch
-  | 'TRANSFER_OUT'; // sent to another branch (negative)
+  | 'TRANSFER_OUT' // sent to another branch (negative)
+  | 'EXPIRED'      // written off as expired (negative, carries FIFO cost = loss)
+  | 'DAMAGED';     // written off as damaged (negative, carries FIFO cost = loss)
+
+/** Movement types that count as a stock loss in the profit report. */
+export const LOSS_TYPES = ['EXPIRED', 'DAMAGED'] as const;
 
 export const MOVEMENT_LABELS: Record<MovementType, string> = {
   INITIAL: 'Opening',
@@ -26,6 +31,8 @@ export const MOVEMENT_LABELS: Record<MovementType, string> = {
   SALE: 'Sale',
   TRANSFER_IN: 'Transfer in',
   TRANSFER_OUT: 'Transfer out',
+  EXPIRED: 'Expired',
+  DAMAGED: 'Damaged',
 };
 
 export type StockChange = {
@@ -171,7 +178,8 @@ export async function applyStockChange(
       type: c.type,
       delta,
       balanceAfter: next,
-      unitCost: c.unitCost ?? null,
+      // Write-offs record the FIFO cost of the units lost, so reports can total the loss.
+      unitCost: c.type === 'EXPIRED' || c.type === 'DAMAGED' ? avgCost(parts) : c.unitCost ?? null,
       note: c.note ?? null,
       saleId: c.saleId ?? null,
       transferId: c.transferId ?? null,

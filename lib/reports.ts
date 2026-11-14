@@ -10,7 +10,8 @@
 //   Gross profit  = Net sales − COGS.
 //   Expenses      = non-voided Expense rows dated in the period (general +
 //                   salary).
-//   Net profit    = Gross profit − Expenses.
+//   Stock losses  = expired / damaged write-offs, units × FIFO buying price.
+//   Net profit    = Gross profit − Expenses − Stock losses.
 //   The till float is NOT in here — it is cash on hand, not income or expense.
 import type { Prisma } from '@prisma/client';
 import { prisma } from './db';
@@ -43,6 +44,8 @@ export type ProfitLoss = {
     total: number;
     lines: { kind: string; category: string; amount: number; count: number }[];
   };
+  /** Expired / damaged stock written off in the period, at FIFO cost. */
+  losses: { expired: number; damaged: number; total: number; units: number };
   grossProfit: number;
   netProfit: number;
   /** Net profit as a % of net sales (0 when there were no sales). */
@@ -212,13 +215,31 @@ export async function computeProfitLoss(range: DateRange, branchId: string | nul
     lines,
   };
 
-  const netProfit = sales.grossProfit - expenses.total;
+  const lossRows = await prisma.stockMovement.findMany({
+    where: {
+      type: { in: ['EXPIRED', 'DAMAGED'] },
+      createdAt: { gte: range.from, lte: range.to },
+      ...(branchId ? { branchId } : {}),
+    },
+    select: { type: true, delta: true, unitCost: true },
+  });
+  const losses = { expired: 0, damaged: 0, total: 0, units: 0 };
+  for (const r of lossRows) {
+    const amount = -r.delta * (r.unitCost ?? 0);
+    if (r.type === 'EXPIRED') losses.expired += amount;
+    else losses.damaged += amount;
+    losses.total += amount;
+    losses.units += -r.delta;
+  }
+
+  const netProfit = sales.grossProfit - expenses.total - losses.total;
   return {
     sales,
     byType,
     estimatedLines,
     unknownLines,
     expenses,
+    losses,
     grossProfit: sales.grossProfit,
     netProfit,
     marginPercent: sales.net > 0 ? Math.round((netProfit / sales.net) * 1000) / 10 : 0,

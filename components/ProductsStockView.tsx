@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useTransition } from 'react';
+import { Fragment, useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { money, fmt, parseAmount } from '@/lib/money';
 import { fmtDateTime } from '@/lib/dates';
@@ -13,7 +13,7 @@ import TransfersTab from './TransfersTab';
 import StockCheckModal from './StockCheckModal';
 import type { TransferRow } from '@/lib/transfer-types';
 import { toast } from './toast';
-import { receiveStock } from '@/app/stock/actions';
+import { receiveStock, writeOffStock } from '@/app/stock/actions';
 
 export type PerBranch = { branchId: string; branchName: string; stock: number; lowStockAt: number };
 
@@ -117,6 +117,7 @@ export default function ProductsStockView({
   const [transferOpen, setTransferOpen] = useState(false);
   const [checkOpen, setCheckOpen] = useState(false);
   const [receiving, setReceiving] = useState<StockProduct | null>(null);
+  const [writingOff, setWritingOff] = useState<string | null>(null);
 
   const activeBranches = branches.filter((b) => b.active);
   const stockEditable = canManageStock && !allBranches;
@@ -306,7 +307,8 @@ export default function ProductsStockView({
                         const low = !out && p.stock <= p.lowStockAt;
                         const color = out ? 'var(--color-brand)' : low ? 'var(--color-warn)' : 'var(--color-strong)';
                         return (
-                          <tr key={p.id} style={{ opacity: p.active ? 1 : 0.5 }}>
+                          <Fragment key={p.id}>
+                          <tr style={{ opacity: p.active ? 1 : 0.5 }}>
                             <td><ProductCell p={p} allBranches={allBranches} /></td>
                             <td><span className="chip" style={{ cursor: 'default' }}>{p.category}</span></td>
                             <td>
@@ -319,10 +321,29 @@ export default function ProductsStockView({
                             <td className="text-center num" style={{ color: 'var(--color-muted)' }}>{allBranches ? '—' : fmt(p.lowStockAt)}</td>
                             <td className="text-right">
                               {stockEditable && (
-                                <button className="btn btn-ghost btn-sm" onClick={() => setReceiving(p)}>+ Receive</button>
+                                <span className="inline-flex gap-1.5">
+                                  <button className="btn btn-ghost btn-sm" style={{ whiteSpace: 'nowrap' }} onClick={() => setReceiving(p)}>+ Receive</button>
+                                  <button
+                                    className="btn btn-ghost btn-sm"
+                                    style={{ whiteSpace: 'nowrap', color: 'var(--color-brand)' }}
+                                    disabled={p.stock <= 0}
+                                    onClick={() => setWritingOff(writingOff === p.id ? null : p.id)}
+                                  >
+                                    Write off
+                                  </button>
+                                </span>
                               )}
                             </td>
                           </tr>
+                          {writingOff === p.id && (
+                            <WriteOffRow
+                              product={p}
+                              branchId={activeScope}
+                              onClose={() => setWritingOff(null)}
+                              onDone={() => { setWritingOff(null); refresh(); }}
+                            />
+                          )}
+                          </Fragment>
                         );
                       })
                     )}
@@ -378,6 +399,59 @@ export default function ProductsStockView({
 
       {checkOpen && <StockCheckModal onClose={() => setCheckOpen(false)} />}
     </>
+  );
+}
+
+// One-line write-off form shown under a product row: reason, quantity, note.
+// Removes the units from stock and logs the loss at FIFO cost.
+function WriteOffRow({
+  product, branchId, onClose, onDone,
+}: {
+  product: StockProduct;
+  branchId: string;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const [pending, start] = useTransition();
+  const [reason, setReason] = useState<'EXPIRED' | 'DAMAGED'>('EXPIRED');
+  const [qty, setQty] = useState('');
+  const [note, setNote] = useState('');
+  const q = parseAmount(qty);
+
+  function submit() {
+    if (q <= 0) { toast('Enter how many units to write off.', true); return; }
+    if (q > product.stock) { toast(`Only ${product.stock} on hand.`, true); return; }
+    start(async () => {
+      const res = await writeOffStock({ productId: product.id, branchId, qty: q, reason, note });
+      if (res.ok) { toast(`Wrote off ${q} × ${product.name}`); onDone(); }
+      else toast(res.error, true);
+    });
+  }
+
+  return (
+    <tr>
+      <td colSpan={5} style={{ background: 'var(--color-ink-1)' }}>
+        <div className="flex items-center gap-2 flex-nowrap">
+          <span className="text-[13px] font-semibold" style={{ color: 'var(--color-brand)', whiteSpace: 'nowrap' }}>Write off</span>
+          <select className="input" style={{ width: 120 }} value={reason} onChange={(e) => setReason(e.target.value as 'EXPIRED' | 'DAMAGED')}>
+            <option value="EXPIRED">Expired</option>
+            <option value="DAMAGED">Damaged</option>
+          </select>
+          <input
+            className="input num"
+            style={{ width: 90 }}
+            inputMode="numeric"
+            placeholder={`Qty (max ${product.stock})`}
+            value={qty}
+            onChange={(e) => setQty(e.target.value)}
+            autoFocus
+          />
+          <input className="input" style={{ flex: 1, minWidth: 0 }} placeholder="Note (optional)" value={note} onChange={(e) => setNote(e.target.value)} />
+          <button className="btn btn-primary btn-sm" style={{ whiteSpace: 'nowrap' }} onClick={submit} disabled={pending}>{pending ? 'Saving…' : 'Confirm'}</button>
+          <button className="btn btn-ghost btn-sm" onClick={onClose} disabled={pending}>Cancel</button>
+        </div>
+      </td>
+    </tr>
   );
 }
 
