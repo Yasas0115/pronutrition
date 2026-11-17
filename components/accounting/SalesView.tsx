@@ -134,9 +134,9 @@ export default function SalesView({
             </div>
           )}
 
-          <div className="lg:flex lg:gap-6 lg:items-start">
+          <div>
             {/* Top products */}
-            <div className="lg:w-[360px] shrink-0 mb-5 lg:mb-0">
+            <div className="mb-5">
               <div className="card overflow-hidden">
                 <div className="px-4 py-3.5" style={{ borderBottom: '1px solid var(--color-line)' }}>
                   <div className="brand" style={{ fontSize: 17 }}>Best sellers</div>
@@ -144,25 +144,25 @@ export default function SalesView({
                 {topProducts.length === 0 ? (
                   <div className="px-4 py-8 text-center text-[13.5px]" style={{ color: 'var(--color-faint)' }}>No sales yet.</div>
                 ) : (
-                  <table className="table">
-                    <tbody>
-                      {topProducts.map((t, i) => (
-                        <tr key={i}>
-                          <td>
-                            <div className="text-strong font-semibold text-[13.5px]">{t.name}</div>
-                            <div className="text-[12px]" style={{ color: 'var(--color-muted)' }}>{t.qty} sold</div>
-                          </td>
-                          <td className="text-right num text-strong font-semibold">{money(t.revenue, currency)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5">
+                    {topProducts.slice(0, 5).map((t, i) => (
+                      <div
+                        key={i}
+                        className="px-4 py-3"
+                        style={{ borderTop: i > 0 ? '1px solid var(--color-line)' : undefined }}
+                      >
+                        <div className="text-strong font-semibold text-[13.5px] truncate" title={t.name}>{t.name}</div>
+                        <div className="text-[12px]" style={{ color: 'var(--color-muted)' }}>{t.qty} sold</div>
+                        <div className="num text-strong font-semibold text-[13.5px] mt-1">{money(t.revenue, currency)}</div>
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
             </div>
 
             {/* Recent sales */}
-            <div className="flex-1 min-w-0">
+            <div className="min-w-0">
               <div className="card overflow-hidden">
                 <div className="px-4 py-3.5" style={{ borderBottom: '1px solid var(--color-line)' }}>
                   <div className="brand" style={{ fontSize: 17 }}>Recent sales</div>
