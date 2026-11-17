@@ -151,11 +151,14 @@ function checkoutOnce(input: CheckoutCore, items: CartLine[]): Promise<Receipt> 
       const onHand = stockByProduct.get(p.id)?.stock ?? 0;
       if (onHand < it.qty) throw new Error(`Not enough stock for ${p.name} (only ${onHand} left at ${branch.name}).`);
 
+      // A product with no retail price can't be sold at all (it would go out at 0).
+      if (!(p.price > 0)) throw new Error(`${p.name} has no retail price set. Set its price before selling it.`);
+
       // Retail always sells at the shelf price; a wholesale cashier may edit it.
       let unit = p.price;
       if (wholesale && it.price != null) {
         const o = Math.round(Number(it.price));
-        if (!Number.isFinite(o) || o < 0) throw new Error(`Enter a valid price for ${p.name}.`);
+        if (!Number.isFinite(o) || o <= 0) throw new Error(`Enter a valid price for ${p.name}.`);
         unit = o;
       }
       const lineTotal = unit * it.qty;
