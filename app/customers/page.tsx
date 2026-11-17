@@ -17,7 +17,7 @@ export default async function CustomersPage() {
     prisma.customer.findMany({ orderBy: [{ active: 'desc' }, { name: 'asc' }] }),
     prisma.sale.groupBy({
       by: ['customerId'],
-      where: { customerId: { not: null } },
+      where: { customerId: { not: null }, voidedAt: null },
       _count: true,
       _max: { createdAt: true },
     }),

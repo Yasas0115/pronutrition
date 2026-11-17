@@ -224,6 +224,10 @@ export default function POSView({
       toast(`${p.name} is out of stock.`, true);
       return;
     }
+    if (unitPrice(p) <= 0) {
+      toast(`${p.name} has no price set. Set a retail price first.`, true);
+      return;
+    }
     setCart((prev) => {
       const next = new Map(prev);
       next.set(p.id, (next.get(p.id) ?? 0) + 1);

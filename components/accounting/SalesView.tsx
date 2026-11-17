@@ -6,9 +6,11 @@ import { fmtDateTime } from '@/lib/dates';
 import type { Receipt } from '@/app/actions';
 import ReceiptModal from '../ReceiptModal';
 import PrintHeader from './PrintHeader';
+import VoidModal from '../finance/VoidModal';
+import { voidSaleAction } from '@/app/accounting/sales/actions';
 
 // A receipt as listed here: everything the receipt needs, plus the pay-method badge.
-type SaleRow = Receipt & { id: string };
+type SaleRow = Receipt & { id: string; voidedAt: string | null; voidReason: string | null };
 
 export type MixRow = {
   period: 'today' | 'month' | 'all';
@@ -38,7 +40,9 @@ export default function SalesView({
   scopeLabel,
   currency,
   store,
+  canVoid = false,
 }: {
+  canVoid?: boolean;
   stats: SalesStats;
   topProducts: { name: string; qty: number; revenue: number }[];
   sales: SaleRow[];
@@ -52,6 +56,7 @@ export default function SalesView({
 }) {
   const [tab, setTab] = useState<Tab>('overview');
   const [detail, setDetail] = useState<SaleRow | null>(null);
+  const [voiding, setVoiding] = useState<SaleRow | null>(null);
 
   const sub = (s: { count: number; net: number }) =>
     `${s.count} sale${s.count === 1 ? '' : 's'} · net ${money(s.net, currency)}`;
@@ -172,17 +177,21 @@ export default function SalesView({
                         <th className="text-center">Items</th>
                         <th>Pay</th>
                         <th className="text-right">Total</th>
+                        {canVoid && <th></th>}
                       </tr>
                     </thead>
                     <tbody>
                       {sales.length === 0 ? (
-                        <tr><td colSpan={showBranchColumn ? 6 : 5} className="text-center" style={{ color: 'var(--color-faint)', padding: 40 }}>No sales recorded yet.</td></tr>
+                        <tr><td colSpan={(showBranchColumn ? 6 : 5) + (canVoid ? 1 : 0)} className="text-center" style={{ color: 'var(--color-faint)', padding: 40 }}>No sales recorded yet.</td></tr>
                       ) : (
                         sales.map((s) => (
-                          <tr key={s.id} className="cursor-pointer" onClick={() => setDetail(s)}>
+                          <tr key={s.id} className="cursor-pointer" onClick={() => setDetail(s)} style={s.voidedAt ? { opacity: 0.55 } : undefined}>
                             <td>
-                              <div className="text-strong font-semibold num">#{s.number}</div>
+                              <div className="text-strong font-semibold num" style={s.voidedAt ? { textDecoration: 'line-through' } : undefined}>#{s.number}</div>
                               <div className="text-[12px]" style={{ color: 'var(--color-muted)' }}>{s.customerName ?? 'Walk-in'}</div>
+                              {s.voidedAt && (
+                                <div className="text-[12px]" style={{ color: 'var(--color-warn)' }}>Voided{s.voidReason ? ` — ${s.voidReason}` : ''}</div>
+                              )}
                             </td>
                             {showBranchColumn && <td className="text-[13px]">{s.branchName ?? '—'}</td>}
                             <td className="text-[13px] whitespace-nowrap">{fmtDateTime(s.createdAt)}</td>
@@ -198,7 +207,14 @@ export default function SalesView({
                                 </span>
                               )}
                             </td>
-                            <td className="text-right num text-strong font-semibold">{money(s.total, currency)}</td>
+                            <td className="text-right num text-strong font-semibold" style={s.voidedAt ? { textDecoration: 'line-through' } : undefined}>{money(s.total, currency)}</td>
+                            {canVoid && (
+                              <td className="text-right">
+                                {!s.voidedAt && (
+                                  <button className="btn btn-ghost" onClick={(e) => { e.stopPropagation(); setVoiding(s); }}>Void</button>
+                                )}
+                              </td>
+                            )}
                           </tr>
                         ))
                       )}
@@ -209,6 +225,15 @@ export default function SalesView({
             </div>
           </div>
         </>
+      )}
+
+      {voiding && (
+        <VoidModal
+          title={`Void invoice #${voiding.number}`}
+          subject={`Invoice #${voiding.number} — ${money(voiding.total, currency)} (${voiding.customerName ?? 'Walk-in'}). Its items go back into stock.`}
+          onClose={() => setVoiding(null)}
+          onConfirm={(reason) => voidSaleAction(voiding.id, reason)}
+        />
       )}
 
       {detail && (

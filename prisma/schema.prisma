@@ -306,6 +306,11 @@ model Sale {
   cashier        User?    @relation(fields: [cashierId], references: [id], onDelete: SetNull)
   cashierName    String?
   createdAt      DateTime @default(now())
+  // Set when the sale is voided (a mistake / wrong price). A voided sale is kept
+  // for the record but left out of every report; its stock goes back on the shelf.
+  voidedAt       DateTime?
+  voidedByName   String?
+  voidReason     String?  @db.Text
 
   items    SaleItem[]
   payments SalePayment[]

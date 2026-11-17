@@ -21,7 +21,8 @@ export default async function SalesPage() {
   const branchId = allBranches ? null : scope;
 
   const branchWhere = branchId ? { branchId } : {};
-  const itemBranchWhere = branchId ? { sale: { branchId } } : {};
+  // Voided sales stay in the receipts list (struck through) but not in any total.
+  const itemBranchWhere = { sale: { voidedAt: null, ...(branchId ? { branchId } : {}) } };
 
   const now = new Date();
   const today = { from: startOfDay(now) };
@@ -41,7 +42,7 @@ export default async function SalesPage() {
         take: 8,
       }),
       prisma.sale.findMany({ where: branchWhere, orderBy: { createdAt: 'desc' }, take: 50, include: { items: true } }),
-      prisma.sale.groupBy({ by: ['branchId'], _sum: { total: true }, _count: true }),
+      prisma.sale.groupBy({ by: ['branchId'], where: { voidedAt: null }, _sum: { total: true }, _count: true }),
       salesMix(today, branchId),
       salesMix(month, branchId),
       salesMix(null, branchId),
@@ -58,6 +59,8 @@ export default async function SalesPage() {
 
   const sales = recent.map((s) => ({
     id: s.id,
+    voidedAt: s.voidedAt ? s.voidedAt.toISOString() : null,
+    voidReason: s.voidReason,
     number: s.number,
     createdAt: s.createdAt.toISOString(),
     branchName: s.branchName,
@@ -102,6 +105,7 @@ export default async function SalesPage() {
         branchBreakdown={branchBreakdown}
         mix={mix}
         methodLabels={labels}
+        canVoid={session.role === 'OWNER'}
         showBranchColumn={allBranches}
         scopeLabel={shell.activeBranchName}
         currency={store?.currency ?? 'Rs'}

@@ -15,7 +15,8 @@ export type MovementType =
   | 'ADJUST'       // manual +/- correction (damage, theft, gift, fix)
   | 'RESTOCK'      // received new stock from a supplier (carries unitCost)
   | 'SALE'         // sold at the till (negative)
-  | 'TRANSFER_IN'  // received from another branch
+  | 'SALE_VOID'    // a voided sale put its units back on the shelf (positive)
+  | 'TRANSFER_IN' // received from another branch
   | 'TRANSFER_OUT' // sent to another branch (negative)
   | 'EXPIRED'      // written off as expired (negative, carries FIFO cost = loss)
   | 'DAMAGED';     // written off as damaged (negative, carries FIFO cost = loss)
@@ -29,6 +30,7 @@ export const MOVEMENT_LABELS: Record<MovementType, string> = {
   ADJUST: 'Adjustment',
   RESTOCK: 'Received',
   SALE: 'Sale',
+  SALE_VOID: 'Sale voided',
   TRANSFER_IN: 'Transfer in',
   TRANSFER_OUT: 'Transfer out',
   EXPIRED: 'Expired',

@@ -168,7 +168,7 @@ export async function getCustomerLedger(
   const [balance, sales, payments] = await Promise.all([
     customerBalance(customerId),
     prisma.sale.findMany({
-      where: { customerId },
+      where: { customerId, voidedAt: null },
       orderBy: { createdAt: 'desc' },
       take: 200,
       include: { items: { select: { qty: true } } },

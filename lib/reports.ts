@@ -62,6 +62,7 @@ function saleWhere(range: OpenRange, branchId: string | null): Prisma.SaleWhereI
   if (range?.from) createdAt.gte = range.from;
   if (range?.to) createdAt.lte = range.to;
   return {
+    voidedAt: null, // voided sales are in no report
     ...(range?.from || range?.to ? { createdAt } : {}),
     ...(branchId ? { branchId } : {}),
   };
