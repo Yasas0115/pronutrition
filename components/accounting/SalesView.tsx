@@ -190,7 +190,13 @@ export default function SalesView({
                               <div className="text-strong font-semibold num" style={s.voidedAt ? { textDecoration: 'line-through' } : undefined}>#{s.number}</div>
                               <div className="text-[12px]" style={{ color: 'var(--color-muted)' }}>{s.customerName ?? 'Walk-in'}</div>
                               {s.voidedAt && (
-                                <div className="text-[12px]" style={{ color: 'var(--color-warn)' }}>Voided{s.voidReason ? ` — ${s.voidReason}` : ''}</div>
+                                <div
+                                  className="text-[12px] truncate"
+                                  style={{ color: 'var(--color-warn)', maxWidth: 140, whiteSpace: 'nowrap' }}
+                                  title={s.voidReason ? `Voided — ${s.voidReason}` : 'Voided'}
+                                >
+                                  Voided{s.voidReason ? ` — ${s.voidReason}` : ''}
+                                </div>
                               )}
                             </td>
                             {showBranchColumn && <td className="text-[13px]">{s.branchName ?? '—'}</td>}
