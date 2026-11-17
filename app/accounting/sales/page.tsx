@@ -105,7 +105,7 @@ export default async function SalesPage() {
         branchBreakdown={branchBreakdown}
         mix={mix}
         methodLabels={labels}
-        canVoid={session.role === 'OWNER'}
+        canVoid
         showBranchColumn={allBranches}
         scopeLabel={shell.activeBranchName}
         currency={store?.currency ?? 'Rs'}
