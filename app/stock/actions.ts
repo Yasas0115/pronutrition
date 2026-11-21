@@ -38,14 +38,17 @@ async function productName(id: string): Promise<string | null> {
 
 // Receive new stock into a branch (a supplier delivery). Positive qty, with an
 // optional per-unit buying price recorded on the movement for later reporting.
-// The buying price is accountant-level: it is only accepted from the owner or a
-// `finance` user (anyone else just receives the quantity). When accepted and it
-// differs from the product's current cost, the product's `cost` is refreshed
-// (latest cost) and the change goes into the price history.
+// The retail (selling) price is REQUIRED on every receive: it is confirmed or
+// updated to the figure entered. The buying price is accountant-level: it is
+// only accepted from the owner or a `finance` user (anyone else just receives
+// the quantity) and is optional. Whichever of price / cost differs from the
+// product's current value is refreshed (latest cost) and the change goes into
+// the price history.
 export async function receiveStock(input: {
   productId: string;
   branchId: string;
   qty: number;
+  price: number;
   unitCost?: number;
   note?: string;
 }): Promise<SimpleResult> {
@@ -55,6 +58,8 @@ export async function receiveStock(input: {
   if (!branchId) return { ok: false, error: 'Pick a branch you can manage.' };
   const qty = Math.round(Number(input.qty) || 0);
   if (qty <= 0) return { ok: false, error: 'Quantity must be at least 1.' };
+  const price = Math.round(Number(input.price) || 0);
+  if (price <= 0) return { ok: false, error: 'Enter the retail price.' };
   const name = await productName(input.productId);
   if (!name) return { ok: false, error: 'Product not found.' };
   const unitCost =
@@ -72,26 +77,28 @@ export async function receiveStock(input: {
         userId: session.userId,
         userName: session.name,
       });
-      if (unitCost != null && unitCost > 0) {
-        const before = await tx.product.findUniqueOrThrow({
+      const before = await tx.product.findUniqueOrThrow({
+        where: { id: input.productId },
+        select: { price: true, cost: true },
+      });
+      const newCost = unitCost != null && unitCost > 0 ? unitCost : before.cost;
+      if (before.price !== price || before.cost !== newCost) {
+        await tx.product.update({
           where: { id: input.productId },
-          select: { price: true, cost: true },
+          data: { price, cost: newCost },
         });
-        if (before.cost !== unitCost) {
-          await tx.product.update({ where: { id: input.productId }, data: { cost: unitCost } });
-          await recordPriceChange(tx, {
-            productId: input.productId,
-            productName: name,
-            oldPrice: before.price,
-            newPrice: before.price,
-            oldCost: before.cost,
-            newCost: unitCost,
-            source: 'RESTOCK',
-            note: input.note?.trim() || null,
-            userId: session.userId,
-            userName: session.name,
-          });
-        }
+        await recordPriceChange(tx, {
+          productId: input.productId,
+          productName: name,
+          oldPrice: before.price,
+          newPrice: price,
+          oldCost: before.cost,
+          newCost,
+          source: 'RESTOCK',
+          note: input.note?.trim() || null,
+          userId: session.userId,
+          userName: session.name,
+        });
       }
     });
     revalidateStock();

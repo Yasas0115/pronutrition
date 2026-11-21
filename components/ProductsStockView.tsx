@@ -471,18 +471,22 @@ function ReceiveModal({
   const [pending, start] = useTransition();
   const [qty, setQty] = useState('');
   const [unitCost, setUnitCost] = useState(product.cost > 0 ? String(product.cost) : '');
+  const [price, setPrice] = useState(product.price > 0 ? String(product.price) : '');
   const [note, setNote] = useState('');
 
   const q = parseAmount(qty);
   const cost = parseAmount(unitCost);
+  const retail = parseAmount(price);
 
   function submit() {
     if (q <= 0) { toast('Enter the quantity received.', true); return; }
+    if (retail <= 0) { toast('Enter the retail price.', true); return; }
     start(async () => {
       const res = await receiveStock({
         productId: product.id,
         branchId,
         qty: q,
+        price: retail,
         unitCost: canSeeCost && cost > 0 ? cost : undefined,
         note,
       });
@@ -514,12 +518,19 @@ function ReceiveModal({
           <span className="field-label">Quantity received</span>
           <input className="input num" inputMode="numeric" autoFocus value={qty} onChange={(e) => setQty(e.target.value.replace(/[^0-9]/g, ''))} placeholder="0" />
         </label>
+        <label className="block">
+          <span className="field-label">Retail price ({currency}) *</span>
+          <input className="input num" inputMode="numeric" value={price} onChange={(e) => setPrice(e.target.value.replace(/[^0-9]/g, ''))} placeholder="0" />
+          <span className="text-[12px]" style={{ color: 'var(--color-muted)' }}>
+            Required. If this differs from the current retail price, the product&apos;s retail price is updated and the change is logged in Price history.
+          </span>
+        </label>
         {canSeeCost && (
           <label className="block">
-            <span className="field-label">Buying price per unit ({currency})</span>
+            <span className="field-label">Buying price per unit ({currency}) — optional</span>
             <input className="input num" inputMode="numeric" value={unitCost} onChange={(e) => setUnitCost(e.target.value.replace(/[^0-9]/g, ''))} placeholder="0" />
             <span className="text-[12px]" style={{ color: 'var(--color-muted)' }}>
-              If this differs from the current buying price, the product&apos;s buying price is updated and the change is logged in Price history.
+              If entered and different from the current buying price, it is updated and logged in Price history.
             </span>
           </label>
         )}
