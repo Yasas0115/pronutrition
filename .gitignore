@@ -11,9 +11,9 @@ next-env.d.ts
 /prisma/*.db-journal
 
 # env — real secrets live only on each machine; .env.example is the template
-.env
 .env*.local
 
 # misc
 *.tsbuildinfo
 .DS_Store
+config.bat

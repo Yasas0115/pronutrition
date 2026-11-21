@@ -118,9 +118,11 @@ export default async function ProductsPage() {
       }))
     : [];
 
-  // Transfers are an owner-only feature (they touch two branches at once).
+  // Anyone with All-branches access (the owner, or staff not pinned to a
+  // branch) gets every stock option, including transfers between branches.
+  const allBranchAccess = session.role === 'OWNER' || !session.branchId;
   const transfers: TransferRow[] =
-    canManageStock && session.role === 'OWNER' ? await listTransfers(60) : [];
+    canManageStock && allBranchAccess ? await listTransfers(60) : [];
 
   return (
     <AppShell {...shell} wide>
@@ -137,7 +139,7 @@ export default async function ProductsPage() {
         activeScope={scope}
         activeBranchName={shell.activeBranchName}
         allBranches={allBranches}
-        isOwner={session.role === 'OWNER'}
+        allBranchAccess={allBranchAccess}
         canEditProducts={canEditProducts}
         canManageStock={canManageStock}
       />
