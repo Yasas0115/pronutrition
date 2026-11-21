@@ -84,7 +84,7 @@ export default function ProductsStockView({
   activeScope,
   activeBranchName,
   allBranches,
-  isOwner,
+  allBranchAccess,
   canEditProducts,
   canManageStock,
 }: {
@@ -102,7 +102,7 @@ export default function ProductsStockView({
   activeScope: string;
   activeBranchName: string;
   allBranches: boolean;
-  isOwner: boolean;
+  allBranchAccess: boolean;
   canEditProducts: boolean;
   canManageStock: boolean;
 }) {
@@ -167,7 +167,7 @@ export default function ProductsStockView({
           <h1 className="page-title">Products &amp; Stock</h1>
           <p className="page-sub">
             Shared catalogue · stock for <b style={{ color: 'var(--color-strong)' }}>{activeBranchName}</b>
-            {allBranches && canManageStock && ' · pick a single branch to receive or count'}
+            {allBranches && canManageStock && ' · pick a single branch to count or write off (Receive works here too)'}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -176,7 +176,7 @@ export default function ProductsStockView({
               ✓ Stock check
             </button>
           )}
-          {canManageStock && isOwner && activeBranches.length >= 2 && (
+          {canManageStock && allBranchAccess && activeBranches.length >= 2 && (
             <button className="btn btn-ghost" onClick={() => setTransferOpen(true)} disabled={products.length === 0}>
               ⇄ Transfer
             </button>
@@ -211,7 +211,7 @@ export default function ProductsStockView({
         {canManageStock && (
           <button className="chip" data-active={tab === 'movements' || undefined} onClick={() => setTab('movements')}>Movements</button>
         )}
-        {canManageStock && isOwner && (
+        {canManageStock && allBranchAccess && (
           <button className="chip" data-active={tab === 'transfers' || undefined} onClick={() => setTab('transfers')}>
             Transfers{transfers.length > 0 ? ` (${transfers.length})` : ''}
           </button>
@@ -320,17 +320,19 @@ export default function ProductsStockView({
                             </td>
                             <td className="text-center num" style={{ color: 'var(--color-muted)' }}>{allBranches ? '—' : fmt(p.lowStockAt)}</td>
                             <td className="text-right">
-                              {stockEditable && (
+                              {canManageStock && (
                                 <span className="inline-flex gap-1.5">
                                   <button className="btn btn-ghost btn-sm" style={{ whiteSpace: 'nowrap' }} onClick={() => setReceiving(p)}>+ Receive</button>
-                                  <button
-                                    className="btn btn-ghost btn-sm"
-                                    style={{ whiteSpace: 'nowrap', color: 'var(--color-brand)' }}
-                                    disabled={p.stock <= 0}
-                                    onClick={() => setWritingOff(writingOff === p.id ? null : p.id)}
-                                  >
-                                    Write off
-                                  </button>
+                                  {stockEditable && (
+                                    <button
+                                      className="btn btn-ghost btn-sm"
+                                      style={{ whiteSpace: 'nowrap', color: 'var(--color-brand)' }}
+                                      disabled={p.stock <= 0}
+                                      onClick={() => setWritingOff(writingOff === p.id ? null : p.id)}
+                                    >
+                                      Write off
+                                    </button>
+                                  )}
                                 </span>
                               )}
                             </td>
@@ -359,7 +361,7 @@ export default function ProductsStockView({
         <HistoryTable history={history} allBranches={allBranches} />
       )}
 
-      {tab === 'transfers' && canManageStock && isOwner && (
+      {tab === 'transfers' && canManageStock && allBranchAccess && (
         <TransfersTab transfers={transfers} storeName={storeName} />
       )}
 
@@ -380,6 +382,8 @@ export default function ProductsStockView({
           product={receiving}
           branchId={activeScope}
           branchName={activeBranchName}
+          allBranches={allBranches}
+          branches={activeBranches}
           canSeeCost={canSeeCost}
           currency={currency}
           onClose={() => setReceiving(null)}
@@ -458,17 +462,26 @@ function WriteOffRow({
 // Receive a supplier delivery into the active branch. The buying price field is
 // only offered to finance users; everyone else just records the quantity.
 function ReceiveModal({
-  product, branchId, branchName, canSeeCost, currency, onClose, onDone,
+  product, branchId: scopeBranchId, branchName, allBranches, branches, canSeeCost, currency, onClose, onDone,
 }: {
   product: StockProduct;
   branchId: string;
   branchName: string;
+  /** On "All branches" the person picks which branch receives the delivery. */
+  allBranches: boolean;
+  branches: BranchOpt[];
   canSeeCost: boolean;
   currency: string;
   onClose: () => void;
   onDone: () => void;
 }) {
   const [pending, start] = useTransition();
+  const [pickedBranch, setPickedBranch] = useState('');
+  const branchId = allBranches ? pickedBranch : scopeBranchId;
+  const targetName = allBranches ? branches.find((b) => b.id === pickedBranch)?.name ?? '' : branchName;
+  const onHand = allBranches
+    ? product.perBranch.find((b) => b.branchId === pickedBranch)?.stock ?? 0
+    : product.stock;
   const [qty, setQty] = useState('');
   const [unitCost, setUnitCost] = useState(product.cost > 0 ? String(product.cost) : '');
   const [price, setPrice] = useState(product.price > 0 ? String(product.price) : '');
@@ -479,6 +492,7 @@ function ReceiveModal({
   const retail = parseAmount(price);
 
   function submit() {
+    if (!branchId) { toast('Pick the branch that received the stock.', true); return; }
     if (q <= 0) { toast('Enter the quantity received.', true); return; }
     if (retail <= 0) { toast('Enter the retail price.', true); return; }
     start(async () => {
@@ -509,11 +523,22 @@ function ReceiveModal({
       <div className="flex flex-col gap-3">
         <div>
           <div className="text-strong font-semibold">{product.name}</div>
-          <div className="text-[13px]" style={{ color: 'var(--color-muted)' }}>
-            {branchName} · on hand now <b className="num" style={{ color: 'var(--color-strong)' }}>{fmt(product.stock)}</b>
-            {q > 0 && <> → <b className="num" style={{ color: 'var(--color-strong)' }}>{fmt(product.stock + q)}</b></>}
-          </div>
+          {(!allBranches || branchId) && (
+            <div className="text-[13px]" style={{ color: 'var(--color-muted)' }}>
+              {targetName} · on hand now <b className="num" style={{ color: 'var(--color-strong)' }}>{fmt(onHand)}</b>
+              {q > 0 && <> → <b className="num" style={{ color: 'var(--color-strong)' }}>{fmt(onHand + q)}</b></>}
+            </div>
+          )}
         </div>
+        {allBranches && (
+          <label className="block">
+            <span className="field-label">Branch *</span>
+            <select className="input" value={pickedBranch} onChange={(e) => setPickedBranch(e.target.value)}>
+              <option value="">Select a branch…</option>
+              {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+            </select>
+          </label>
+        )}
         <label className="block">
           <span className="field-label">Quantity received</span>
           <input className="input num" inputMode="numeric" autoFocus value={qty} onChange={(e) => setQty(e.target.value.replace(/[^0-9]/g, ''))} placeholder="0" />

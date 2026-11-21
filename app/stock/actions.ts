@@ -21,14 +21,22 @@ function revalidateStock() {
 }
 
 // Which branch a given person may write stock to. An OWNER may target any
-// branch; a STAFF member is locked to the branch they are pinned to. Returns
-// the effective branch id, or null when the target is not allowed.
-function writableBranch(session: Session, requested: string | undefined): string | null {
-  if (session.role === 'OWNER') return requested?.trim() || null;
-  // Staff: ignore any requested branch and use their own pinned branch.
-  if (!session.branchId) return null;
-  if (requested && requested !== session.branchId) return null;
-  return session.branchId;
+// branch, and so may STAFF who are not pinned to one (the "All branches"
+// staff, who pick a branch in the switcher — see getActiveScope). Staff pinned
+// to a branch are locked to it. Returns the effective branch id, or null when
+// the target is not allowed.
+async function writableBranch(session: Session, requested: string | undefined): Promise<string | null> {
+  const want = requested?.trim() || null;
+  if (session.role === 'OWNER') return want;
+  if (session.branchId) {
+    // Pinned staff: only their own branch.
+    if (want && want !== session.branchId) return null;
+    return session.branchId;
+  }
+  // Unpinned staff: any real branch they name.
+  if (!want) return null;
+  const exists = await prisma.branch.findUnique({ where: { id: want }, select: { id: true } });
+  return exists ? want : null;
 }
 
 async function productName(id: string): Promise<string | null> {
@@ -54,7 +62,7 @@ export async function receiveStock(input: {
 }): Promise<SimpleResult> {
   const session = await requireModule('stock');
   const mayCost = await canSeeCost(session);
-  const branchId = writableBranch(session, input.branchId);
+  const branchId = await writableBranch(session, input.branchId);
   if (!branchId) return { ok: false, error: 'Pick a branch you can manage.' };
   const qty = Math.round(Number(input.qty) || 0);
   if (qty <= 0) return { ok: false, error: 'Quantity must be at least 1.' };
@@ -116,7 +124,7 @@ export async function adjustStockManual(input: {
   note?: string;
 }): Promise<SimpleResult> {
   const session = await requireModule('stock');
-  const branchId = writableBranch(session, input.branchId);
+  const branchId = await writableBranch(session, input.branchId);
   if (!branchId) return { ok: false, error: 'Pick a branch you can manage.' };
   const delta = Math.round(Number(input.delta) || 0);
   if (delta === 0) return { ok: false, error: 'Enter a non-zero adjustment.' };
@@ -151,7 +159,7 @@ export async function writeOffStock(input: {
   note?: string;
 }): Promise<SimpleResult> {
   const session = await requireModule('stock');
-  const branchId = writableBranch(session, input.branchId);
+  const branchId = await writableBranch(session, input.branchId);
   if (!branchId) return { ok: false, error: 'Pick a branch you can manage.' };
   if (input.reason !== 'EXPIRED' && input.reason !== 'DAMAGED') return { ok: false, error: 'Pick a reason.' };
   const qty = Math.round(Number(input.qty) || 0);
@@ -183,7 +191,7 @@ export async function countStock(input: {
   note?: string;
 }): Promise<SimpleResult> {
   const session = await requireModule('stock');
-  const branchId = writableBranch(session, input.branchId);
+  const branchId = await writableBranch(session, input.branchId);
   if (!branchId) return { ok: false, error: 'Pick a branch you can manage.' };
   const name = await productName(input.productId);
   if (!name) return { ok: false, error: 'Product not found.' };
@@ -211,7 +219,7 @@ export async function setLowStockAt(input: {
   value: number;
 }): Promise<SimpleResult> {
   const session = await requireModule('stock');
-  const branchId = writableBranch(session, input.branchId);
+  const branchId = await writableBranch(session, input.branchId);
   if (!branchId) return { ok: false, error: 'Pick a branch you can manage.' };
   const lowStockAt = Math.max(0, Math.round(Number(input.value) || 0));
   try {
@@ -235,7 +243,8 @@ export type TransferResult =
 // any number of products. Every line is a TRANSFER_OUT at the sender (checked
 // against on-hand) and a TRANSFER_IN at the receiver, and the whole document is
 // a single transaction — all lines move or none do (lib/transfers.ts).
-// Owner-only, since it touches two branches at once.
+// For All-branches users only (the owner, or staff not pinned to a branch),
+// since it touches two branches at once.
 export async function transferStockBatch(input: {
   fromBranchId: string;
   toBranchId: string;
@@ -243,8 +252,8 @@ export async function transferStockBatch(input: {
   note?: string;
 }): Promise<TransferResult> {
   const session = await requireModule('stock');
-  if (session.role !== 'OWNER') {
-    return { ok: false, error: 'Only an owner can transfer between branches.' };
+  if (session.role !== 'OWNER' && session.branchId) {
+    return { ok: false, error: 'Only staff with All-branches access can transfer between branches.' };
   }
   try {
     const r = await createStockTransfer({
