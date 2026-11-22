@@ -16,7 +16,7 @@ import CommandPalette from './CommandPalette';
 import { toast } from './toast';
 import { useT } from '@/components/I18nProvider';
 
-type IconName = NavIcon | 'key' | 'logout' | 'chevron' | 'menu';
+type IconName = NavIcon | 'key' | 'logout' | 'chevron' | 'menu' | 'collapse';
 
 function Icon({ name, className }: { name: IconName; className?: string }) {
   const common = {
@@ -155,6 +155,12 @@ function Icon({ name, className }: { name: IconName; className?: string }) {
         </>
       )}
       {name === 'chevron' && <polyline points="6 9 12 15 18 9" />}
+      {name === 'collapse' && (
+        <>
+          <polyline points="11 17 6 12 11 7" />
+          <polyline points="18 17 13 12 18 7" />
+        </>
+      )}
       {name === 'menu' && (
         <>
           <line x1="3" y1="6" x2="21" y2="6" />
@@ -207,25 +213,73 @@ export default function AppShell({
   const mainRef = useRef<HTMLElement>(null);
   const isWide = wide ?? !NARROW_PATHS.some((p) => pathname === p || pathname.startsWith(p + '/'));
 
+  // Desktop sidebar can shrink to an icon rail (the hamburger / Ctrl+B). The
+  // choice is remembered. Phones keep the existing slide-in drawer, so the rail
+  // only ever applies at the md breakpoint and up.
+  const [collapsed, setCollapsed] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(false);
+  const [flyout, setFlyout] = useState<{ key: string; top: number } | null>(null);
+  const rail = collapsed && isDesktop;
+
+  useEffect(() => {
+    try {
+      if (localStorage.getItem('sidebar-collapsed') === '1') setCollapsed(true);
+    } catch {}
+    const mq = window.matchMedia('(min-width: 768px)');
+    const sync = () => setIsDesktop(mq.matches);
+    sync();
+    mq.addEventListener('change', sync);
+    return () => mq.removeEventListener('change', sync);
+  }, []);
+
+  function toggleSidebar() {
+    setFlyout(null);
+    if (!isDesktop) {
+      setNavOpen((v) => !v);
+      return;
+    }
+    setCollapsed((v) => {
+      const next = !v;
+      try { localStorage.setItem('sidebar-collapsed', next ? '1' : '0'); } catch {}
+      return next;
+    });
+  }
+  // Latest toggle for the keyboard listener below.
+  const toggleRef = useRef(toggleSidebar);
+  toggleRef.current = toggleSidebar;
+
   // The shell now stays mounted between pages: close the drawer / account menu
   // and scroll the content back to the top whenever the page changes.
   useEffect(() => {
     setNavOpen(false);
     setMenuOpen(false);
+    setFlyout(null);
     mainRef.current?.scrollTo({ top: 0 });
   }, [pathname]);
 
-  // Ctrl/Cmd+K opens the quick finder from any page.
+  // Ctrl/Cmd+K opens the quick finder, Ctrl/Cmd+B toggles the sidebar.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      const k = e.key.toLowerCase();
+      if (k === 'k') {
         e.preventDefault();
         setPaletteOpen((v) => !v);
+      } else if (k === 'b') {
+        e.preventDefault();
+        toggleRef.current();
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, []);
+
+  useEffect(() => {
+    if (!flyout) return;
+    const onEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') setFlyout(null); };
+    window.addEventListener('keydown', onEsc);
+    return () => window.removeEventListener('keydown', onEsc);
+  }, [flyout]);
 
   // There is no "type a new password" box: a link is emailed to the signed-in
   // person's own address, which proves the mailbox is theirs.
@@ -344,14 +398,19 @@ export default function AppShell({
         style={{ background: 'var(--color-ink-2)', minHeight: 64 }}
       >
         <div className="flex items-center gap-3 min-w-0">
-          <div className="md:hidden shrink-0">
+          <div className="shrink-0 md:hidden">
             <button
-              className="btn btn-ghost btn-sm"
-              onClick={() => setNavOpen((v) => !v)}
-              aria-expanded={navOpen}
+              type="button"
+              className="hamburger"
+              onClick={toggleSidebar}
+              data-open={(isDesktop ? !collapsed : navOpen) || undefined}
+              aria-expanded={isDesktop ? !collapsed : navOpen}
               aria-label={t("Toggle navigation")}
+              title={t("Toggle sidebar (Ctrl+B)")}
             >
-              <Icon name="menu" />
+              <span className="hamburger__bars" aria-hidden>
+                <span /><span /><span />
+              </span>
             </button>
           </div>
           <Link href="/" className="flex items-center gap-3 min-w-0" aria-label={storeName}>
@@ -379,6 +438,7 @@ export default function AppShell({
             onClick={() => setPaletteOpen(true)}
             aria-label={t("Quick search")}
             title={t("Quick search (Ctrl+K)")}
+            style={{ padding: 8, width: 38, height: 38 }}
           >
             <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
               <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
@@ -465,19 +525,54 @@ export default function AppShell({
           />
         )}
         <aside
+          data-rail={rail || undefined}
           className={`no-print fixed top-16 left-0 bottom-0 z-40 w-[260px] overflow-y-auto ${
             navOpen ? 'block' : 'hidden'
-          } md:static md:block md:z-auto md:w-[290px] md:shrink-0 md:h-full md:overflow-y-auto`}
+          } md:static md:block md:z-auto ${rail ? 'md:w-[76px]' : 'md:w-[290px]'} md:transition-[width] md:duration-200 md:shrink-0 md:h-full md:overflow-y-auto`}
           style={{ background: 'var(--color-ink-2)', borderRight: '1px solid var(--color-line)' }}
         >
-          <nav className="flex flex-col gap-1.5 px-4 pt-5 md:pt-10 pb-4">
+          {/* Desktop only: the sidebar's own toggle. Open → a close button at the
+              right of the heading; collapsed → the hamburger sits on top of the
+              icon rail. (Phones keep the header hamburger + drawer.) */}
+          <div
+            className={`no-print hidden md:flex sticky top-0 z-10 items-center h-[52px] ${rail ? 'justify-center px-2' : 'justify-between px-4'}`}
+            style={{ background: 'var(--color-ink-2)' }}
+          >
+            {!rail && <div className="side-label">{t("Main navigation")}</div>}
+            {rail ? (
+              <button
+                type="button"
+                className="hamburger"
+                onClick={toggleSidebar}
+                aria-expanded={false}
+                aria-label={t("Open sidebar")}
+                title={`${t("Open sidebar")} (Ctrl+B)`}
+              >
+                <span className="hamburger__bars" aria-hidden>
+                  <span /><span /><span />
+                </span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="sidebar-close"
+                onClick={toggleSidebar}
+                aria-expanded
+                aria-label={t("Close sidebar")}
+                title={`${t("Close sidebar")} (Ctrl+B)`}
+              >
+                <Icon name="collapse" />
+              </button>
+            )}
+          </div>
+          <nav className={`flex flex-col gap-1.5 ${rail ? 'px-2' : 'px-4'} pt-5 md:pt-2 pb-4`}>
             {branches.length > 0 && (
               <div className="sm:hidden flex flex-col gap-2 mb-4">
                 <div className="side-label">{t("Branch")}</div>
                 {branchControl(false)}
               </div>
             )}
-            <div className="side-label">{t("Main navigation")}</div>
+            <div className="side-label md:hidden">{t("Main navigation")}</div>
             {menu.map((item) =>
               item.kind === 'link' ? (
                 <Link
@@ -485,32 +580,41 @@ export default function AppShell({
                   href={item.href}
                   onClick={() => setNavOpen(false)}
                   className="side-link"
+                  title={rail ? t(item.label) : undefined}
                   data-active={isActive(item.href) || undefined}
                 >
                   <span className="side-link__icon">
                     <Icon name={item.icon} />
                   </span>
-                  {t(item.label)}
+                  <span className="side-text">{t(item.label)}</span>
                 </Link>
               ) : (
                 <div key={item.key} className="flex flex-col gap-1.5">
                   <button
                     type="button"
                     className="side-link"
+                    title={rail ? t(item.label) : undefined}
                     data-active={item.children.some((c) => isActive(c.href)) || undefined}
-                    aria-expanded={openGroups.has(item.key)}
-                    onClick={() => toggleGroup(item.key)}
+                    aria-expanded={rail ? flyout?.key === item.key : openGroups.has(item.key)}
+                    onClick={(e) => {
+                      if (rail) {
+                        const top = e.currentTarget.getBoundingClientRect().top;
+                        setFlyout((f) => (f?.key === item.key ? null : { key: item.key, top }));
+                      } else {
+                        toggleGroup(item.key);
+                      }
+                    }}
                   >
                     <span className="side-link__icon">
                       <Icon name={item.icon} />
                     </span>
-                    <span className="flex-1 text-left">{t(item.label)}</span>
+                    <span className="side-text flex-1 text-left">{t(item.label)}</span>
                     <Icon
                       name="chevron"
-                      className={openGroups.has(item.key) ? 'rotate-180 transition-transform' : 'transition-transform'}
+                      className={`side-chev ${openGroups.has(item.key) ? 'rotate-180 transition-transform' : 'transition-transform'}`}
                     />
                   </button>
-                  {openGroups.has(item.key) && (
+                  {!rail && openGroups.has(item.key) && (
                     <div className="side-sub">
                       {item.children.map((c) => (
                         <Link
@@ -544,6 +648,42 @@ export default function AppShell({
           </div>
         </main>
       </div>
+      {rail && flyout && (() => {
+        const group = menu.find((m): m is Extract<NavItem, { kind: 'group' }> => m.kind === 'group' && m.key === flyout.key);
+        if (!group) return null;
+        return (
+          <>
+            <button
+              className="no-print fixed inset-0 z-40 cursor-default"
+              onClick={() => setFlyout(null)}
+              aria-hidden
+              tabIndex={-1}
+            />
+            <div
+              className="no-print fixed z-50 w-[240px] card p-2 animate-pop overflow-y-auto"
+              style={{ left: 84, top: flyout.top, maxHeight: `calc(100vh - ${flyout.top}px - 12px)`, boxShadow: 'var(--shadow-pop)' }}
+            >
+              <div className="side-label pb-1.5 pt-1">{t(group.label)}</div>
+              <div className="flex flex-col gap-1">
+                {group.children.map((c) => (
+                  <Link
+                    key={c.href}
+                    href={c.href}
+                    onClick={() => setFlyout(null)}
+                    className="side-sublink"
+                    data-active={isActive(c.href) || undefined}
+                  >
+                    <span className="side-sublink__icon">
+                      <Icon name={c.icon} />
+                    </span>
+                    {t(c.label)}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </>
+        );
+      })()}
       {paletteOpen && (
         <CommandPalette
           pages={menu.flatMap((i) => (i.kind === 'link' ? [{ href: i.href, label: i.label }] : i.children.map((c) => ({ href: c.href, label: c.label }))))}

@@ -86,7 +86,19 @@ export default function CommandPalette({ pages, onClose }: { pages: Page[]; onCl
             className="flex-1 bg-transparent outline-none py-3.5 text-[15px]"
             style={{ color: 'var(--color-strong)' }}
           />
-          <span className="text-[11px] rounded px-1.5" style={{ color: 'var(--color-faint)', border: '1px solid var(--color-line-2)' }}>Esc</span>
+          <span className="hidden sm:inline text-[11px] rounded px-1.5" style={{ color: 'var(--color-faint)', border: '1px solid var(--color-line-2)' }}>Esc</span>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label={t("Close")}
+            title={t("Close")}
+            className="btn btn-ghost btn-sm shrink-0"
+            style={{ padding: 0, width: 32, height: 32 }}
+          >
+            <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
         </div>
         <div ref={listRef} className="p-2 overflow-y-auto" style={{ maxHeight: '50vh' }}>
           {rows.length === 0 ? (
