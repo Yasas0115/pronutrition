@@ -4,7 +4,7 @@ import { useRef, useState } from 'react';
 import Modal from './Modal';
 import { toast } from './toast';
 import { parseAmount } from '@/lib/money';
-import { saveProduct, deleteProduct } from '@/app/products/actions';
+import { saveProduct, deleteProduct } from '@/app/(app)/products/actions';
 import { useT } from '@/components/I18nProvider';
 
 export type ProductRow = {

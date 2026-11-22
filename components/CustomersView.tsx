@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { fmtDateTime } from '@/lib/dates';
 import Modal from './Modal';
 import { toast } from './toast';
-import { saveCustomer, setCustomerActive } from '@/app/customers/actions';
+import { saveCustomer, setCustomerActive } from '@/app/(app)/customers/actions';
 import { useT } from '@/components/I18nProvider';
 
 export type CustomerRow = {

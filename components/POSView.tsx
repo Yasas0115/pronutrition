@@ -7,7 +7,7 @@ import { toast } from './toast';
 import Modal from './Modal';
 import ReceiptModal from './ReceiptModal';
 import { checkoutAction, type Receipt } from '@/app/actions';
-import { saveCustomer, getTillAccount, type TillAccount } from '@/app/customers/actions';
+import { saveCustomer, getTillAccount, type TillAccount } from '@/app/(app)/customers/actions';
 import { fmtDate, todayStr } from '@/lib/dates';
 import { useT } from '@/components/I18nProvider';
 

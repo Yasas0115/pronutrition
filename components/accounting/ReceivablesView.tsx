@@ -6,7 +6,7 @@ import { money, fmt, parseAmount } from '@/lib/money';
 import { fmtDateTime, todayStr } from '@/lib/dates';
 import { SETTLEMENT_METHODS } from '@/lib/payment-methods';
 import type { ReceivableRow } from '@/lib/receivables';
-import { getCustomerLedger, receiveCustomerPayment, type CustomerLedger } from '@/app/customers/actions';
+import { getCustomerLedger, receiveCustomerPayment, type CustomerLedger } from '@/app/(app)/customers/actions';
 import Modal from '../Modal';
 import { toast } from '../toast';
 import { useT } from '@/components/I18nProvider';

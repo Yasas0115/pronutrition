@@ -1,7 +1,5 @@
 import { requireModule } from '@/lib/auth';
 import { prisma } from '@/lib/db';
-import { getShellProps } from '@/lib/shell';
-import AppShell from '@/components/AppShell';
 import CustomersView, { type CustomerRow } from '@/components/CustomersView';
 
 export const dynamic = 'force-dynamic';
@@ -11,8 +9,7 @@ export const dynamic = 'force-dynamic';
 // are Accounting › Receivables, behind the same `customers` grant.
 export default async function CustomersPage() {
   const session = await requireModule('customers');
-  const shell = await getShellProps(session);
-
+  
   const [customers, activity] = await Promise.all([
     prisma.customer.findMany({ orderBy: [{ active: 'desc' }, { name: 'asc' }] }),
     prisma.sale.groupBy({
@@ -41,8 +38,8 @@ export default async function CustomersPage() {
   });
 
   return (
-    <AppShell {...shell} wide>
+    <>
       <CustomersView customers={rows} />
-    </AppShell>
+    </>
   );
 }

@@ -3,7 +3,6 @@ import { prisma } from '@/lib/db';
 import { loadPriceHistory } from '@/lib/price-history';
 import { getShellProps } from '@/lib/shell';
 import { getActiveScope, ALL_BRANCHES } from '@/lib/branch';
-import AppShell from '@/components/AppShell';
 import StockValueView, { type ValuationRow } from '@/components/accounting/StockValueView';
 
 export const dynamic = 'force-dynamic';
@@ -49,7 +48,7 @@ export default async function StockValuePage() {
   }));
 
   return (
-    <AppShell {...shell} wide>
+    <>
       <StockValueView
         valuation={valuation}
         priceHistory={priceHistory}
@@ -57,6 +56,6 @@ export default async function StockValuePage() {
         storeName={store?.name ?? 'Pro Nutrition'}
         scopeLabel={shell.activeBranchName}
       />
-    </AppShell>
+    </>
   );
 }

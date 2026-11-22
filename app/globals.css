@@ -333,6 +333,14 @@ body {
   animation: btnSpin .7s linear infinite;
 }
 @keyframes btnSpin { to { transform: rotate(360deg); } }
+/* Skeleton placeholder shown by loading.tsx while a page's data loads. */
+.skel {
+  border-radius: 10px; background: var(--color-ink-2);
+  border: 1px solid var(--color-line);
+  animation: skelPulse 1.2s ease-in-out infinite;
+}
+@keyframes skelPulse { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .skel { animation: none; } }
 @media (prefers-reduced-motion: reduce) { .btn[aria-busy="true"]::before { animation-duration: 1.6s; } }
 .btn-primary { background: var(--color-brand); color: #000; }
 .btn-primary:not(:disabled):hover { background: var(--color-brand-600); color: #fff; }

@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from './toast';
 import Modal from './Modal';
-import { saveBranch, setBranchActive, deleteBranch } from '@/app/branches/actions';
+import { saveBranch, setBranchActive, deleteBranch } from '@/app/(app)/branches/actions';
 import { useT } from '@/components/I18nProvider';
 
 type Branch = {

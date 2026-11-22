@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from './toast';
 import Modal from './Modal';
-import { saveUser, deleteUser } from '@/app/users/actions';
+import { saveUser, deleteUser } from '@/app/(app)/users/actions';
 import { sendUserResetEmail } from '@/app/password/actions';
 import { STAFF_MODULES, MODULE_GROUPS, ROLE_PRESETS, parseUserModules, type ModuleKey } from '@/lib/modules';
 import { useT } from '@/components/I18nProvider';

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useTransition } from 'react';
+import { useEffect, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import type { Role } from '@/lib/session';
@@ -166,6 +166,11 @@ function Icon({ name, className }: { name: IconName; className?: string }) {
   );
 }
 
+// Pages that read better in the narrower column. Everything else (tables, POS,
+// reports) gets the wide one. Decided from the URL so the shared layout can
+// resize the content area as you navigate, without each page passing a prop.
+const NARROW_PATHS = ['/branches', '/categories', '/settings', '/users'];
+
 export default function AppShell({
   username,
   role,
@@ -176,7 +181,7 @@ export default function AppShell({
   activeScope = ALL_BRANCHES,
   activeBranchName = '',
   canSwitchBranch,
-  wide = false,
+  wide,
   children,
 }: {
   username: string;
@@ -199,6 +204,16 @@ export default function AppShell({
   const [switching, startSwitch] = useTransition();
   const [pwBusy, setPwBusy] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const mainRef = useRef<HTMLElement>(null);
+  const isWide = wide ?? !NARROW_PATHS.some((p) => pathname === p || pathname.startsWith(p + '/'));
+
+  // The shell now stays mounted between pages: close the drawer / account menu
+  // and scroll the content back to the top whenever the page changes.
+  useEffect(() => {
+    setNavOpen(false);
+    setMenuOpen(false);
+    mainRef.current?.scrollTo({ top: 0 });
+  }, [pathname]);
 
   // Ctrl/Cmd+K opens the quick finder from any page.
   useEffect(() => {
@@ -520,10 +535,11 @@ export default function AppShell({
         </aside>
 
         <main
+          ref={mainRef}
           className="flex-1 min-w-0 px-4 sm:px-6 pt-6 pb-24 lg:pb-16 md:h-full md:overflow-y-auto print:!h-auto print:!overflow-visible"
           style={{ borderTop: '1px solid var(--color-line)' }}
         >
-          <div className={wide ? 'max-w-[1400px] mx-auto' : 'max-w-[1100px] mx-auto'}>
+          <div className={isWide ? 'max-w-[1400px] mx-auto' : 'max-w-[1100px] mx-auto'}>
             {children}
           </div>
         </main>

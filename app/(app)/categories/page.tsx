@@ -1,7 +1,5 @@
 import { requireModule } from '@/lib/auth';
 import { prisma } from '@/lib/db';
-import { getShellProps } from '@/lib/shell';
-import AppShell from '@/components/AppShell';
 import CategoryManager from '@/components/CategoryManager';
 import { getT } from '@/lib/i18n/server';
 
@@ -10,8 +8,7 @@ export const dynamic = 'force-dynamic';
 export default async function CategoriesPage() {
   const t = await getT();
   const session = await requireModule('categories');
-  const [shell, categories, counts] = await Promise.all([
-    getShellProps(session),
+  const [categories, counts] = await Promise.all([
     prisma.category.findMany({ orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }] }),
     prisma.product.groupBy({ by: ['category'], _count: { _all: true } }),
   ]);
@@ -24,12 +21,12 @@ export default async function CategoriesPage() {
   }));
 
   return (
-    <AppShell {...shell}>
+    <>
       <div className="mb-5">
         <h1 className="page-title">{t("Categories")}</h1>
         <p className="page-sub">{t("Add or remove the categories products can be filed under.")}</p>
       </div>
       <CategoryManager categories={cats} />
-    </AppShell>
+    </>
   );
 }

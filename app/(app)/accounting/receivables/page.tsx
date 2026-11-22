@@ -4,7 +4,6 @@ import { receivablesByCustomer, customerBalance } from '@/lib/receivables';
 import { methodLabels } from '@/lib/payment-methods';
 import { getShellProps } from '@/lib/shell';
 import { getActiveScope, ALL_BRANCHES } from '@/lib/branch';
-import AppShell from '@/components/AppShell';
 import ReceivablesView from '@/components/accounting/ReceivablesView';
 
 export const dynamic = 'force-dynamic';
@@ -37,7 +36,7 @@ export default async function ReceivablesPage({
   }
 
   return (
-    <AppShell {...shell} wide>
+    <>
       <ReceivablesView
         rows={rows}
         currency={store?.currency ?? 'Rs'}
@@ -46,6 +45,6 @@ export default async function ReceivablesPage({
         methodLabels={labels}
         initialCustomer={initialCustomer}
       />
-    </AppShell>
+    </>
   );
 }

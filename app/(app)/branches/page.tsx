@@ -1,15 +1,12 @@
 import { requireModule } from '@/lib/auth';
 import { prisma } from '@/lib/db';
-import { getShellProps } from '@/lib/shell';
-import AppShell from '@/components/AppShell';
 import BranchesView from '@/components/BranchesView';
 
 export const dynamic = 'force-dynamic';
 
 export default async function BranchesPage() {
   const session = await requireModule('branches');
-  const [shell, branches] = await Promise.all([
-    getShellProps(session),
+  const [branches] = await Promise.all([
     prisma.branch.findMany({
       orderBy: [{ active: 'desc' }, { createdAt: 'asc' }],
       include: {
@@ -32,8 +29,8 @@ export default async function BranchesPage() {
   }));
 
   return (
-    <AppShell {...shell}>
+    <>
       <BranchesView branches={items} />
-    </AppShell>
+    </>
   );
 }

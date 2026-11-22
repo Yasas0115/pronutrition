@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { addCategory, deleteCategory, renameCategory } from '@/app/categories/actions';
+import { addCategory, deleteCategory, renameCategory } from '@/app/(app)/categories/actions';
 import NameListManager from './NameListManager';
 import { useT } from '@/components/I18nProvider';
 

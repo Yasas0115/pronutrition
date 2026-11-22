@@ -7,7 +7,7 @@ import type { Receipt } from '@/app/actions';
 import ReceiptModal from '../ReceiptModal';
 import PrintHeader from './PrintHeader';
 import VoidModal from '../finance/VoidModal';
-import { voidSaleAction } from '@/app/accounting/sales/actions';
+import { voidSaleAction } from '@/app/(app)/accounting/sales/actions';
 import { useT } from '@/components/I18nProvider';
 
 // A receipt as listed here: everything the receipt needs, plus the pay-method badge.

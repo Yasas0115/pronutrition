@@ -4,7 +4,6 @@ import { getShellProps } from '@/lib/shell';
 import { getActiveScope, ALL_BRANCHES } from '@/lib/branch';
 import { resolveRange, todayStr } from '@/lib/dates';
 import { computeProfitLoss, computeCashDrawer, computeTrend } from '@/lib/reports';
-import AppShell from '@/components/AppShell';
 import ProfitCashView from '@/components/accounting/ProfitCashView';
 import type { FloatRow, FloatHistoryRow } from '@/components/finance/types';
 
@@ -67,7 +66,7 @@ export default async function ProfitPage({
   }));
 
   return (
-    <AppShell {...shell} wide>
+    <>
       <ProfitCashView
         data={{
           currency: store?.currency ?? 'Rs',
@@ -88,6 +87,6 @@ export default async function ProfitPage({
           floatHistory: floatHistoryRows,
         }}
       />
-    </AppShell>
+    </>
   );
 }

@@ -4,7 +4,6 @@ import { prisma } from '@/lib/db';
 import { getShellProps } from '@/lib/shell';
 import { getActiveScope, getEffectiveModules, ALL_BRANCHES } from '@/lib/branch';
 import { landingRoute } from '@/lib/modules';
-import AppShell from '@/components/AppShell';
 import ProductsStockView, { type StockProduct, type MovementRow } from '@/components/ProductsStockView';
 import { galleryOf } from '@/lib/images';
 import { listTransfers } from '@/lib/transfers';
@@ -125,7 +124,7 @@ export default async function ProductsPage() {
     canManageStock && allBranchAccess ? await listTransfers(60) : [];
 
   return (
-    <AppShell {...shell} wide>
+    <>
       <ProductsStockView
         products={items}
         history={history}
@@ -143,6 +142,6 @@ export default async function ProductsPage() {
         canEditProducts={canEditProducts}
         canManageStock={canManageStock}
       />
-    </AppShell>
+    </>
   );
 }

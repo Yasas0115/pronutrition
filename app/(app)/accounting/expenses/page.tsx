@@ -3,7 +3,6 @@ import { prisma } from '@/lib/db';
 import { getShellProps } from '@/lib/shell';
 import { getActiveScope, ALL_BRANCHES } from '@/lib/branch';
 import { monthKey, monthRange, resolveRange, todayStr } from '@/lib/dates';
-import AppShell from '@/components/AppShell';
 import ExpensesPayrollView from '@/components/accounting/ExpensesPayrollView';
 import type { ExpenseRow, WorkerRow, SalaryRow } from '@/components/finance/types';
 
@@ -139,7 +138,7 @@ export default async function ExpensesPage({
   }));
 
   return (
-    <AppShell {...shell} wide>
+    <>
       <ExpensesPayrollView
         data={{
           currency: store?.currency ?? 'Rs',
@@ -161,6 +160,6 @@ export default async function ExpensesPage({
           salaries: salaryRows,
         }}
       />
-    </AppShell>
+    </>
   );
 }

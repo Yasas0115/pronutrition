@@ -5,7 +5,6 @@ import { salesSummary, computeProfitLoss } from '@/lib/reports';
 import { receivablesByCustomer } from '@/lib/receivables';
 import { getShellProps } from '@/lib/shell';
 import { getActiveScope, ALL_BRANCHES } from '@/lib/branch';
-import AppShell from '@/components/AppShell';
 import OverviewView from '@/components/accounting/OverviewView';
 
 export const dynamic = 'force-dynamic';
@@ -77,7 +76,7 @@ export default async function OverviewPage() {
   }));
 
   return (
-    <AppShell {...shell} wide>
+    <>
       <OverviewView
         currency={store?.currency ?? 'Rs'}
         scopeLabel={shell.activeBranchName}
@@ -92,6 +91,6 @@ export default async function OverviewPage() {
         monthProfit={pnl ? pnl.netProfit : null}
         links={{ products: canProducts || canStock, receivables: showDue, profit: showProfit }}
       />
-    </AppShell>
+    </>
   );
 }

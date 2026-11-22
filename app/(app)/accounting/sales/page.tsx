@@ -5,7 +5,6 @@ import { salesSummary, salesMix } from '@/lib/reports';
 import { methodLabels } from '@/lib/payment-methods';
 import { getShellProps } from '@/lib/shell';
 import { getActiveScope, ALL_BRANCHES } from '@/lib/branch';
-import AppShell from '@/components/AppShell';
 import SalesView, { type MixRow } from '@/components/accounting/SalesView';
 import { getT } from '@/lib/i18n/server';
 
@@ -99,7 +98,7 @@ export default async function SalesPage() {
   const mix: MixRow[] = [...tag('today', mixToday), ...tag('month', mixMonth), ...tag('all', mixAll)];
 
   return (
-    <AppShell {...shell} wide>
+    <>
       <SalesView
         stats={stats}
         topProducts={topProducts}
@@ -118,6 +117,6 @@ export default async function SalesPage() {
           note: store?.receiptNote ?? null,
         }}
       />
-    </AppShell>
+    </>
   );
 }

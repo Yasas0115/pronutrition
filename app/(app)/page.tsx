@@ -1,11 +1,9 @@
 import { requireModule, canSeeCost } from '@/lib/auth';
 import { prisma } from '@/lib/db';
-import { getShellProps } from '@/lib/shell';
 import { getT } from '@/lib/i18n/server';
 import { getTillBranchId } from '@/lib/branch';
 import { dueByCustomerId } from '@/lib/receivables';
 import { livePromotions } from '@/lib/promotions';
-import AppShell from '@/components/AppShell';
 import POSView from '@/components/POSView';
 
 // Stock changes on every sale, so never cache this screen.
@@ -14,7 +12,7 @@ export const dynamic = 'force-dynamic';
 export default async function POSPage() {
   const t = await getT();
   const session = await requireModule('pos');
-  const [shell, branchId] = await Promise.all([getShellProps(session), getTillBranchId(session)]);
+  const branchId = await getTillBranchId(session);
 
   const [store, products, methods, tillBranch, customerRows, dueByCustomer, promotions] = await Promise.all([
     prisma.store.findFirst(),
@@ -82,7 +80,7 @@ export default async function POSPage() {
   }));
 
   return (
-    <AppShell {...shell} wide>
+    <>
       <POSView
         products={items}
         paymentMethods={paymentMethods}
@@ -98,6 +96,6 @@ export default async function POSPage() {
         cashierName={session.name}
         canBackdate={await canSeeCost(session)}
       />
-    </AppShell>
+    </>
   );
 }

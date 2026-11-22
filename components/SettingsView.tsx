@@ -7,7 +7,7 @@ import { parseAmount } from '@/lib/money';
 import {
   saveStore, savePaymentMethods, addPaymentMethod, removePaymentMethod,
   addPromotion, setPromotionActive, removePromotion,
-} from '@/app/settings/actions';
+} from '@/app/(app)/settings/actions';
 import { useT } from '@/components/I18nProvider';
 
 const BUILTIN_KEYS = ['CASH', 'CARD', 'KOKO', 'BANK', 'CREDIT'];
