@@ -8,6 +8,7 @@ import ReceiptModal from '../ReceiptModal';
 import PrintHeader from './PrintHeader';
 import VoidModal from '../finance/VoidModal';
 import { voidSaleAction } from '@/app/accounting/sales/actions';
+import { useT } from '@/components/I18nProvider';
 
 // A receipt as listed here: everything the receipt needs, plus the pay-method badge.
 type SaleRow = Receipt & { id: string; voidedAt: string | null; voidReason: string | null };
@@ -54,30 +55,31 @@ export default function SalesView({
   currency: string;
   store: { name: string; phone: string | null; address: string | null; note: string | null };
 }) {
+  const tx = useT();
   const [tab, setTab] = useState<Tab>('overview');
   const [detail, setDetail] = useState<SaleRow | null>(null);
   const [voiding, setVoiding] = useState<SaleRow | null>(null);
 
   const sub = (s: { count: number; net: number }) =>
-    `${s.count} sale${s.count === 1 ? '' : 's'} · net ${money(s.net, currency)}`;
+    tx(s.count === 1 ? "{0} sale · net {1}" : "{0} sales · net {1}", [s.count, money(s.net, currency)]);
 
   return (
     <>
       <div className="flex flex-wrap items-end justify-between gap-4 mb-5 no-print">
         <div>
-          <h1 className="page-title">Sales</h1>
+          <h1 className="page-title">{tx("Sales")}</h1>
           <p className="page-sub">
-            Takings for <b style={{ color: 'var(--color-strong)' }}>{scopeLabel}</b> · switch branch from the top bar.
+            {tx("Takings for")}{' '}<b style={{ color: 'var(--color-strong)' }}>{tx(scopeLabel)}</b>{' '}{tx("· switch branch from the top bar.")}
           </p>
         </div>
-        {tab === 'overview' && <button className="btn btn-ghost" onClick={() => window.print()}>Print report</button>}
+        {tab === 'overview' && <button className="btn btn-ghost" onClick={() => window.print()}>{tx("Print report")}</button>}
       </div>
 
-      <PrintHeader storeName={store.name} line={`Sales report · ${scopeLabel}`} />
+      <PrintHeader storeName={store.name} line={`${tx("Sales report")} · ${tx(scopeLabel)}`} />
 
       <div className="flex flex-wrap gap-2 mb-4 no-print">
-        <button className="chip" data-active={tab === 'overview' || undefined} onClick={() => setTab('overview')}>Takings &amp; receipts</button>
-        <button className="chip" data-active={tab === 'mix' || undefined} onClick={() => setTab('mix')}>Sales mix</button>
+        <button className="chip" data-active={tab === 'overview' || undefined} onClick={() => setTab('overview')}>{tx("Takings & receipts")}</button>
+        <button className="chip" data-active={tab === 'mix' || undefined} onClick={() => setTab('mix')}>{tx("Sales mix")}</button>
       </div>
 
       {tab === 'mix' ? (
@@ -88,38 +90,38 @@ export default function SalesView({
               profit is measured on — the same figure Profit & Cash shows. */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
             <div className="stat">
-              <div className="stat__label">Takings today</div>
+              <div className="stat__label">{tx("Takings today")}</div>
               <div className="stat__value accent">{money(stats.today.takings, currency)}</div>
               <div className="text-[12px] mt-1" style={{ color: 'var(--color-muted)' }}>{sub(stats.today)}</div>
             </div>
             <div className="stat">
-              <div className="stat__label">Takings this month</div>
+              <div className="stat__label">{tx("Takings this month")}</div>
               <div className="stat__value">{money(stats.month.takings, currency)}</div>
               <div className="text-[12px] mt-1" style={{ color: 'var(--color-muted)' }}>{sub(stats.month)}</div>
             </div>
             <div className="stat">
-              <div className="stat__label">All-time takings</div>
+              <div className="stat__label">{tx("All-time takings")}</div>
               <div className="stat__value">{money(stats.all.takings, currency)}</div>
-              <div className="text-[12px] mt-1" style={{ color: 'var(--color-muted)' }}>net {money(stats.all.net, currency)}</div>
+              <div className="text-[12px] mt-1" style={{ color: 'var(--color-muted)' }}>{tx("net {0}", [money(stats.all.net, currency)])}</div>
             </div>
             <div className="stat">
-              <div className="stat__label">Total receipts</div>
+              <div className="stat__label">{tx("Total receipts")}</div>
               <div className="stat__value">{stats.all.count}</div>
             </div>
           </div>
           <p className="text-[12.5px] mb-5 -mt-2" style={{ color: 'var(--color-muted)' }}>
-            Takings include tax and credit not yet paid. Net is after discounts and before tax — the figure profit is measured on.
+            {tx("Takings include tax and credit not yet paid. Net is after discounts and before tax — the figure profit is measured on.")}
           </p>
 
           {/* Per-branch revenue roll-up (only meaningful across all branches) */}
           {showBranchColumn && branchBreakdown.length > 1 && (
             <div className="card overflow-hidden mb-5">
               <div className="px-4 py-3.5" style={{ borderBottom: '1px solid var(--color-line)' }}>
-                <div className="brand" style={{ fontSize: 17 }}>Takings by branch</div>
+                <div className="brand" style={{ fontSize: 17 }}>{tx("Takings by branch")}</div>
               </div>
               <table className="table">
                 <thead>
-                  <tr><th>Branch</th><th className="text-center">Sales</th><th className="text-right">Takings</th></tr>
+                  <tr><th>{tx("Branch")}</th><th className="text-center">{tx("Sales")}</th><th className="text-right">{tx("Takings")}</th></tr>
                 </thead>
                 <tbody>
                   {branchBreakdown.map((b, i) => (
@@ -139,10 +141,10 @@ export default function SalesView({
             <div className="mb-5">
               <div className="card overflow-hidden">
                 <div className="px-4 py-3.5" style={{ borderBottom: '1px solid var(--color-line)' }}>
-                  <div className="brand" style={{ fontSize: 17 }}>Best sellers</div>
+                  <div className="brand" style={{ fontSize: 17 }}>{tx("Best sellers")}</div>
                 </div>
                 {topProducts.length === 0 ? (
-                  <div className="px-4 py-8 text-center text-[13.5px]" style={{ color: 'var(--color-faint)' }}>No sales yet.</div>
+                  <div className="px-4 py-8 text-center text-[13.5px]" style={{ color: 'var(--color-faint)' }}>{tx("No sales yet.")}</div>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5">
                     {topProducts.slice(0, 5).map((t, i) => (
@@ -152,7 +154,7 @@ export default function SalesView({
                         style={{ borderTop: i > 0 ? '1px solid var(--color-line)' : undefined }}
                       >
                         <div className="text-strong font-semibold text-[13.5px] truncate" title={t.name}>{t.name}</div>
-                        <div className="text-[12px]" style={{ color: 'var(--color-muted)' }}>{t.qty} sold</div>
+                        <div className="text-[12px]" style={{ color: 'var(--color-muted)' }}>{tx("{0} sold", [t.qty])}</div>
                         <div className="num text-strong font-semibold text-[13.5px] mt-1">{money(t.revenue, currency)}</div>
                       </div>
                     ))}
@@ -165,37 +167,37 @@ export default function SalesView({
             <div className="min-w-0">
               <div className="card overflow-hidden">
                 <div className="px-4 py-3.5" style={{ borderBottom: '1px solid var(--color-line)' }}>
-                  <div className="brand" style={{ fontSize: 17 }}>Recent sales</div>
+                  <div className="brand" style={{ fontSize: 17 }}>{tx("Recent sales")}</div>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="table">
                     <thead>
                       <tr>
-                        <th>Receipt</th>
-                        {showBranchColumn && <th>Branch</th>}
-                        <th>When</th>
-                        <th className="text-center">Items</th>
-                        <th>Pay</th>
-                        <th className="text-right">Total</th>
+                        <th>{tx("Receipt")}</th>
+                        {showBranchColumn && <th>{tx("Branch")}</th>}
+                        <th>{tx("When")}</th>
+                        <th className="text-center">{tx("Items")}</th>
+                        <th>{tx("Pay")}</th>
+                        <th className="text-right">{tx("Total")}</th>
                         {canVoid && <th></th>}
                       </tr>
                     </thead>
                     <tbody>
                       {sales.length === 0 ? (
-                        <tr><td colSpan={(showBranchColumn ? 6 : 5) + (canVoid ? 1 : 0)} className="text-center" style={{ color: 'var(--color-faint)', padding: 40 }}>No sales recorded yet.</td></tr>
+                        <tr><td colSpan={(showBranchColumn ? 6 : 5) + (canVoid ? 1 : 0)} className="text-center" style={{ color: 'var(--color-faint)', padding: 40 }}>{tx("No sales recorded yet.")}</td></tr>
                       ) : (
                         sales.map((s) => (
                           <tr key={s.id} className="cursor-pointer" onClick={() => setDetail(s)} style={s.voidedAt ? { opacity: 0.55 } : undefined}>
                             <td>
                               <div className="text-strong font-semibold num" style={s.voidedAt ? { textDecoration: 'line-through' } : undefined}>#{s.number}</div>
-                              <div className="text-[12px]" style={{ color: 'var(--color-muted)' }}>{s.customerName ?? 'Walk-in'}</div>
+                              <div className="text-[12px]" style={{ color: 'var(--color-muted)' }}>{s.customerName ?? tx("Walk-in")}</div>
                               {s.voidedAt && (
                                 <div
                                   className="text-[12px] truncate"
                                   style={{ color: 'var(--color-warn)', maxWidth: 140, whiteSpace: 'nowrap' }}
-                                  title={s.voidReason ? `Voided — ${s.voidReason}` : 'Voided'}
+                                  title={s.voidReason ? tx("Voided — {0}", [s.voidReason]) : tx("Voided")}
                                 >
-                                  Voided{s.voidReason ? ` — ${s.voidReason}` : ''}
+                                  {tx("Voided")}{s.voidReason ? ` — ${s.voidReason}` : ''}
                                 </div>
                               )}
                             </td>
@@ -205,11 +207,11 @@ export default function SalesView({
                             <td className="whitespace-nowrap">
                               <span className="badge" style={{ color: 'var(--color-muted)', background: 'var(--color-ink-1)' }}>{methodLabels[s.method] ?? s.method}</span>
                               {s.saleType === 'WHOLESALE' && (
-                                <span className="badge ml-1" style={{ color: 'var(--color-strong)', background: 'var(--color-ink-1)' }}>Wholesale</span>
+                                <span className="badge ml-1" style={{ color: 'var(--color-strong)', background: 'var(--color-ink-1)' }}>{tx("Wholesale")}</span>
                               )}
                               {s.balanceDue > 0 && (
                                 <span className="badge ml-1" style={{ color: 'var(--color-warn)', background: 'var(--color-ink-1)' }}>
-                                  Due {money(s.balanceDue, currency)}
+                                  {tx("Due {0}", [money(s.balanceDue, currency)])}
                                 </span>
                               )}
                             </td>
@@ -217,7 +219,7 @@ export default function SalesView({
                             {canVoid && (
                               <td className="text-right">
                                 {!s.voidedAt && (
-                                  <button className="btn btn-ghost" onClick={(e) => { e.stopPropagation(); setVoiding(s); }}>Void</button>
+                                  <button className="btn btn-ghost" onClick={(e) => { e.stopPropagation(); setVoiding(s); }}>{tx("Void")}</button>
                                 )}
                               </td>
                             )}
@@ -235,8 +237,8 @@ export default function SalesView({
 
       {voiding && (
         <VoidModal
-          title={`Void invoice #${voiding.number}`}
-          subject={`Invoice #${voiding.number} — ${money(voiding.total, currency)} (${voiding.customerName ?? 'Walk-in'}). Its items go back into stock.`}
+          title={tx("Void invoice #{0}", [voiding.number])}
+          subject={tx("Invoice #{0} — {1} ({2}). Its items go back into stock.", [voiding.number, money(voiding.total, currency), voiding.customerName ?? tx('Walk-in')])}
           onClose={() => setVoiding(null)}
           onConfirm={(reason) => voidSaleAction(voiding.id, reason)}
         />
@@ -247,7 +249,7 @@ export default function SalesView({
           receipt={detail}
           currency={currency}
           store={store}
-          closeLabel="Close"
+          closeLabel={tx("Close")}
           onClose={() => setDetail(null)}
         />
       )}
@@ -265,6 +267,7 @@ function SalesMix({
   currency: string;
   methodLabels: Record<string, string>;
 }) {
+  const tx = useT();
   const [period, setPeriod] = useState<MixRow['period']>('month');
   const inPeriod = rows.filter((r) => r.period === period);
   const grand = inPeriod.reduce((n, r) => n + r.total, 0);
@@ -286,26 +289,26 @@ function SalesMix({
   const table = (title: string, data: [string, { count: number; total: number; due: number }][], label: (k: string) => string) => (
     <div className="card overflow-hidden">
       <div className="px-4 py-3.5" style={{ borderBottom: '1px solid var(--color-line)' }}>
-        <div className="brand" style={{ fontSize: 17 }}>{title}</div>
+        <div className="brand" style={{ fontSize: 17 }}>{tx(title)}</div>
       </div>
       <div className="overflow-x-auto">
         <table className="table">
           <thead>
             <tr>
               <th></th>
-              <th className="text-center">Sales</th>
-              <th className="text-right">Total</th>
-              <th className="text-right">Share</th>
-              <th className="text-right">Still owed</th>
+              <th className="text-center">{tx("Sales")}</th>
+              <th className="text-right">{tx("Total")}</th>
+              <th className="text-right">{tx("Share")}</th>
+              <th className="text-right">{tx("Still owed")}</th>
             </tr>
           </thead>
           <tbody>
             {data.length === 0 ? (
-              <tr><td colSpan={5} className="text-center" style={{ color: 'var(--color-faint)', padding: 28 }}>No sales in this period.</td></tr>
+              <tr><td colSpan={5} className="text-center" style={{ color: 'var(--color-faint)', padding: 28 }}>{tx("No sales in this period.")}</td></tr>
             ) : (
               data.map(([k, v]) => (
                 <tr key={k}>
-                  <td className="text-strong font-semibold">{label(k)}</td>
+                  <td className="text-strong font-semibold">{tx(label(k))}</td>
                   <td className="text-center num">{v.count}</td>
                   <td className="text-right num whitespace-nowrap text-strong font-semibold">{money(v.total, currency)}</td>
                   <td className="text-right num whitespace-nowrap" style={{ color: 'var(--color-muted)' }}>{grand > 0 ? Math.round((v.total / grand) * 100) : 0}%</td>
@@ -322,9 +325,9 @@ function SalesMix({
   return (
     <>
       <div className="flex gap-2 mb-4">
-        <button className="chip" data-active={period === 'today' || undefined} onClick={() => setPeriod('today')}>Today</button>
-        <button className="chip" data-active={period === 'month' || undefined} onClick={() => setPeriod('month')}>This month</button>
-        <button className="chip" data-active={period === 'all' || undefined} onClick={() => setPeriod('all')}>All time</button>
+        <button className="chip" data-active={period === 'today' || undefined} onClick={() => setPeriod('today')}>{tx("Today")}</button>
+        <button className="chip" data-active={period === 'month' || undefined} onClick={() => setPeriod('month')}>{tx("This month")}</button>
+        <button className="chip" data-active={period === 'all' || undefined} onClick={() => setPeriod('all')}>{tx("All time")}</button>
       </div>
       <div className="grid lg:grid-cols-2 gap-4">
         {table('By payment method', rollup((r) => r.method), (k) => methodLabels[k] ?? k)}

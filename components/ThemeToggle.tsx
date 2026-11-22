@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useT } from '@/components/I18nProvider';
 
 type Theme = 'dark' | 'light';
 
@@ -10,6 +11,7 @@ type Theme = 'dark' | 'light';
  * value on mount and keep it in sync with localStorage on click.
  */
 export default function ThemeToggle({ className = '' }: { className?: string }) {
+  const t = useT();
   const [theme, setTheme] = useState<Theme>('dark');
   const [ready, setReady] = useState(false);
 
@@ -37,8 +39,8 @@ export default function ThemeToggle({ className = '' }: { className?: string }) 
       type="button"
       onClick={toggle}
       className={`btn btn-ghost btn-sm ${className}`}
-      aria-label={dark ? 'Switch to light mode' : 'Switch to dark mode'}
-      title={dark ? 'Switch to light mode' : 'Switch to dark mode'}
+      aria-label={dark ? t("Switch to light mode") : t("Switch to dark mode")}
+      title={dark ? t("Switch to light mode") : t("Switch to dark mode")}
       // Hidden until mounted so SSR (which can't know the stored theme)
       // never renders the wrong icon.
       style={{ visibility: ready ? 'visible' : 'hidden', padding: 8, width: 38, height: 38 }}

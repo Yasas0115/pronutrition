@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from './toast';
 import { countStock } from '@/app/stock/actions';
+import { useT } from '@/components/I18nProvider';
 
 /**
  * Inline stock editor for the products table.
@@ -24,6 +25,7 @@ export default function StockStepper({
   value: number;
   lowStockAt: number;
 }) {
+  const t = useT();
   const router = useRouter();
   const [val, setVal] = useState(String(value));
   const [editing, setEditing] = useState(false);
@@ -90,7 +92,7 @@ export default function StockStepper({
         className="qtybtn"
         onClick={() => step(-1)}
         disabled={pending || current() <= 0}
-        aria-label="Reduce stock"
+        aria-label={t("Reduce stock")}
       >
         −
       </button>
@@ -100,7 +102,7 @@ export default function StockStepper({
         inputMode="numeric"
         value={val}
         style={{ color }}
-        aria-label="Stock quantity"
+        aria-label={t("Stock quantity")}
         onChange={(e) => setVal(e.target.value.replace(/[^0-9]/g, ''))}
         onFocus={(e) => {
           setEditing(true);
@@ -117,7 +119,7 @@ export default function StockStepper({
         className="qtybtn"
         onClick={() => step(1)}
         disabled={pending}
-        aria-label="Add stock"
+        aria-label={t("Add stock")}
       >
         +
       </button>

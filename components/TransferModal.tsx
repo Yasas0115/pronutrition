@@ -5,6 +5,7 @@ import { fmt, parseAmount } from '@/lib/money';
 import Modal from './Modal';
 import { toast } from './toast';
 import { transferStockBatch } from '@/app/stock/actions';
+import { useT } from '@/components/I18nProvider';
 
 export type TransferProduct = {
   id: string;
@@ -29,6 +30,7 @@ function ProductPicker({
   value: string;
   onChange: (id: string) => void;
 }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [hi, setHi] = useState(0);
@@ -42,7 +44,7 @@ function ProductPicker({
     <div className="relative">
       <input
         className="input"
-        placeholder="Search product…"
+        placeholder={t("Search product…")}
         value={open ? query : selected?.name ?? ''}
         onFocus={(e) => { setOpen(true); setQuery(''); setHi(0); e.currentTarget.select(); }}
         onBlur={() => { setOpen(false); setQuery(''); }}
@@ -59,7 +61,7 @@ function ProductPicker({
           className="absolute left-0 right-0 z-50 mt-1 overflow-auto rounded-md border text-[13px]"
           style={{ maxHeight: 220, background: 'var(--color-surface, #fff)', borderColor: 'var(--color-line, #ddd)', boxShadow: '0 6px 20px rgba(0,0,0,.12)' }}
         >
-          {filtered.length === 0 && <li className="px-3 py-2" style={{ color: 'var(--color-muted)' }}>No products found</li>}
+          {filtered.length === 0 && <li className="px-3 py-2" style={{ color: 'var(--color-muted)' }}>{t("No products found")}</li>}
           {filtered.map((o, i) => (
             <li
               key={o.id}
@@ -92,6 +94,7 @@ export default function TransferModal({
   onClose: () => void;
   onDone: () => void;
 }) {
+  const t = useT();
   const [pending, start] = useTransition();
   const [from, setFrom] = useState(fromDefault || branches[0]?.id || '');
   const [to, setTo] = useState(branches.find((b) => b.id !== (fromDefault || branches[0]?.id))?.id ?? '');
@@ -114,12 +117,12 @@ export default function TransferModal({
   const over = Array.from(wanted).filter(([id, q]) => q > stockAt(id, from));
 
   function submit() {
-    if (!from || !to) { toast('Pick both branches.', true); return; }
-    if (from === to) { toast('Source and destination must differ.', true); return; }
-    if (wanted.size === 0) { toast('Add at least one product with a quantity.', true); return; }
+    if (!from || !to) { toast(t("Pick both branches."), true); return; }
+    if (from === to) { toast(t("Source and destination must differ."), true); return; }
+    if (wanted.size === 0) { toast(t("Add at least one product with a quantity."), true); return; }
     if (over.length > 0) {
       const p = products.find((x) => x.id === over[0][0]);
-      toast(`Not enough ${p?.name ?? 'stock'} at the sending branch.`, true);
+      toast(t("Not enough {0} at the sending branch.", [p?.name ?? 'stock']), true);
       return;
     }
     start(async () => {
@@ -129,21 +132,21 @@ export default function TransferModal({
         note,
         items: Array.from(wanted, ([productId, qty]) => ({ productId, qty })),
       });
-      if (res.ok) { toast(`Transfer TRF-${res.number} saved.`); onDone(); }
+      if (res.ok) { toast(t("Transfer TRF-{0} saved.", [res.number])); onDone(); }
       else toast(res.error, true);
     });
   }
 
   return (
     <Modal
-      title="Transfer stock"
+      title={t("Transfer stock")}
       onClose={onClose}
       maxWidth={620}
       footer={
         <>
-          <button className="btn btn-ghost" onClick={onClose} disabled={pending}>Cancel</button>
+          <button className="btn btn-ghost" onClick={onClose} disabled={pending}>{t("Cancel")}</button>
           <button className="btn btn-primary" onClick={submit} disabled={pending || wanted.size === 0}>
-            {pending ? 'Moving…' : `Transfer ${wanted.size > 0 ? `${wanted.size} product${wanted.size === 1 ? '' : 's'}` : ''}`}
+            {pending ? t("Moving…") : t("Transfer {0}", [wanted.size > 0 ? `${wanted.size} product${wanted.size === 1 ? '' : 's'}` : ''])}
           </button>
         </>
       }
@@ -151,15 +154,15 @@ export default function TransferModal({
       <div className="flex flex-col gap-4">
         <div className="grid grid-cols-2 gap-3">
           <label className="block">
-            <span className="field-label">From</span>
+            <span className="field-label">{t("From")}</span>
             <select className="input" value={from} onChange={(e) => setFrom(e.target.value)}>
               {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
             </select>
           </label>
           <label className="block">
-            <span className="field-label">To</span>
+            <span className="field-label">{t("To")}</span>
             <select className="input" value={to} onChange={(e) => setTo(e.target.value)}>
-              <option value="" disabled>Select a branch…</option>
+              <option value="" disabled>{t("Select a branch…")}</option>
               {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
             </select>
           </label>
@@ -167,7 +170,7 @@ export default function TransferModal({
 
         <div className="flex flex-col gap-2">
           <div className="grid gap-2 text-[11px] uppercase tracking-wider px-1" style={{ gridTemplateColumns: '1fr 92px 120px 32px', color: 'var(--color-faint)' }}>
-            <span>Product</span><span className="text-right">Qty</span><span className="text-right">Sender → Receiver</span><span />
+            <span>{t("Product")}</span><span className="text-right">{t("Qty")}</span><span className="text-right">{t("Sender → Receiver")}</span><span />
           </div>
           {lines.map((l) => {
             const q = parseAmount(l.qty);
@@ -197,7 +200,7 @@ export default function TransferModal({
                 <button
                   className="text-[20px] leading-none"
                   style={{ color: 'var(--color-faint)' }}
-                  aria-label="Remove line"
+                  aria-label={t("Remove line")}
                   onClick={() => setLines((prev) => (prev.length > 1 ? prev.filter((x) => x.key !== l.key) : prev))}
                   disabled={lines.length === 1}
                 >
@@ -211,25 +214,24 @@ export default function TransferModal({
               className="btn btn-ghost btn-sm"
               onClick={() => setLines((prev) => [...prev, { key: nextKey++, productId: pool[0]?.id ?? '', qty: '' }])}
             >
-              + Add product
+              {t("+ Add product")}
             </button>
           </div>
         </div>
 
         {over.length > 0 && (
           <p className="text-[12.5px]" style={{ color: 'var(--color-brand)' }}>
-            More than the sending branch holds for: {over.map(([id]) => products.find((p) => p.id === id)?.name).join(', ')}.
+            {t("More than the sending branch holds for:")}{' '}{over.map(([id]) => products.find((p) => p.id === id)?.name).join(', ')}.
           </p>
         )}
 
         <label className="block">
-          <span className="field-label">Note (optional)</span>
-          <input className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. Weekly top-up for Kandy" />
+          <span className="field-label">{t("Note (optional)")}</span>
+          <input className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder={t("e.g. Weekly top-up for Kandy")} />
         </label>
 
         <p className="text-[12px]" style={{ color: 'var(--color-muted)' }}>
-          One document, saved all-or-nothing: the sender goes down and the receiver goes up by exactly the same
-          quantities, and both balances are written to the stock history.
+          {t("One document, saved all-or-nothing: the sender goes down and the receiver goes up by exactly the same quantities, and both balances are written to the stock history.")}
         </p>
       </div>
     </Modal>

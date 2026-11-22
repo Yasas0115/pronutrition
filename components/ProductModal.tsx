@@ -5,6 +5,7 @@ import Modal from './Modal';
 import { toast } from './toast';
 import { parseAmount } from '@/lib/money';
 import { saveProduct, deleteProduct } from '@/app/products/actions';
+import { useT } from '@/components/I18nProvider';
 
 export type ProductRow = {
   id: string;
@@ -42,6 +43,7 @@ export default function ProductModal({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const t = useT();
   const editing = !!product;
   const [name, setName] = useState(product?.name ?? '');
   const [category, setCategory] = useState(
@@ -72,7 +74,7 @@ export default function ProductModal({
     if (fileRef.current) fileRef.current.value = ''; // allow re-picking same file
     if (!files.length) return;
     const room = MAX_IMAGES - images.length;
-    if (room <= 0) { toast(`Up to ${MAX_IMAGES} photos.`, true); return; }
+    if (room <= 0) { toast(t("Up to {0} photos.", [MAX_IMAGES]), true); return; }
     const picked = files.slice(0, room);
     try {
       const resized = await Promise.all(
@@ -80,12 +82,12 @@ export default function ProductModal({
           .filter((f) => f.type.startsWith('image/'))
           .map((f) => resizeImage(f, 400, 400)),
       );
-      if (!resized.length) { toast('Choose image files.', true); return; }
+      if (!resized.length) { toast(t("Choose image files."), true); return; }
       setImages((prev) => [...prev, ...resized]);
       setImagesTouched(true);
-      if (files.length > room) toast(`Added ${room} — max ${MAX_IMAGES} photos.`, true);
+      if (files.length > room) toast(t("Added {0} — max {1} photos.", [room, MAX_IMAGES]), true);
     } catch {
-      toast('Could not read that image.', true);
+      toast(t("Could not read that image."), true);
     }
   }
 
@@ -112,7 +114,7 @@ export default function ProductModal({
   ).sort();
 
   async function save() {
-    if (!name.trim()) { toast('Enter a product name.', true); return; }
+    if (!name.trim()) { toast(t("Enter a product name."), true); return; }
     setSaving(true);
     const res = await saveProduct({
       id: product?.id,
@@ -122,7 +124,7 @@ export default function ProductModal({
     });
     setSaving(false);
     if (res.ok) {
-      toast(editing ? 'Product updated' : 'Product added');
+      toast(editing ? t("Product updated") : t("Product added"));
       onSaved();
     } else {
       toast(res.error, true);
@@ -134,7 +136,7 @@ export default function ProductModal({
     const res = await deleteProduct(product!.id);
     setSaving(false);
     if (res.ok) {
-      toast('Product removed');
+      toast(t("Product removed"));
       onSaved();
     } else {
       toast(res.error, true);
@@ -143,7 +145,7 @@ export default function ProductModal({
 
   return (
     <Modal
-      title={editing ? 'Edit product' : 'New product'}
+      title={editing ? t("Edit product") : t("New product")}
       onClose={onClose}
       maxWidth={560}
       footer={
@@ -154,12 +156,12 @@ export default function ProductModal({
               onClick={() => (confirmDel ? remove() : setConfirmDel(true))}
               disabled={saving}
             >
-              {confirmDel ? 'Confirm delete' : 'Delete'}
+              {confirmDel ? t("Confirm delete") : t("Delete")}
             </button>
           )}
-          <button className="btn btn-ghost" onClick={onClose} disabled={saving}>Cancel</button>
+          <button className="btn btn-ghost" onClick={onClose} disabled={saving}>{t("Cancel")}</button>
           <button className="btn btn-primary" onClick={save} disabled={saving}>
-            {saving ? 'Saving…' : editing ? 'Save changes' : 'Add product'}
+            {saving ? t("Saving…") : editing ? t("Save changes") : t("Add product")}
           </button>
         </>
       }
@@ -170,7 +172,7 @@ export default function ProductModal({
         <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between">
             <label className="field-label" style={{ margin: 0 }}>
-              Product photos {images.length > 0 && <span style={{ color: 'var(--color-faint)' }}>· {images.length}/{MAX_IMAGES}</span>}
+              {t("Product photos")}{' '}{images.length > 0 && <span style={{ color: 'var(--color-faint)' }}>· {images.length}/{MAX_IMAGES}</span>}
             </label>
             <button
               type="button"
@@ -178,7 +180,7 @@ export default function ProductModal({
               onClick={() => fileRef.current?.click()}
               disabled={images.length >= MAX_IMAGES}
             >
-              + Add photos
+              {t("+ Add photos")}
             </button>
           </div>
           <div className="flex flex-wrap gap-2.5">
@@ -187,7 +189,7 @@ export default function ProductModal({
                 key={i}
                 className="relative rounded-lg overflow-hidden group"
                 style={{ width: 72, height: 72, background: 'var(--color-ink-1)', border: `1px solid ${i === 0 ? 'var(--color-brand)' : 'var(--color-line-2)'}` }}
-                title={i === 0 ? 'Cover photo' : 'Click to make cover'}
+                title={i === 0 ? t("Cover photo") : t("Click to make cover")}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
@@ -201,13 +203,13 @@ export default function ProductModal({
                     className="absolute bottom-0 left-0 right-0 text-center"
                     style={{ fontSize: 9, letterSpacing: '.06em', textTransform: 'uppercase', color: '#fff', background: 'var(--color-brand)', padding: '1px 0' }}
                   >
-                    Cover
+                    {t("Cover")}
                   </span>
                 )}
                 <button
                   type="button"
                   onClick={() => removeImage(i)}
-                  aria-label="Remove photo"
+                  aria-label={t("Remove photo")}
                   className="absolute top-1 right-1 grid place-items-center rounded-full"
                   style={{ width: 18, height: 18, background: 'rgba(0,0,0,.6)', color: '#fff', fontSize: 12, lineHeight: 1 }}
                 >
@@ -222,7 +224,7 @@ export default function ProductModal({
                 className="grid place-items-center rounded-lg"
                 style={{ width: 72, height: 72, background: 'var(--color-ink-1)', border: '1px dashed var(--color-line-2)', fontSize: 11, color: 'var(--color-faint)' }}
               >
-                No photos
+                {t("No photos")}
               </button>
             )}
           </div>
@@ -230,80 +232,80 @@ export default function ProductModal({
         </div>
 
         <div>
-          <label className="field-label">Product name</label>
-          <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Gold Standard 100% Whey 2lb" autoFocus />
+          <label className="field-label">{t("Product name")}</label>
+          <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder={t("Gold Standard 100% Whey 2lb")} autoFocus />
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="field-label">Category</label>
+            <label className="field-label">{t("Category")}</label>
             <select className="input" value={category} onChange={(e) => setCategory(e.target.value)}>
               {catOptions.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
             {categories.length === 0 && (
               <p className="text-[12px] mt-1" style={{ color: 'var(--color-faint)' }}>
-                No categories yet — add them under Store → Categories.
+                {t("No categories yet — add them under Store → Categories.")}
               </p>
             )}
           </div>
           <div>
-            <label className="field-label">Brand</label>
-            <input className="input" value={brand} onChange={(e) => setBrand(e.target.value)} placeholder="Optimum Nutrition" />
+            <label className="field-label">{t("Brand")}</label>
+            <input className="input" value={brand} onChange={(e) => setBrand(e.target.value)} placeholder={t("Optimum Nutrition")} />
           </div>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="field-label">Flavor / variant</label>
-            <input className="input" value={flavor} onChange={(e) => setFlavor(e.target.value)} placeholder="Double Rich Chocolate" />
+            <label className="field-label">{t("Flavor / variant")}</label>
+            <input className="input" value={flavor} onChange={(e) => setFlavor(e.target.value)} placeholder={t("Double Rich Chocolate")} />
           </div>
           <div>
-            <label className="field-label">Barcode</label>
+            <label className="field-label">{t("Barcode")}</label>
             <input className="input num" value={barcode} onChange={(e) => setBarcode(e.target.value)} placeholder="748927028669" />
           </div>
         </div>
 
         <div className={canSeeCost ? 'grid grid-cols-2 gap-3' : undefined}>
           <div>
-            <label className="field-label">Retail price (Rs)</label>
+            <label className="field-label">{t("Retail price (Rs)")}</label>
             <input className="input num" inputMode="numeric" value={price ? String(price) : ''} onChange={(e) => setPrice(parseAmount(e.target.value))} placeholder="0" />
           </div>
           {canSeeCost && (
             <div>
-              <label className="field-label">Buying price (Rs)</label>
+              <label className="field-label">{t("Buying price (Rs)")}</label>
               <input className="input num" inputMode="numeric" value={cost ? String(cost) : ''} onChange={(e) => setCost(parseAmount(e.target.value))} placeholder="0" />
             </div>
           )}
           {canSeeCost && (
             <p className="text-[12px] col-span-2" style={{ color: 'var(--color-muted)', marginTop: -4 }}>
-              Price changes are recorded with your name and the time — see Accounting › Stock value › Price history.
+              {t("Price changes are recorded with your name and the time — see Accounting › Stock value › Price history.")}
             </p>
           )}
         </div>
 
         <div className="grid grid-cols-3 gap-3">
           <div>
-            <label className="field-label">Stock · {branchLabel}</label>
-            <input className="input num" inputMode="numeric" value={String(stock)} disabled={!stockEditable} title={stockEditable ? undefined : 'Select a single branch to edit stock'} onChange={(e) => setStock(parseAmount(e.target.value))} />
+            <label className="field-label">{t("Stock · {0}", [branchLabel])}</label>
+            <input className="input num" inputMode="numeric" value={String(stock)} disabled={!stockEditable} title={stockEditable ? undefined : t("Select a single branch to edit stock")} onChange={(e) => setStock(parseAmount(e.target.value))} />
           </div>
           <div>
-            <label className="field-label">Low-stock at</label>
+            <label className="field-label">{t("Low-stock at")}</label>
             <input className="input num" inputMode="numeric" value={String(lowStockAt)} disabled={!stockEditable} onChange={(e) => setLowStockAt(parseAmount(e.target.value))} />
           </div>
           <div>
-            <label className="field-label">SKU</label>
-            <input className="input" value={sku} onChange={(e) => setSku(e.target.value)} placeholder="PN-1001" />
+            <label className="field-label">{t("SKU")}</label>
+            <input className="input" value={sku} onChange={(e) => setSku(e.target.value)} placeholder={t("PN-1001")} />
           </div>
         </div>
         {!stockEditable && (
           <p className="text-[12px]" style={{ color: 'var(--color-muted)', marginTop: -8 }}>
-            Showing total stock across branches. Pick one branch (top bar) to edit its stock.
+            {t("Showing total stock across branches. Pick one branch (top bar) to edit its stock.")}
           </p>
         )}
 
         <label className="flex items-center gap-2.5 cursor-pointer select-none">
           <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} style={{ width: 16, height: 16, accentColor: 'var(--color-brand)' }} />
-          <span className="text-[14px]" style={{ color: 'var(--color-ash)' }}>Active (available on the POS)</span>
+          <span className="text-[14px]" style={{ color: 'var(--color-ash)' }}>{t("Active (available on the POS)")}</span>
         </label>
       </div>
     </Modal>

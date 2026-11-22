@@ -4,10 +4,12 @@ import { prisma } from '@/lib/db';
 import { getSession } from '@/lib/auth';
 import AuthShell from '@/components/AuthShell';
 import LoginForm from './login-form';
+import { getT } from '@/lib/i18n/server';
 
 export const dynamic = 'force-dynamic';
 
 export default async function LoginPage() {
+  const t = await getT();
   const session = await getSession();
   if (session) redirect('/');
   // /register only works on a fresh, unclaimed installation.
@@ -23,13 +25,13 @@ export default async function LoginPage() {
           </span>
         </div>
         <span className="auth-card__rule" />
-        <div className="auth-card__label">Point of Sale — Sign in</div>
+        <div className="auth-card__label">{t("Point of Sale — Sign in")}</div>
         <div className="auth-card__body">
           <LoginForm />
         </div>
         {ownerCount === 0 && (
           <div className="auth-card__foot">
-            New here? <Link href="/register" className="accent">Create your company</Link>
+            {t("New here?")}{' '}<Link href="/register" className="accent">{t("Create your company")}</Link>
           </div>
         )}
       </div>

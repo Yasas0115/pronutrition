@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useT } from '@/components/I18nProvider';
 
 /**
  * Pro Nutrition boot splash for the auth pages (login). It covers the page's
@@ -9,6 +10,7 @@ import { useEffect, useState } from 'react';
  * page-to-page navigation inside the app.
  */
 export default function Splash({ label = 'Loading' }: { label?: string }) {
+  const t = useT();
   const [phase, setPhase] = useState<'show' | 'leaving' | 'done'>('show');
 
   useEffect(() => {
@@ -35,7 +37,7 @@ export default function Splash({ label = 'Loading' }: { label?: string }) {
           PRO<span className="accent">NUTRITION</span>
         </div>
         <span className="splash__rule" aria-hidden />
-        <div className="splash__label">{label}</div>
+        <div className="splash__label">{t(label)}</div>
         <div className="splash__bar" aria-hidden />
       </div>
     </div>

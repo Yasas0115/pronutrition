@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, type ReactNode } from 'react';
+import { useT } from '@/components/I18nProvider';
 
 export default function Modal({
   title,
@@ -18,6 +19,7 @@ export default function Modal({
   /** Drop the body padding so the content can run edge to edge. */
   flush?: boolean;
 }) {
+  const t = useT();
   useEffect(() => {
     const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', h);
@@ -49,12 +51,12 @@ export default function Modal({
             className="m-0 min-w-0 truncate"
             style={{ fontFamily: 'var(--font-head)', fontSize: 24, fontWeight: 700, color: 'var(--color-strong)', textTransform: 'uppercase', letterSpacing: '.01em' }}
           >
-            {title}
+            {t(title)}
           </h3>
           <button
             type="button"
             onClick={onClose}
-            aria-label="Close"
+            aria-label={t("Close")}
             className="text-[26px] leading-none px-1 bg-transparent border-0 cursor-pointer"
             style={{ color: 'var(--color-faint)' }}
           >

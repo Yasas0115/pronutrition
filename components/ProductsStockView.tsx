@@ -14,6 +14,7 @@ import StockCheckModal from './StockCheckModal';
 import type { TransferRow } from '@/lib/transfer-types';
 import { toast } from './toast';
 import { receiveStock, writeOffStock } from '@/app/stock/actions';
+import { useT } from '@/components/I18nProvider';
 
 export type PerBranch = { branchId: string; branchName: string; stock: number; lowStockAt: number };
 
@@ -38,6 +39,7 @@ type Tab = 'catalogue' | 'stock' | 'movements' | 'transfers';
 // Product thumbnail + name + brand/flavor/sku line (+ per-branch chips on the
 // "All branches" view). Shared by the Catalogue and Stock tables.
 function ProductCell({ p, allBranches }: { p: StockProduct; allBranches: boolean }) {
+  const tx = useT();
   return (
     <span className="flex items-center gap-3 text-left">
       <span className="relative grid place-items-center rounded-lg shrink-0 overflow-hidden" style={{ width: 40, height: 40, background: 'var(--color-ink-1)', border: '1px solid var(--color-line-2)' }}>
@@ -55,7 +57,7 @@ function ProductCell({ p, allBranches }: { p: StockProduct; allBranches: boolean
         <span className="block text-strong font-semibold">{p.name}</span>
         <span className="block text-[12px]" style={{ color: 'var(--color-muted)' }}>
           {[p.brand, p.flavor, p.sku].filter(Boolean).join(' · ') || '—'}
-          {!p.active && ' · inactive'}
+          {!p.active && tx(" · inactive")}
         </span>
         {allBranches && p.perBranch.length > 0 && (
           <span className="flex flex-wrap gap-1 mt-1">
@@ -106,6 +108,7 @@ export default function ProductsStockView({
   canEditProducts: boolean;
   canManageStock: boolean;
 }) {
+  const tx = useT();
   const router = useRouter();
   const [tab, setTab] = useState<Tab>('catalogue');
   const [query, setQuery] = useState('');
@@ -164,25 +167,25 @@ export default function ProductsStockView({
     <>
       <div className="flex flex-wrap items-end justify-between gap-4 mb-5">
         <div>
-          <h1 className="page-title">Products &amp; Stock</h1>
+          <h1 className="page-title">{tx("Products & Stock")}</h1>
           <p className="page-sub">
-            Shared catalogue · stock for <b style={{ color: 'var(--color-strong)' }}>{activeBranchName}</b>
-            {allBranches && canManageStock && ' · pick a single branch to count or write off (Receive works here too)'}
+            {tx("Shared catalogue · stock for")}{' '}<b style={{ color: 'var(--color-strong)' }}>{activeBranchName}</b>
+            {allBranches && canManageStock && tx(" · pick a single branch to count or write off (Receive works here too)")}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
           {canReconcile && canManageStock && (
-            <button className="btn btn-ghost" onClick={() => setCheckOpen(true)} title="Compare every stock count with its history">
-              ✓ Stock check
+            <button className="btn btn-ghost" onClick={() => setCheckOpen(true)} title={tx("Compare every stock count with its history")}>
+              {tx("✓ Stock check")}
             </button>
           )}
           {canManageStock && allBranchAccess && activeBranches.length >= 2 && (
             <button className="btn btn-ghost" onClick={() => setTransferOpen(true)} disabled={products.length === 0}>
-              ⇄ Transfer
+              {tx("⇄ Transfer")}
             </button>
           )}
           {canEditProducts && (
-            <button className="btn btn-primary" onClick={() => setCreating(true)}>+ Add product</button>
+            <button className="btn btn-primary" onClick={() => setCreating(true)}>{tx("+ Add product")}</button>
           )}
         </div>
       </div>
@@ -191,29 +194,29 @@ export default function ProductsStockView({
           live in Accounting › Stock value. */}
       <div className="grid grid-cols-3 gap-3 mb-5">
         <div className="stat">
-          <div className="stat__label">Active products</div>
+          <div className="stat__label">{tx("Active products")}</div>
           <div className="stat__value">{active.length}</div>
         </div>
         <div className="stat">
-          <div className="stat__label">Low stock</div>
+          <div className="stat__label">{tx("Low stock")}</div>
           <div className="stat__value" style={{ color: lowCount ? 'var(--color-warn)' : undefined }}>{lowCount}</div>
         </div>
         <div className="stat">
-          <div className="stat__label">Out of stock</div>
+          <div className="stat__label">{tx("Out of stock")}</div>
           <div className="stat__value" style={{ color: outCount ? 'var(--color-brand)' : undefined }}>{outCount}</div>
         </div>
       </div>
 
       {/* Tabs */}
       <div className="flex flex-wrap gap-2 mb-4">
-        <button className="chip" data-active={tab === 'catalogue' || undefined} onClick={() => setTab('catalogue')}>Catalogue</button>
-        <button className="chip" data-active={tab === 'stock' || undefined} onClick={() => setTab('stock')}>Stock</button>
+        <button className="chip" data-active={tab === 'catalogue' || undefined} onClick={() => setTab('catalogue')}>{tx("Catalogue")}</button>
+        <button className="chip" data-active={tab === 'stock' || undefined} onClick={() => setTab('stock')}>{tx("Stock")}</button>
         {canManageStock && (
-          <button className="chip" data-active={tab === 'movements' || undefined} onClick={() => setTab('movements')}>Movements</button>
+          <button className="chip" data-active={tab === 'movements' || undefined} onClick={() => setTab('movements')}>{tx("Movements")}</button>
         )}
         {canManageStock && allBranchAccess && (
           <button className="chip" data-active={tab === 'transfers' || undefined} onClick={() => setTab('transfers')}>
-            Transfers{transfers.length > 0 ? ` (${transfers.length})` : ''}
+            {tx("Transfers")}{transfers.length > 0 ? ` (${transfers.length})` : ''}
           </button>
         )}
       </div>
@@ -223,7 +226,7 @@ export default function ProductsStockView({
           <div className="mb-4">
             <input
               className="input"
-              placeholder="Search products, brand, barcode…"
+              placeholder={tx("Search products, brand, barcode…")}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />
@@ -233,9 +236,9 @@ export default function ProductsStockView({
               ))}
             </div>
             <div className="flex gap-2 mt-2">
-              <button className="chip" data-active={stockFilter === 'all' || undefined} onClick={() => setStockFilter('all')}>All stock</button>
-              <button className="chip" data-active={stockFilter === 'low' || undefined} onClick={() => setStockFilter('low')}>Low ({lowCount})</button>
-              <button className="chip" data-active={stockFilter === 'out' || undefined} onClick={() => setStockFilter('out')}>Out ({outCount})</button>
+              <button className="chip" data-active={stockFilter === 'all' || undefined} onClick={() => setStockFilter('all')}>{tx("All stock")}</button>
+              <button className="chip" data-active={stockFilter === 'low' || undefined} onClick={() => setStockFilter('low')}>{tx("Low ({0})", [lowCount])}</button>
+              <button className="chip" data-active={stockFilter === 'out' || undefined} onClick={() => setStockFilter('out')}>{tx("Out ({0})", [outCount])}</button>
             </div>
           </div>
 
@@ -248,16 +251,16 @@ export default function ProductsStockView({
                 <table className="table">
                   <thead>
                     <tr>
-                      <th>Product</th>
-                      <th>Category</th>
-                      <th className="text-right">Retail price</th>
-                      <th className="text-center">In stock</th>
-                      <th className="text-right">Actions</th>
+                      <th>{tx("Product")}</th>
+                      <th>{tx("Category")}</th>
+                      <th className="text-right">{tx("Retail price")}</th>
+                      <th className="text-center">{tx("In stock")}</th>
+                      <th className="text-right">{tx("Actions")}</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filtered.length === 0 ? (
-                      <tr><td colSpan={5} className="text-center" style={{ color: 'var(--color-faint)', padding: 40 }}>No products found.</td></tr>
+                      <tr><td colSpan={5} className="text-center" style={{ color: 'var(--color-faint)', padding: 40 }}>{tx("No products found.")}</td></tr>
                     ) : (
                       filtered.map((p) => {
                         const out = p.stock <= 0;
@@ -272,9 +275,9 @@ export default function ProductsStockView({
                             </td>
                             <td><span className="chip" style={{ cursor: 'default' }}>{p.category}</span></td>
                             <td className="text-right num text-strong font-semibold">{money(p.price, currency)}</td>
-                            <td className="text-center num font-semibold" style={{ color }} title={allBranches ? 'Total across branches' : undefined}>{fmt(p.stock)}</td>
+                            <td className="text-center num font-semibold" style={{ color }} title={allBranches ? tx("Total across branches") : undefined}>{fmt(p.stock)}</td>
                             <td className="text-right">
-                              {canEditProducts && <button className="btn btn-ghost btn-sm" onClick={() => setEditing(p)}>Edit</button>}
+                              {canEditProducts && <button className="btn btn-ghost btn-sm" onClick={() => setEditing(p)}>{tx("Edit")}</button>}
                             </td>
                           </tr>
                         );
@@ -291,16 +294,16 @@ export default function ProductsStockView({
                 <table className="table">
                   <thead>
                     <tr>
-                      <th>Product</th>
-                      <th>Category</th>
-                      <th className="text-center">Stock</th>
-                      <th className="text-center">Low at</th>
-                      <th className="text-right">Actions</th>
+                      <th>{tx("Product")}</th>
+                      <th>{tx("Category")}</th>
+                      <th className="text-center">{tx("Stock")}</th>
+                      <th className="text-center">{tx("Low at")}</th>
+                      <th className="text-right">{tx("Actions")}</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filtered.length === 0 ? (
-                      <tr><td colSpan={5} className="text-center" style={{ color: 'var(--color-faint)', padding: 40 }}>No products found.</td></tr>
+                      <tr><td colSpan={5} className="text-center" style={{ color: 'var(--color-faint)', padding: 40 }}>{tx("No products found.")}</td></tr>
                     ) : (
                       filtered.map((p) => {
                         const out = p.stock <= 0;
@@ -315,14 +318,14 @@ export default function ProductsStockView({
                               {stockEditable ? (
                                 <StockStepper id={p.id} branchId={activeScope} value={p.stock} lowStockAt={p.lowStockAt} />
                               ) : (
-                                <div className="text-center num font-semibold" style={{ color }} title={allBranches ? 'Total across branches' : undefined}>{fmt(p.stock)}</div>
+                                <div className="text-center num font-semibold" style={{ color }} title={allBranches ? tx("Total across branches") : undefined}>{fmt(p.stock)}</div>
                               )}
                             </td>
                             <td className="text-center num" style={{ color: 'var(--color-muted)' }}>{allBranches ? '—' : fmt(p.lowStockAt)}</td>
                             <td className="text-right">
                               {canManageStock && (
                                 <span className="inline-flex gap-1.5">
-                                  <button className="btn btn-ghost btn-sm" style={{ whiteSpace: 'nowrap' }} onClick={() => setReceiving(p)}>+ Receive</button>
+                                  <button className="btn btn-ghost btn-sm" style={{ whiteSpace: 'nowrap' }} onClick={() => setReceiving(p)}>{tx("+ Receive")}</button>
                                   {stockEditable && (
                                     <button
                                       className="btn btn-ghost btn-sm"
@@ -330,7 +333,7 @@ export default function ProductsStockView({
                                       disabled={p.stock <= 0}
                                       onClick={() => setWritingOff(writingOff === p.id ? null : p.id)}
                                     >
-                                      Write off
+                                      {tx("Write off")}
                                     </button>
                                   )}
                                 </span>
@@ -416,6 +419,7 @@ function WriteOffRow({
   onClose: () => void;
   onDone: () => void;
 }) {
+  const tx = useT();
   const [pending, start] = useTransition();
   const [reason, setReason] = useState<'EXPIRED' | 'DAMAGED'>('EXPIRED');
   const [qty, setQty] = useState('');
@@ -423,11 +427,11 @@ function WriteOffRow({
   const q = parseAmount(qty);
 
   function submit() {
-    if (q <= 0) { toast('Enter how many units to write off.', true); return; }
-    if (q > product.stock) { toast(`Only ${product.stock} on hand.`, true); return; }
+    if (q <= 0) { toast(tx("Enter how many units to write off."), true); return; }
+    if (q > product.stock) { toast(tx("Only {0} on hand.", [product.stock]), true); return; }
     start(async () => {
       const res = await writeOffStock({ productId: product.id, branchId, qty: q, reason, note });
-      if (res.ok) { toast(`Wrote off ${q} × ${product.name}`); onDone(); }
+      if (res.ok) { toast(tx("Wrote off {0} × {1}", [q, product.name])); onDone(); }
       else toast(res.error, true);
     });
   }
@@ -436,23 +440,23 @@ function WriteOffRow({
     <tr>
       <td colSpan={5} style={{ background: 'var(--color-ink-1)' }}>
         <div className="flex items-center gap-2 flex-nowrap">
-          <span className="text-[13px] font-semibold" style={{ color: 'var(--color-brand)', whiteSpace: 'nowrap' }}>Write off</span>
+          <span className="text-[13px] font-semibold" style={{ color: 'var(--color-brand)', whiteSpace: 'nowrap' }}>{tx("Write off")}</span>
           <select className="input" style={{ width: 120 }} value={reason} onChange={(e) => setReason(e.target.value as 'EXPIRED' | 'DAMAGED')}>
-            <option value="EXPIRED">Expired</option>
-            <option value="DAMAGED">Damaged</option>
+            <option value="EXPIRED">{tx("Expired")}</option>
+            <option value="DAMAGED">{tx("Damaged")}</option>
           </select>
           <input
             className="input num"
             style={{ width: 90 }}
             inputMode="numeric"
-            placeholder={`Qty (max ${product.stock})`}
+            placeholder={tx("Qty (max {0})", [product.stock])}
             value={qty}
             onChange={(e) => setQty(e.target.value)}
             autoFocus
           />
-          <input className="input" style={{ flex: 1, minWidth: 0 }} placeholder="Note (optional)" value={note} onChange={(e) => setNote(e.target.value)} />
-          <button className="btn btn-primary btn-sm" style={{ whiteSpace: 'nowrap' }} onClick={submit} disabled={pending}>{pending ? 'Saving…' : 'Confirm'}</button>
-          <button className="btn btn-ghost btn-sm" onClick={onClose} disabled={pending}>Cancel</button>
+          <input className="input" style={{ flex: 1, minWidth: 0 }} placeholder={tx("Note (optional)")} value={note} onChange={(e) => setNote(e.target.value)} />
+          <button className="btn btn-primary btn-sm" style={{ whiteSpace: 'nowrap' }} onClick={submit} disabled={pending}>{pending ? tx("Saving…") : tx("Confirm")}</button>
+          <button className="btn btn-ghost btn-sm" onClick={onClose} disabled={pending}>{tx("Cancel")}</button>
         </div>
       </td>
     </tr>
@@ -475,6 +479,7 @@ function ReceiveModal({
   onClose: () => void;
   onDone: () => void;
 }) {
+  const tx = useT();
   const [pending, start] = useTransition();
   const [pickedBranch, setPickedBranch] = useState('');
   const branchId = allBranches ? pickedBranch : scopeBranchId;
@@ -492,9 +497,9 @@ function ReceiveModal({
   const retail = parseAmount(price);
 
   function submit() {
-    if (!branchId) { toast('Pick the branch that received the stock.', true); return; }
-    if (q <= 0) { toast('Enter the quantity received.', true); return; }
-    if (retail <= 0) { toast('Enter the retail price.', true); return; }
+    if (!branchId) { toast(tx("Pick the branch that received the stock."), true); return; }
+    if (q <= 0) { toast(tx("Enter the quantity received."), true); return; }
+    if (retail <= 0) { toast(tx("Enter the retail price."), true); return; }
     start(async () => {
       const res = await receiveStock({
         productId: product.id,
@@ -504,19 +509,19 @@ function ReceiveModal({
         unitCost: canSeeCost && cost > 0 ? cost : undefined,
         note,
       });
-      if (res.ok) { toast(`Received ${q} × ${product.name}`); onDone(); }
+      if (res.ok) { toast(tx("Received {0} × {1}", [q, product.name])); onDone(); }
       else toast(res.error, true);
     });
   }
 
   return (
     <Modal
-      title="Receive stock"
+      title={tx("Receive stock")}
       onClose={onClose}
       footer={
         <>
-          <button className="btn btn-ghost" onClick={onClose} disabled={pending}>Cancel</button>
-          <button className="btn btn-primary" onClick={submit} disabled={pending}>{pending ? 'Saving…' : 'Receive'}</button>
+          <button className="btn btn-ghost" onClick={onClose} disabled={pending}>{tx("Cancel")}</button>
+          <button className="btn btn-primary" onClick={submit} disabled={pending}>{pending ? tx("Saving…") : tx("Receive")}</button>
         </>
       }
     >
@@ -525,43 +530,43 @@ function ReceiveModal({
           <div className="text-strong font-semibold">{product.name}</div>
           {(!allBranches || branchId) && (
             <div className="text-[13px]" style={{ color: 'var(--color-muted)' }}>
-              {targetName} · on hand now <b className="num" style={{ color: 'var(--color-strong)' }}>{fmt(onHand)}</b>
+              {tx("{0} · on hand now", [targetName])}{' '}<b className="num" style={{ color: 'var(--color-strong)' }}>{fmt(onHand)}</b>
               {q > 0 && <> → <b className="num" style={{ color: 'var(--color-strong)' }}>{fmt(onHand + q)}</b></>}
             </div>
           )}
         </div>
         {allBranches && (
           <label className="block">
-            <span className="field-label">Branch *</span>
+            <span className="field-label">{tx("Branch *")}</span>
             <select className="input" value={pickedBranch} onChange={(e) => setPickedBranch(e.target.value)}>
-              <option value="">Select a branch…</option>
+              <option value="">{tx("Select a branch…")}</option>
               {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
             </select>
           </label>
         )}
         <label className="block">
-          <span className="field-label">Quantity received</span>
+          <span className="field-label">{tx("Quantity received")}</span>
           <input className="input num" inputMode="numeric" autoFocus value={qty} onChange={(e) => setQty(e.target.value.replace(/[^0-9]/g, ''))} placeholder="0" />
         </label>
         <label className="block">
-          <span className="field-label">Retail price ({currency}) *</span>
+          <span className="field-label">{tx("Retail price ({0}) *", [currency])}</span>
           <input className="input num" inputMode="numeric" value={price} onChange={(e) => setPrice(e.target.value.replace(/[^0-9]/g, ''))} placeholder="0" />
           <span className="text-[12px]" style={{ color: 'var(--color-muted)' }}>
-            Required. If this differs from the current retail price, the product&apos;s retail price is updated and the change is logged in Price history.
+            {tx("Required. If this differs from the current retail price, the product's retail price is updated and the change is logged in Price history.")}
           </span>
         </label>
         {canSeeCost && (
           <label className="block">
-            <span className="field-label">Buying price per unit ({currency}) — optional</span>
+            <span className="field-label">{tx("Buying price per unit ({0}) — optional", [currency])}</span>
             <input className="input num" inputMode="numeric" value={unitCost} onChange={(e) => setUnitCost(e.target.value.replace(/[^0-9]/g, ''))} placeholder="0" />
             <span className="text-[12px]" style={{ color: 'var(--color-muted)' }}>
-              If entered and different from the current buying price, it is updated and logged in Price history.
+              {tx("If entered and different from the current buying price, it is updated and logged in Price history.")}
             </span>
           </label>
         )}
         <label className="block">
-          <span className="field-label">Note (optional)</span>
-          <input className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. Supplier invoice no." />
+          <span className="field-label">{tx("Note (optional)")}</span>
+          <input className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder={tx("e.g. Supplier invoice no.")} />
         </label>
       </div>
     </Modal>
@@ -579,6 +584,7 @@ const TYPE_TONE: Record<string, string> = {
 };
 
 function HistoryTable({ history, allBranches }: { history: MovementRow[]; allBranches: boolean }) {
+  const tx = useT();
   const [type, setType] = useState<'all' | MovementType>('all');
   const types = Object.keys(MOVEMENT_LABELS) as MovementType[];
   const shown = type === 'all' ? history : history.filter((m) => m.type === type);
@@ -586,9 +592,9 @@ function HistoryTable({ history, allBranches }: { history: MovementRow[]; allBra
   return (
     <>
       <div className="flex gap-2 flex-wrap mb-4">
-        <button className="chip" data-active={type === 'all' || undefined} onClick={() => setType('all')}>All</button>
+        <button className="chip" data-active={type === 'all' || undefined} onClick={() => setType('all')}>{tx("All")}</button>
         {types.map((t) => (
-          <button key={t} className="chip" data-active={type === t || undefined} onClick={() => setType(t)}>{MOVEMENT_LABELS[t]}</button>
+          <button key={t} className="chip" data-active={type === t || undefined} onClick={() => setType(t)}>{tx(MOVEMENT_LABELS[t])}</button>
         ))}
       </div>
       <div className="card overflow-hidden">
@@ -596,26 +602,26 @@ function HistoryTable({ history, allBranches }: { history: MovementRow[]; allBra
           <table className="table">
             <thead>
               <tr>
-                <th>When</th>
-                <th>Product</th>
-                {allBranches && <th>Branch</th>}
-                <th>Type</th>
-                <th className="text-center">Change</th>
-                <th className="text-center">Balance</th>
-                <th>Note</th>
-                <th>By</th>
+                <th>{tx("When")}</th>
+                <th>{tx("Product")}</th>
+                {allBranches && <th>{tx("Branch")}</th>}
+                <th>{tx("Type")}</th>
+                <th className="text-center">{tx("Change")}</th>
+                <th className="text-center">{tx("Balance")}</th>
+                <th>{tx("Note")}</th>
+                <th>{tx("By")}</th>
               </tr>
             </thead>
             <tbody>
               {shown.length === 0 ? (
-                <tr><td colSpan={allBranches ? 8 : 7} className="text-center" style={{ color: 'var(--color-faint)', padding: 40 }}>No movements yet.</td></tr>
+                <tr><td colSpan={allBranches ? 8 : 7} className="text-center" style={{ color: 'var(--color-faint)', padding: 40 }}>{tx("No movements yet.")}</td></tr>
               ) : (
                 shown.map((m) => (
                   <tr key={m.id}>
                     <td className="whitespace-nowrap" style={{ color: 'var(--color-muted)', fontSize: 12 }}>{fmtDateTime(m.createdAt)}</td>
                     <td className="text-strong">{m.productName}</td>
                     {allBranches && <td style={{ color: 'var(--color-muted)' }}>{m.branchName}</td>}
-                    <td><span className="chip" style={{ cursor: 'default', color: TYPE_TONE[m.type] }}>{MOVEMENT_LABELS[m.type as MovementType] ?? m.type}</span></td>
+                    <td><span className="chip" style={{ cursor: 'default', color: TYPE_TONE[m.type] }}>{tx(MOVEMENT_LABELS[m.type as MovementType] ?? m.type)}</span></td>
                     <td className="text-center num font-semibold" style={{ color: m.delta >= 0 ? 'var(--color-strong)' : 'var(--color-brand)' }}>{m.delta >= 0 ? `+${fmt(m.delta)}` : fmt(m.delta)}</td>
                     <td className="text-center num">{fmt(m.balanceAfter)}</td>
                     <td style={{ color: 'var(--color-muted)', fontSize: 12 }}>{m.note || '—'}</td>

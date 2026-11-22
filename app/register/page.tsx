@@ -3,10 +3,12 @@ import { prisma } from '@/lib/db';
 import { getSession } from '@/lib/auth';
 import AuthShell from '@/components/AuthShell';
 import RegisterForm from './register-form';
+import { getT } from '@/lib/i18n/server';
 
 export const dynamic = 'force-dynamic';
 
 export default async function RegisterPage() {
+  const t = await getT();
   const session = await getSession();
   if (session) redirect('/');
   // Registration only bootstraps a brand-new, unclaimed installation.
@@ -23,7 +25,7 @@ export default async function RegisterPage() {
           </span>
         </div>
         <span className="auth-card__rule" />
-        <div className="auth-card__label">Set up your company</div>
+        <div className="auth-card__label">{t("Set up your company")}</div>
         <div className="auth-card__body">
           <RegisterForm />
         </div>

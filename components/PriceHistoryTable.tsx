@@ -4,12 +4,14 @@ import { useMemo, useState } from 'react';
 import { money, fmt } from '@/lib/money';
 import { fmtDateTime } from '@/lib/dates';
 import { PRICE_SOURCE_LABELS, type PriceChangeSource, type PriceHistoryRow } from '@/lib/price-history';
+import { useT } from '@/components/I18nProvider';
 
 // "Rs 4,500 → Rs 4,800" with the move coloured: a rise is the accent colour, a
 // fall is the warning colour, no change is muted.
 function Move({ from, to, currency }: { from: number; to: number; currency: string }) {
+  const t = useT();
   if (from === to) {
-    return <span style={{ color: 'var(--color-faint)' }}>{money(to, currency)} (no change)</span>;
+    return <span style={{ color: 'var(--color-faint)' }}>{t("{0} (no change)", [money(to, currency)])}</span>;
   }
   const up = to > from;
   return (
@@ -37,6 +39,7 @@ export default function PriceHistoryTable({
   rows: PriceHistoryRow[];
   currency: string;
 }) {
+  const t = useT();
   const [query, setQuery] = useState('');
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -48,7 +51,7 @@ export default function PriceHistoryTable({
       <div className="mb-4">
         <input
           className="input"
-          placeholder="Search a product…"
+          placeholder={t("Search a product…")}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
@@ -58,20 +61,20 @@ export default function PriceHistoryTable({
           <table className="table">
             <thead>
               <tr>
-                <th>When</th>
-                <th>Product</th>
-                <th>Retail price</th>
-                <th>Buying price</th>
-                <th className="text-center">Units on hand</th>
-                <th className="text-right">Effect on stock value</th>
-                <th>By</th>
+                <th>{t("When")}</th>
+                <th>{t("Product")}</th>
+                <th>{t("Retail price")}</th>
+                <th>{t("Buying price")}</th>
+                <th className="text-center">{t("Units on hand")}</th>
+                <th className="text-right">{t("Effect on stock value")}</th>
+                <th>{t("By")}</th>
               </tr>
             </thead>
             <tbody>
               {shown.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="text-center" style={{ color: 'var(--color-faint)', padding: 40 }}>
-                    No price changes recorded yet.
+                    {t("No price changes recorded yet.")}
                   </td>
                 </tr>
               ) : (
@@ -87,7 +90,7 @@ export default function PriceHistoryTable({
                       <td>
                         <div className="text-strong font-semibold">{r.productName}</div>
                         <div className="text-[12px]" style={{ color: 'var(--color-muted)' }}>
-                          {PRICE_SOURCE_LABELS[r.source as PriceChangeSource] ?? r.source}
+                          {t(PRICE_SOURCE_LABELS[r.source as PriceChangeSource] ?? r.source)}
                           {r.note ? ` · ${r.note}` : ''}
                         </div>
                       </td>
@@ -100,11 +103,11 @@ export default function PriceHistoryTable({
                       <td className="text-center num">{fmt(r.onHandUnits)}</td>
                       <td className="text-right text-[13px]">
                         <div>
-                          <span style={{ color: 'var(--color-muted)' }}>Retail </span>
+                          <span style={{ color: 'var(--color-muted)' }}>{t("Retail")}{' '}</span>
                           <Effect delta={retailEffect} currency={currency} />
                         </div>
                         <div>
-                          <span style={{ color: 'var(--color-muted)' }}>At cost </span>
+                          <span style={{ color: 'var(--color-muted)' }}>{t("At cost")}{' '}</span>
                           <Effect delta={costEffect} currency={currency} />
                         </div>
                       </td>

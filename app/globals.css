@@ -30,8 +30,10 @@
   --color-ok: #22c55e;
   --color-warn: #f59e0b;
 
-  --font-sans: var(--font-barlow), ui-sans-serif, system-ui, -apple-system, sans-serif;
-  --font-head: var(--font-barlow-cond), Impact, "Segoe UI", sans-serif;
+  /* Barlow has no Sinhala/Tamil glyphs; the Noto faces sit behind it so Latin
+     text keeps the brand look and සිංහල / தமிழ் fall through to a real font. */
+  --font-sans: var(--font-barlow), var(--font-noto-sinhala), var(--font-noto-tamil), ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-head: var(--font-barlow-cond), var(--font-noto-sinhala), var(--font-noto-tamil), Impact, "Segoe UI", sans-serif;
 }
 
 /* Dark is the default; declared explicitly so native controls,
@@ -597,4 +599,11 @@ textarea.input { resize: vertical; min-height: 64px; }
   * { color: #000 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .card { background: #fff !important; border: 1px solid #999 !important; box-shadow: none !important; }
   table th, table td { border-color: #999 !important; background: #fff !important; }
+}
+
+/* Letter-spacing pulls Sinhala / Tamil conjuncts apart (the headings and labels
+   use tracking for Latin caps), so switch it off in those languages. */
+html[lang="si"] *,
+html[lang="ta"] * {
+  letter-spacing: normal !important;
 }

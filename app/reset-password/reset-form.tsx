@@ -3,8 +3,10 @@
 import Link from 'next/link';
 import { useActionState, useState } from 'react';
 import { resetPasswordAction, type FormState } from '@/app/password/actions';
+import { useT } from '@/components/I18nProvider';
 
 export default function ResetForm({ token, email, minLength }: { token: string; email: string; minLength: number }) {
+  const t = useT();
   const [state, formAction, pending] = useActionState<FormState, FormData>(resetPasswordAction, null);
   const [show, setShow] = useState(false);
 
@@ -15,9 +17,9 @@ export default function ResetForm({ token, email, minLength }: { token: string; 
           className="text-sm rounded-lg px-3 py-3"
           style={{ color: 'var(--color-ash)', background: 'var(--color-ink-1)', border: '1px solid var(--color-line-2)' }}
         >
-          Your password has been changed. You&apos;ve been signed out everywhere — sign in with the new one.
+          {t("Your password has been changed. You've been signed out everywhere — sign in with the new one.")}
         </div>
-        <Link href="/login" className="btn btn-primary btn-block">Go to sign in</Link>
+        <Link href="/login" className="btn btn-primary btn-block">{t("Go to sign in")}</Link>
       </div>
     );
   }
@@ -26,11 +28,11 @@ export default function ResetForm({ token, email, minLength }: { token: string; 
     <form action={formAction} className="flex flex-col gap-4">
       <input type="hidden" name="token" value={token} />
       <p className="text-sm" style={{ color: 'var(--color-muted)' }}>
-        New password for <b style={{ color: 'var(--color-strong)' }}>{email}</b>
+        {t("New password for")}{' '}<b style={{ color: 'var(--color-strong)' }}>{email}</b>
       </p>
 
       <div>
-        <label className="field-label" htmlFor="password">New password</label>
+        <label className="field-label" htmlFor="password">{t("New password")}</label>
         <div className="relative">
           <input
             id="password"
@@ -49,14 +51,14 @@ export default function ResetForm({ token, email, minLength }: { token: string; 
             style={{ color: 'var(--color-muted)' }}
             tabIndex={-1}
           >
-            {show ? 'Hide' : 'Show'}
+            {show ? t("Hide") : t("Show")}
           </button>
         </div>
-        <p className="text-[12px] mt-1" style={{ color: 'var(--color-faint)' }}>At least {minLength} characters.</p>
+        <p className="text-[12px] mt-1" style={{ color: 'var(--color-faint)' }}>{t("At least {0} characters.", [minLength])}</p>
       </div>
 
       <div>
-        <label className="field-label" htmlFor="confirm">Confirm new password</label>
+        <label className="field-label" htmlFor="confirm">{t("Confirm new password")}</label>
         <input
           id="confirm"
           name="confirm"
@@ -73,12 +75,12 @@ export default function ResetForm({ token, email, minLength }: { token: string; 
           className="text-sm rounded-lg px-3 py-2.5"
           style={{ color: 'var(--color-brand)', background: 'rgba(239, 68, 68, .1)', border: '1px solid rgba(239, 68, 68, .3)' }}
         >
-          {state.error}
+          {t(state.error)}
         </div>
       )}
 
       <button type="submit" className="btn btn-primary btn-block" disabled={pending}>
-        {pending ? 'Saving…' : 'Change password'}
+        {pending ? t("Saving…") : t("Change password")}
       </button>
     </form>
   );

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useT } from '@/components/I18nProvider';
 
 /**
  * Small header button that toggles browser fullscreen. In fullscreen the
@@ -8,6 +9,7 @@ import { useEffect, useState } from 'react';
  * kiosk-style view. Icon flips between "expand" and "compress".
  */
 export default function FullscreenToggle({ className = '' }: { className?: string }) {
+  const t = useT();
   const [full, setFull] = useState(false);
   const [supported, setSupported] = useState(true);
 
@@ -38,8 +40,8 @@ export default function FullscreenToggle({ className = '' }: { className?: strin
       type="button"
       onClick={toggle}
       className={`btn btn-ghost btn-sm ${className}`}
-      aria-label={full ? 'Exit fullscreen' : 'Enter fullscreen'}
-      title={full ? 'Exit fullscreen' : 'Enter fullscreen'}
+      aria-label={full ? t("Exit fullscreen") : t("Enter fullscreen")}
+      title={full ? t("Exit fullscreen") : t("Enter fullscreen")}
       style={{ padding: 8, width: 38, height: 38 }}
     >
       <svg

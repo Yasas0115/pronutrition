@@ -15,6 +15,7 @@ import {
   deleteExpenseCategory,
 } from '@/app/finance/actions';
 import type { ExpensesData, ExpenseRow } from './types';
+import { useT } from '@/components/I18nProvider';
 
 const VIA = [
   { key: 'CASH', label: 'Cash' },
@@ -23,6 +24,7 @@ const VIA = [
 ];
 
 export default function ExpensesTab({ data }: { data: ExpensesData }) {
+  const t = useT();
   const router = useRouter();
   const { currency, expenses, categories } = data;
   const [adding, setAdding] = useState(false);
@@ -39,12 +41,12 @@ export default function ExpensesTab({ data }: { data: ExpensesData }) {
     <>
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4 no-print">
         <div className="text-[13.5px]" style={{ color: 'var(--color-muted)' }}>
-          {live.length} expense{live.length === 1 ? '' : 's'} in this period ·{' '}
+          {t(live.length === 1 ? "{0} expense" : "{0} expenses", [live.length])}{' '}{t("in this period ·")}
           <b className="num" style={{ color: 'var(--color-strong)' }}>{money(total, currency)}</b>
         </div>
         <div className="flex gap-2">
-          {!data.limited && <button className="btn btn-ghost" onClick={() => setManaging(true)}>Categories</button>}
-          <button className="btn btn-primary" onClick={() => setAdding(true)}>+ Add expense</button>
+          {!data.limited && <button className="btn btn-ghost" onClick={() => setManaging(true)}>{t("Categories")}</button>}
+          <button className="btn btn-primary" onClick={() => setAdding(true)}>{t("+ Add expense")}</button>
         </div>
       </div>
 
@@ -59,18 +61,18 @@ export default function ExpensesTab({ data }: { data: ExpensesData }) {
           <table className="table">
             <thead>
               <tr>
-                <th>Date</th>
-                <th>Category</th>
-                <th>Details</th>
-                <th>Paid by</th>
-                <th>Recorded</th>
-                <th className="text-right">Amount</th>
+                <th>{t("Date")}</th>
+                <th>{t("Category")}</th>
+                <th>{t("Details")}</th>
+                <th>{t("Paid by")}</th>
+                <th>{t("Recorded")}</th>
+                <th className="text-right">{t("Amount")}</th>
                 <th className="no-print"></th>
               </tr>
             </thead>
             <tbody>
               {shown.length === 0 ? (
-                <tr><td colSpan={7} className="text-center" style={{ color: 'var(--color-faint)', padding: 40 }}>No expenses in this period.</td></tr>
+                <tr><td colSpan={7} className="text-center" style={{ color: 'var(--color-faint)', padding: 40 }}>{t("No expenses in this period.")}</td></tr>
               ) : (
                 shown.map((e) => {
                   const v = !!e.voidedAt;
@@ -83,7 +85,7 @@ export default function ExpensesTab({ data }: { data: ExpensesData }) {
                         {e.branchName && <div className="text-[12px]" style={{ color: 'var(--color-muted)' }}>{e.branchName}</div>}
                         {v && (
                           <div className="text-[12px]" style={{ color: 'var(--color-brand)' }}>
-                            Voided {fmtDateTime(e.voidedAt!)} by {e.voidedByName ?? '—'}: {e.voidReason}
+                            {t("Voided {0} by", [fmtDateTime(e.voidedAt!)])}{' '}{e.voidedByName ?? '—'}: {e.voidReason}
                           </div>
                         )}
                       </td>
@@ -97,7 +99,7 @@ export default function ExpensesTab({ data }: { data: ExpensesData }) {
                       </td>
                       <td className="text-right no-print">
                         {!v && !data.limited && (
-                          <button className="btn btn-ghost btn-sm" style={{ color: 'var(--color-brand)' }} onClick={() => setVoiding(e)}>Void</button>
+                          <button className="btn btn-ghost btn-sm" style={{ color: 'var(--color-brand)' }} onClick={() => setVoiding(e)}>{t("Void")}</button>
                         )}
                       </td>
                     </tr>
@@ -119,7 +121,7 @@ export default function ExpensesTab({ data }: { data: ExpensesData }) {
       {managing && <CategoriesModal categories={categories} onClose={() => setManaging(false)} onChanged={() => router.refresh()} />}
       {voiding && (
         <VoidModal
-          title="Void expense"
+          title={t("Void expense")}
           subject={`${voiding.category} — ${money(voiding.amount, currency)} on ${fmtDate(voiding.expenseDate)}`}
           onClose={() => setVoiding(null)}
           onConfirm={async (reason) => {
@@ -142,6 +144,7 @@ function AddExpenseModal({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const t = useT();
   const { categories, branches, currency, pinnedBranchId, scopeBranchId } = data;
   const [category, setCategory] = useState(categories[0]?.name ?? '');
   const [amount, setAmount] = useState(0);
@@ -152,68 +155,67 @@ function AddExpenseModal({
   const [saving, setSaving] = useState(false);
 
   async function save() {
-    if (!category) { toast('Pick a category (add one under Categories).', true); return; }
-    if (amount <= 0) { toast('Enter the amount.', true); return; }
+    if (!category) { toast(t("Pick a category (add one under Categories)."), true); return; }
+    if (amount <= 0) { toast(t("Enter the amount."), true); return; }
     setSaving(true);
     const res = await addExpenseAction({ category, amount, description, paidVia: via, date, branchId: branchId || null });
     setSaving(false);
-    if (res.ok) { toast('Expense recorded'); onSaved(); }
+    if (res.ok) { toast(t("Expense recorded")); onSaved(); }
     else toast(res.error, true);
   }
 
   return (
     <Modal
-      title="Add expense"
+      title={t("Add expense")}
       onClose={onClose}
       maxWidth={480}
       footer={
         <>
-          <button className="btn btn-ghost" onClick={onClose} disabled={saving}>Cancel</button>
-          <button className="btn btn-primary" onClick={save} disabled={saving}>{saving ? 'Saving…' : 'Save expense'}</button>
+          <button className="btn btn-ghost" onClick={onClose} disabled={saving}>{t("Cancel")}</button>
+          <button className="btn btn-primary" onClick={save} disabled={saving}>{saving ? t("Saving…") : t("Save expense")}</button>
         </>
       }
     >
       <div className="flex flex-col gap-4">
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="field-label">Category</label>
+            <label className="field-label">{t("Category")}</label>
             <select className="input" value={category} onChange={(e) => setCategory(e.target.value)}>
               {categories.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}
             </select>
           </div>
           <div>
-            <label className="field-label">Amount ({currency})</label>
+            <label className="field-label">{t("Amount ({0})", [currency])}</label>
             <input className="input num" inputMode="numeric" autoFocus value={amount ? String(amount) : ''} placeholder="0" onChange={(e) => setAmount(parseAmount(e.target.value))} />
           </div>
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="field-label">Date</label>
+            <label className="field-label">{t("Date")}</label>
             <input className="input" type="date" value={date} max={todayStr()} onChange={(e) => setDate(e.target.value)} />
           </div>
           <div>
-            <label className="field-label">Branch</label>
+            <label className="field-label">{t("Branch")}</label>
             <select className="input" value={branchId} disabled={!!pinnedBranchId} onChange={(e) => setBranchId(e.target.value)}>
-              {!pinnedBranchId && <option value="">Company-wide</option>}
+              {!pinnedBranchId && <option value="">{t("Company-wide")}</option>}
               {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
             </select>
           </div>
         </div>
         <div>
-          <label className="field-label">Paid by</label>
+          <label className="field-label">{t("Paid by")}</label>
           <div className="flex gap-2">
             {VIA.map((v) => (
-              <button key={v.key} className="chip" data-active={via === v.key || undefined} onClick={() => setVia(v.key)}>{v.label}</button>
+              <button key={v.key} className="chip" data-active={via === v.key || undefined} onClick={() => setVia(v.key)}>{t(v.label)}</button>
             ))}
           </div>
         </div>
         <div>
-          <label className="field-label">Details (optional)</label>
-          <input className="input" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="e.g. October shop rent" />
+          <label className="field-label">{t("Details (optional)")}</label>
+          <input className="input" value={description} onChange={(e) => setDescription(e.target.value)} placeholder={t("e.g. October shop rent")} />
         </div>
         <p className="text-[12px]" style={{ color: 'var(--color-muted)' }}>
-          The date is the day the expense belongs to. The exact time you enter it, and your name, are
-          recorded automatically.
+          {t("The date is the day the expense belongs to. The exact time you enter it, and your name, are recorded automatically.")}
         </p>
       </div>
     </Modal>
@@ -229,19 +231,20 @@ function CategoriesModal({
   onClose: () => void;
   onChanged: () => void;
 }) {
+  const t = useT();
   return (
-    <Modal title="Expense categories" onClose={onClose} maxWidth={440} footer={<button className="btn btn-primary" onClick={onClose}>Done</button>}>
+    <Modal title={t("Expense categories")} onClose={onClose} maxWidth={440} footer={<button className="btn btn-primary" onClick={onClose}>{t("Done")}</button>}>
       <div className="flex flex-col gap-3">
         <NameListManager
           items={categories.map((c) => ({ id: c.id, name: c.name }))}
-          placeholder="New category, e.g. Insurance"
-          emptyText="No categories yet."
+          placeholder={t("New category, e.g. Insurance")}
+          emptyText={t("No categories yet.")}
           onAdd={addExpenseCategory}
           onRemove={deleteExpenseCategory}
           onChanged={onChanged}
         />
         <p className="text-[12px]" style={{ color: 'var(--color-muted)' }}>
-          Removing a category only takes it off this list — past expenses and reports keep it.
+          {t("Removing a category only takes it off this list — past expenses and reports keep it.")}
         </p>
       </div>
     </Modal>

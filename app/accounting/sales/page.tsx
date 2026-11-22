@@ -7,6 +7,7 @@ import { getShellProps } from '@/lib/shell';
 import { getActiveScope, ALL_BRANCHES } from '@/lib/branch';
 import AppShell from '@/components/AppShell';
 import SalesView, { type MixRow } from '@/components/accounting/SalesView';
+import { getT } from '@/lib/i18n/server';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,6 +15,7 @@ export const dynamic = 'force-dynamic';
 // totals come from lib/reports.salesSummary — the same definition Profit & Cash
 // uses, so the two pages can never disagree.
 export default async function SalesPage() {
+  const tx = await getT();
   const session = await requireModule('reports');
   const shell = await getShellProps(session);
   const scope = await getActiveScope(session);
@@ -86,7 +88,7 @@ export default async function SalesPage() {
   const branchNames = new Map(shell.branches.map((b) => [b.id, b.name]));
   const branchBreakdown = byBranch
     .map((b) => ({
-      name: b.branchId ? branchNames.get(b.branchId) ?? 'Unknown' : 'Unassigned',
+      name: b.branchId ? branchNames.get(b.branchId) ?? tx('Unknown') : tx('Unassigned'),
       revenue: b._sum.total ?? 0,
       count: b._count,
     }))

@@ -1,6 +1,7 @@
 import { requireModule, canSeeCost } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { getShellProps } from '@/lib/shell';
+import { getT } from '@/lib/i18n/server';
 import { getTillBranchId } from '@/lib/branch';
 import { dueByCustomerId } from '@/lib/receivables';
 import { livePromotions } from '@/lib/promotions';
@@ -11,6 +12,7 @@ import POSView from '@/components/POSView';
 export const dynamic = 'force-dynamic';
 
 export default async function POSPage() {
+  const t = await getT();
   const session = await requireModule('pos');
   const [shell, branchId] = await Promise.all([getShellProps(session), getTillBranchId(session)]);
 
@@ -92,7 +94,7 @@ export default async function POSPage() {
         storePhone={store?.phone ?? null}
         storeAddress={store?.address ?? null}
         receiptNote={store?.receiptNote ?? null}
-        branchName={tillBranch?.name ?? 'No branch — open one first'}
+        branchName={tillBranch?.name ?? t('No branch — open one first')}
         cashierName={session.name}
         canBackdate={await canSeeCost(session)}
       />

@@ -3,12 +3,14 @@
 import { fmt } from '@/lib/money';
 import { fmtDateTime } from '@/lib/dates';
 import { transferLabel, type TransferRow } from '@/lib/transfer-types';
+import { useT } from '@/components/I18nProvider';
+import type { TFn } from '@/lib/i18n/translate';
 
 const esc = (s: string) =>
   s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] as string));
 
 // A printable hand-over note to travel with the goods.
-function printTransfer(t: TransferRow, storeName: string) {
+function printTransfer(t: TransferRow, storeName: string, tr: TFn) {
   const w = window.open('', 'transfer', 'width=820,height=900');
   if (!w) return;
   const units = t.lines.reduce((n, l) => n + l.qty, 0);
@@ -30,14 +32,14 @@ function printTransfer(t: TransferRow, storeName: string) {
       .sign{display:flex;gap:40px;margin-top:48px} .sign div{flex:1;border-top:1px solid #000;padding-top:6px;font-size:12px;color:#555}
     </style></head><body>
     <h1>${esc(storeName)}</h1>
-    <div class="m">Stock transfer note</div>
+    <div class="m">${tr("Stock transfer note")}</div>
     <h2 style="margin:14px 0 4px">${esc(transferLabel(t.number))}</h2>
     <div>${esc(t.fromBranchName)} → <b>${esc(t.toBranchName)}</b></div>
-    <div class="m">${esc(fmtDateTime(t.createdAt))} · sent by ${esc(t.userName ?? '—')}${t.note ? ` · ${esc(t.note)}` : ''}</div>
-    <table><thead><tr><th>Product</th><th class="r">Qty</th><th class="r">${esc(t.fromBranchName)} (before → after)</th><th class="r">${esc(t.toBranchName)} (before → after)</th></tr></thead>
+    <div class="m">${esc(fmtDateTime(t.createdAt))} · ${tr('sent by')} ${esc(t.userName ?? '—')}${t.note ? ` · ${esc(t.note)}` : ''}</div>
+    <table><thead><tr><th>${tr("Product")}</th><th class="r">${tr("Qty")}</th><th class="r">${esc(t.fromBranchName)} (${tr("before → after")})</th><th class="r">${esc(t.toBranchName)} (${tr("before → after")})</th></tr></thead>
     <tbody>${rows}</tbody>
-    <tfoot><tr><td><b>${t.lines.length} product${t.lines.length === 1 ? '' : 's'}</b></td><td class="r"><b>${fmt(units)}</b></td><td></td><td></td></tr></tfoot></table>
-    <div class="sign"><div>Sent by</div><div>Received by</div></div>
+    <tfoot><tr><td><b>${tr(t.lines.length === 1 ? "{0} product" : "{0} products", [t.lines.length])}</b></td><td class="r"><b>${fmt(units)}</b></td><td></td><td></td></tr></tfoot></table>
+    <div class="sign"><div>${tr("Sent by")}</div><div>${tr("Received by")}</div></div>
     </body></html>`);
   w.document.close();
   w.focus();
@@ -45,10 +47,11 @@ function printTransfer(t: TransferRow, storeName: string) {
 }
 
 export default function TransfersTab({ transfers, storeName }: { transfers: TransferRow[]; storeName: string }) {
+  const tx = useT();
   if (transfers.length === 0) {
     return (
       <div className="card p-10 text-center" style={{ color: 'var(--color-faint)' }}>
-        No transfers yet. Use <b>⇄ Transfer</b> to move stock between branches.
+        {tx("No transfers yet. Use")}{' '}<b>{tx("⇄ Transfer")}</b>{' '}{tx("to move stock between branches.")}
       </div>
     );
   }
@@ -68,18 +71,18 @@ export default function TransfersTab({ transfers, storeName }: { transfers: Tran
                   </span>
                 </div>
                 <div className="text-[12px]" style={{ color: 'var(--color-muted)' }}>
-                  {fmtDateTime(t.createdAt)} · {t.userName ?? '—'} · {t.lines.length} product{t.lines.length === 1 ? '' : 's'}, {fmt(units)} unit{units === 1 ? '' : 's'}
+                  {fmtDateTime(t.createdAt)} · {t.userName ?? '—'}{' '}{tx(t.lines.length === 1 ? "· {0} product" : "· {0} products", [t.lines.length])}{tx(units === 1 ? ", {0} unit" : ", {0} units", [fmt(units)])}
                   {t.note ? ` · ${t.note}` : ''}
                 </div>
               </div>
-              <button className="btn btn-ghost btn-sm" onClick={() => printTransfer(t, storeName)}>Print note</button>
+              <button className="btn btn-ghost btn-sm" onClick={() => printTransfer(t, storeName, tx)}>{tx("Print note")}</button>
             </div>
             <div className="overflow-x-auto">
               <table className="table">
                 <thead>
                   <tr>
-                    <th>Product</th>
-                    <th className="text-center">Qty</th>
+                    <th>{tx("Product")}</th>
+                    <th className="text-center">{tx("Qty")}</th>
                     <th className="text-right">{t.fromBranchName}</th>
                     <th className="text-right">{t.toBranchName}</th>
                   </tr>

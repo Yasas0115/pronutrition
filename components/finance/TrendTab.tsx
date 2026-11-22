@@ -4,6 +4,8 @@ import { Fragment, useState } from 'react';
 import { money } from '@/lib/money';
 import { fmtDate } from '@/lib/dates';
 import type { ProfitData, TrendBucket, TrendGranularity } from './types';
+import { useT } from '@/components/I18nProvider';
+import type { TFn } from '@/lib/i18n/translate';
 
 const MODES: { key: TrendGranularity; label: string }[] = [
   { key: 'day', label: 'Daily' },
@@ -11,12 +13,12 @@ const MODES: { key: TrendGranularity; label: string }[] = [
   { key: 'month', label: 'Monthly' },
 ];
 
-function labelOf(g: TrendGranularity, key: string): string {
+function labelOf(g: TrendGranularity, key: string, t: TFn): string {
   if (g === 'month') {
     return new Date(`${key}-15T00:00:00Z`).toLocaleDateString('en-LK', { month: 'short', year: 'numeric', timeZone: 'UTC' });
   }
   const d = fmtDate(new Date(`${key}T00:00:00+05:30`));
-  return g === 'week' ? `Week of ${d}` : d;
+  return g === 'week' ? t('Week of {0}', [d]) : d;
 }
 
 const shortLabel = (g: TrendGranularity, key: string) =>
@@ -25,6 +27,7 @@ const shortLabel = (g: TrendGranularity, key: string) =>
 // Sales, expenses and net profit side by side for every period. The chart is
 // for the shape; the table below it carries the exact figures.
 function Chart({ rows, g, currency }: { rows: TrendBucket[]; g: TrendGranularity; currency: string }) {
+  const t = useT();
   const W = Math.max(640, rows.length * 44);
   const H = 220;
   const padT = 12;
@@ -43,11 +46,11 @@ function Chart({ rows, g, currency }: { rows: TrendBucket[]; g: TrendGranularity
   );
   return (
     <div className="overflow-x-auto">
-      <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} role="img" aria-label="Sales, expenses and net profit per period" style={{ display: 'block' }}>
+      <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} role="img" aria-label={t("Sales, expenses and net profit per period")} style={{ display: 'block' }}>
         <line x1={0} x2={W} y1={y(0)} y2={y(0)} stroke="var(--color-line-2)" />
         {rows.map((r, i) => {
           const x0 = padL + i * slot + (slot - bw * 3 - 4) / 2;
-          const name = labelOf(g, r.key);
+          const name = labelOf(g, r.key, t);
           return (
             <g key={r.key}>
               {bar(x0, r.net, '#3b82f6', `${name} · Sales ${money(r.net, currency)}`)}
@@ -67,15 +70,17 @@ function Chart({ rows, g, currency }: { rows: TrendBucket[]; g: TrendGranularity
 }
 
 function Swatch({ color, label }: { color: string; label: string }) {
+  const t = useT();
   return (
     <span>
       <i style={{ background: color, display: 'inline-block', width: 10, height: 10, borderRadius: 2, marginRight: 6 }} />
-      {label}
+      {t(label)}
     </span>
   );
 }
 
 export default function TrendTab({ data }: { data: ProfitData }) {
+  const t = useT();
   const { currency, trend, outstandingCredit } = data;
   const [g, setG] = useState<TrendGranularity>('day');
   const [open, setOpen] = useState<string | null>(null);
@@ -96,43 +101,43 @@ export default function TrendTab({ data }: { data: ProfitData }) {
     <>
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-5">
         <div className="stat">
-          <div className="stat__label">Net sales</div>
+          <div className="stat__label">{t("Net sales")}</div>
           <div className="stat__value">{money(tot.net, currency)}</div>
         </div>
         <div className="stat">
-          <div className="stat__label">Expenses</div>
+          <div className="stat__label">{t("Expenses")}</div>
           <div className="stat__value">{money(tot.expenses, currency)}</div>
         </div>
         <div className="stat">
-          <div className="stat__label">Net profit</div>
+          <div className="stat__label">{t("Net profit")}</div>
           <div className="stat__value" style={{ color: tot.profit >= 0 ? 'var(--color-ok)' : 'var(--color-brand)' }}>{signed(tot.profit)}</div>
-          <div className="text-[12px] mt-1" style={{ color: 'var(--color-muted)' }}>till float not included</div>
+          <div className="text-[12px] mt-1" style={{ color: 'var(--color-muted)' }}>{t("till float not included")}</div>
         </div>
         <div className="stat">
-          <div className="stat__label">Credit given</div>
+          <div className="stat__label">{t("Credit given")}</div>
           <div className="stat__value">{money(tot.given, currency)}</div>
-          <div className="text-[12px] mt-1" style={{ color: 'var(--color-muted)' }}>{money(tot.collected, currency)} collected back</div>
+          <div className="text-[12px] mt-1" style={{ color: 'var(--color-muted)' }}>{t("{0} collected back", [money(tot.collected, currency)])}</div>
         </div>
         <div className="stat">
-          <div className="stat__label">Customers still owe</div>
+          <div className="stat__label">{t("Customers still owe")}</div>
           <div className="stat__value" style={{ color: 'var(--color-warn)' }}>{money(outstandingCredit, currency)}</div>
-          <div className="text-[12px] mt-1" style={{ color: 'var(--color-muted)' }}>right now, all time</div>
+          <div className="text-[12px] mt-1" style={{ color: 'var(--color-muted)' }}>{t("right now, all time")}</div>
         </div>
       </div>
 
       <div className="flex flex-wrap gap-2 mb-3 no-print">
         {MODES.map((m) => (
           <button key={m.key} className="chip" data-active={g === m.key || undefined} onClick={() => { setG(m.key); setOpen(null); }}>
-            {m.label}
+            {t(m.label)}
           </button>
         ))}
       </div>
 
       <div className="card p-4 mb-4">
         <div className="flex flex-wrap gap-4 text-[12.5px] mb-2" style={{ color: 'var(--color-muted)' }}>
-          <Swatch color="#3b82f6" label="Sales" />
-          <Swatch color="#f59e0b" label="Expenses" />
-          <Swatch color="#22c55e" label="Net profit" />
+          <Swatch color="#3b82f6" label={t("Sales")} />
+          <Swatch color="#f59e0b" label={t("Expenses")} />
+          <Swatch color="#22c55e" label={t("Net profit")} />
         </div>
         <Chart rows={rows} g={g} currency={currency} />
       </div>
@@ -142,13 +147,13 @@ export default function TrendTab({ data }: { data: ProfitData }) {
           <table className="table">
             <thead>
               <tr>
-                <th>{g === 'day' ? 'Day' : g === 'week' ? 'Week' : 'Month'}</th>
-                <th className="text-right">Net sales</th>
-                <th className="text-right">Cost of goods</th>
-                <th className="text-right">Expenses</th>
-                <th className="text-right">Net profit</th>
-                <th className="text-right">Credit given</th>
-                <th className="text-right">Credit collected</th>
+                <th>{g === 'day' ? t("Day") : g === 'week' ? t("Week") : t("Month")}</th>
+                <th className="text-right">{t("Net sales")}</th>
+                <th className="text-right">{t("Cost of goods")}</th>
+                <th className="text-right">{t("Expenses")}</th>
+                <th className="text-right">{t("Net profit")}</th>
+                <th className="text-right">{t("Credit given")}</th>
+                <th className="text-right">{t("Credit collected")}</th>
               </tr>
             </thead>
             <tbody>
@@ -158,7 +163,7 @@ export default function TrendTab({ data }: { data: ProfitData }) {
                 return (
                   <Fragment key={r.key}>
                     <tr onClick={expandable ? () => setOpen(isOpen ? null : r.key) : undefined} style={{ cursor: expandable ? 'pointer' : undefined }}>
-                      <td className="whitespace-nowrap">{expandable ? (isOpen ? '▾ ' : '▸ ') : ''}{labelOf(g, r.key)}</td>
+                      <td className="whitespace-nowrap">{expandable ? (isOpen ? '▾ ' : '▸ ') : ''}{labelOf(g, r.key, t)}</td>
                       <td className="text-right num">{money(r.net, currency)}</td>
                       <td className="text-right num">{money(r.cogs, currency)}</td>
                       <td className="text-right num">{money(r.expenses, currency)}</td>
@@ -183,7 +188,7 @@ export default function TrendTab({ data }: { data: ProfitData }) {
                 );
               })}
               <tr style={{ background: 'var(--color-ink-1)' }}>
-                <td className="text-strong font-semibold">Total</td>
+                <td className="text-strong font-semibold">{t("Total")}</td>
                 <td className="text-right num font-semibold">{money(tot.net, currency)}</td>
                 <td className="text-right num font-semibold">{money(tot.cogs, currency)}</td>
                 <td className="text-right num font-semibold">{money(tot.expenses, currency)}</td>
@@ -196,9 +201,7 @@ export default function TrendTab({ data }: { data: ProfitData }) {
         </div>
       </div>
       <p className="text-[12px] mt-3" style={{ color: 'var(--color-muted)' }}>
-        Net profit = net sales − cost of goods − expenses. The till float is never counted. Credit sits beside
-        profit: “given” is what customers took without paying, “collected” is what they paid back in the period.
-        Click a day, week or month with expenses to see their names.
+        {t("Net profit = net sales − cost of goods − expenses. The till float is never counted. Credit sits beside profit: “given” is what customers took without paying, “collected” is what they paid back in the period. Click a day, week or month with expenses to see their names.")}
       </p>
     </>
   );

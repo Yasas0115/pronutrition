@@ -8,6 +8,7 @@ import {
   saveStore, savePaymentMethods, addPaymentMethod, removePaymentMethod,
   addPromotion, setPromotionActive, removePromotion,
 } from '@/app/settings/actions';
+import { useT } from '@/components/I18nProvider';
 
 const BUILTIN_KEYS = ['CASH', 'CARD', 'KOKO', 'BANK', 'CREDIT'];
 
@@ -36,6 +37,7 @@ export default function SettingsView({
   paymentMethods: PaymentMethod[];
   promotions: Promotion[];
 }) {
+  const t = useT();
   const router = useRouter();
   const [methods, setMethods] = useState<PaymentMethod[]>(paymentMethods);
   // Re-sync with the server list after an add / remove refreshes the page.
@@ -60,7 +62,7 @@ export default function SettingsView({
       if (res.ok) { toast(okMsg); router.refresh(); return true; }
       toast(res.error, true);
     } catch {
-      toast('Something went wrong. Please try again.', true);
+      toast(t("Something went wrong. Please try again."), true);
     } finally {
       setBusy(false);
     }
@@ -72,10 +74,10 @@ export default function SettingsView({
     setSavingMethods(true);
     try {
       const res = await savePaymentMethods(methods);
-      if (res.ok) { toast('Payment methods saved'); router.refresh(); }
+      if (res.ok) { toast(t("Payment methods saved")); router.refresh(); }
       else toast(res.error, true);
     } catch {
-      toast('Could not save payment methods. Please try again.', true);
+      toast(t("Could not save payment methods. Please try again."), true);
     } finally {
       setSavingMethods(false);
     }
@@ -94,13 +96,13 @@ export default function SettingsView({
   async function onLogo(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!file.type.startsWith('image/')) { toast('Choose an image file.', true); return; }
+    if (!file.type.startsWith('image/')) { toast(t("Choose an image file."), true); return; }
     try {
       const dataUrl = await resizeImage(file, 320, 120);
       setLogoUrl(dataUrl);
       setLogoTouched(true);
     } catch {
-      toast('Could not read that image.', true);
+      toast(t("Could not read that image."), true);
     }
   }
 
@@ -111,17 +113,17 @@ export default function SettingsView({
   }
 
   async function save() {
-    if (!name.trim()) { toast('Enter a store name.', true); return; }
+    if (!name.trim()) { toast(t("Enter a store name."), true); return; }
     setSaving(true);
     try {
       const res = await saveStore({
         name, currency, phone, address, receiptNote, taxPercent,
         logoUrl: logoTouched ? logoUrl : undefined,
       });
-      if (res.ok) { toast('Settings saved'); router.refresh(); }
+      if (res.ok) { toast(t("Settings saved")); router.refresh(); }
       else toast(res.error, true);
     } catch {
-      toast('Could not save settings. The logo image may be too large.', true);
+      toast(t("Could not save settings. The logo image may be too large."), true);
     } finally {
       setSaving(false);
     }
@@ -130,90 +132,89 @@ export default function SettingsView({
   return (
     <>
       <div className="mb-5">
-        <h1 className="page-title">Settings</h1>
-        <p className="page-sub">Store identity, receipt details and tax.</p>
+        <h1 className="page-title">{t("Settings")}</h1>
+        <p className="page-sub">{t("Store identity, receipt details and tax.")}</p>
       </div>
 
       <div className="grid lg:grid-cols-2 gap-4">
         {/* Store identity */}
         <div className="card p-5 flex flex-col gap-4">
-          <div className="brand" style={{ fontSize: 17 }}>Store</div>
+          <div className="brand" style={{ fontSize: 17 }}>{t("Store")}</div>
 
           <div>
-            <label className="field-label">Store name</label>
+            <label className="field-label">{t("Store name")}</label>
             <input className="input" value={name} onChange={(e) => setName(e.target.value)} />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="field-label">Currency symbol</label>
-              <input className="input" value={currency} onChange={(e) => setCurrency(e.target.value)} placeholder="Rs" />
+              <label className="field-label">{t("Currency symbol")}</label>
+              <input className="input" value={currency} onChange={(e) => setCurrency(e.target.value)} placeholder={t("Rs")} />
             </div>
             <div>
-              <label className="field-label">Tax / VAT (%)</label>
+              <label className="field-label">{t("Tax / VAT (%)")}</label>
               <input className="input num" inputMode="numeric" value={String(taxPercent)} onChange={(e) => setTaxPercent(parseAmount(e.target.value))} />
             </div>
           </div>
 
           <div>
-            <label className="field-label">Phone</label>
+            <label className="field-label">{t("Phone")}</label>
             <input className="input" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+94 77 123 4567" />
           </div>
 
           <div>
-            <label className="field-label">Address</label>
-            <input className="input" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="No. 12, Galle Road, Colombo 03" />
+            <label className="field-label">{t("Address")}</label>
+            <input className="input" value={address} onChange={(e) => setAddress(e.target.value)} placeholder={t("No. 12, Galle Road, Colombo 03")} />
           </div>
         </div>
 
         {/* Logo + receipt */}
         <div className="card p-5 flex flex-col gap-4">
-          <div className="brand" style={{ fontSize: 17 }}>Branding &amp; receipt</div>
+          <div className="brand" style={{ fontSize: 17 }}>{t("Branding & receipt")}</div>
 
           <div>
-            <label className="field-label">Store logo (shown in the header)</label>
+            <label className="field-label">{t("Store logo (shown in the header)")}</label>
             <div className="flex items-center gap-4 mt-1">
               <div className="flex items-center justify-center gap-2 rounded-lg shrink-0 px-3"
                 style={{ minWidth: 120, height: 56, background: 'var(--color-ink-1)', border: '1px solid var(--color-line-2)' }}>
                 {logoUrl && (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={logoUrl} alt="logo" style={{ maxHeight: 44, maxWidth: 88, objectFit: 'contain' }} />
+                  <img src={logoUrl} alt={t("logo")} style={{ maxHeight: 44, maxWidth: 88, objectFit: 'contain' }} />
                 )}
-                <span className="brand" style={{ fontSize: 15 }}>{name || 'Pro Nutrition'}</span>
+                <span className="brand" style={{ fontSize: 15 }}>{name || t("Pro Nutrition")}</span>
               </div>
               <div className="flex flex-col gap-2">
-                <button className="btn btn-ghost btn-sm" onClick={() => fileRef.current?.click()}>Upload image</button>
-                {logoUrl && <button className="btn btn-danger btn-sm" onClick={removeLogo}>Remove</button>}
+                <button className="btn btn-ghost btn-sm" onClick={() => fileRef.current?.click()}>{t("Upload image")}</button>
+                {logoUrl && <button className="btn btn-danger btn-sm" onClick={removeLogo}>{t("Remove")}</button>}
                 <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={onLogo} />
               </div>
             </div>
           </div>
 
           <div>
-            <label className="field-label">Receipt footer note</label>
-            <textarea className="input" rows={3} value={receiptNote} onChange={(e) => setReceiptNote(e.target.value)} placeholder="Thank you — stay strong!" />
+            <label className="field-label">{t("Receipt footer note")}</label>
+            <textarea className="input" rows={3} value={receiptNote} onChange={(e) => setReceiptNote(e.target.value)} placeholder={t("Thank you — stay strong!")} />
           </div>
         </div>
       </div>
 
       <div className="mt-5 flex justify-end">
         <button className="btn btn-primary" onClick={save} disabled={saving}>
-          {saving ? 'Saving…' : 'Save settings'}
+          {saving ? t("Saving…") : t("Save settings")}
         </button>
       </div>
 
       <div className="grid gap-4 mt-4">
         {/* Payment methods */}
         <div className="card p-5 flex flex-col gap-3">
-          <div className="brand" style={{ fontSize: 17 }}>Payment methods &amp; discounts</div>
+          <div className="brand" style={{ fontSize: 17 }}>{t("Payment methods & discounts")}</div>
           <p className="text-[13px]" style={{ color: 'var(--color-muted)', marginTop: -6 }}>
-            Each method applies its discount automatically at retail checkout (not on wholesale sales).
-            Walk-in customers can pay by Cash or Card only — Koko, Bank transfer and Credit need a registered customer.
+            {t("Each method applies its discount automatically at retail checkout (not on wholesale sales). Walk-in customers can pay by Cash or Card only — Koko, Bank transfer and Credit need a registered customer.")}
           </p>
           {methods.map((m, i) => (
             <div key={m.key} className="grid grid-cols-[1fr_auto_auto] items-end gap-3">
               <div>
-                <label className="field-label">{BUILTIN_KEYS.includes(m.key) ? m.key : 'Custom'}</label>
+                <label className="field-label">{BUILTIN_KEYS.includes(m.key) ? m.key : t("Custom")}</label>
                 <input
                   className="input"
                   value={m.label}
@@ -221,7 +222,7 @@ export default function SettingsView({
                 />
               </div>
               <div style={{ width: 110 }}>
-                <label className="field-label">Discount %</label>
+                <label className="field-label">{t("Discount %")}</label>
                 <input
                   className="input num"
                   inputMode="numeric"
@@ -236,38 +237,38 @@ export default function SettingsView({
                   className="btn btn-danger btn-sm"
                   disabled={busy}
                   onClick={() => {
-                    if (confirm(`Remove the "${m.label}" payment method? It will no longer appear at the till.`)) {
+                    if (confirm(t("Remove the \"{0}\" payment method? It will no longer appear at the till.", [m.label]))) {
                       run(() => removePaymentMethod(m.key), 'Payment method removed');
                     }
                   }}
                 >
-                  Remove
+                  {t("Remove")}
                 </button>
               )}
             </div>
           ))}
           <div className="flex justify-end mt-1">
             <button className="btn btn-primary btn-sm" onClick={savePayments} disabled={savingMethods}>
-              {savingMethods ? 'Saving…' : 'Save payment methods'}
+              {savingMethods ? t("Saving…") : t("Save payment methods")}
             </button>
           </div>
 
           {/* Add a payment method */}
           <div className="pt-3 mt-1 flex flex-col gap-3" style={{ borderTop: '1px solid var(--color-line-2)' }}>
-            <div className="field-label">Add a payment method</div>
+            <div className="field-label">{t("Add a payment method")}</div>
             <div className="grid grid-cols-[1fr_auto] items-end gap-3">
               <div>
-                <label className="field-label">Name</label>
-                <input className="input" value={newLabel} placeholder="e.g. Gift voucher" onChange={(e) => setNewLabel(e.target.value)} />
+                <label className="field-label">{t("Name")}</label>
+                <input className="input" value={newLabel} placeholder={t("e.g. Gift voucher")} onChange={(e) => setNewLabel(e.target.value)} />
               </div>
               <div style={{ width: 110 }}>
-                <label className="field-label">Discount %</label>
+                <label className="field-label">{t("Discount %")}</label>
                 <input className="input num" inputMode="numeric" value={String(newPct)} onChange={(e) => setNewPct(parseAmount(e.target.value))} />
               </div>
             </div>
             <label className="flex items-center gap-2 text-[13px]">
               <input type="checkbox" checked={newNeedsCustomer} onChange={(e) => setNewNeedsCustomer(e.target.checked)} />
-              Needs a registered customer (walk-ins can&apos;t use it)
+              {t("Needs a registered customer (walk-ins can't use it)")}
             </label>
             <div className="flex justify-end">
               <button
@@ -281,7 +282,7 @@ export default function SettingsView({
                   if (ok) { setNewLabel(''); setNewPct(0); setNewNeedsCustomer(false); }
                 }}
               >
-                + Add payment method
+                {t("+ Add payment method")}
               </button>
             </div>
           </div>
@@ -289,24 +290,22 @@ export default function SettingsView({
 
         {/* Seasonal discounts */}
         <div className="card p-5 flex flex-col gap-3">
-          <div className="brand" style={{ fontSize: 17 }}>Seasonal discounts</div>
+          <div className="brand" style={{ fontSize: 17 }}>{t("Seasonal discounts")}</div>
           <p className="text-[13px]" style={{ color: 'var(--color-muted)', marginTop: -6 }}>
-            A seasonal discount is applied automatically at the till on every retail sale while it is switched on and
-            today is inside its dates. It adds to the payment-method discount (e.g. Cash 10% + Avurudu 5% = 15% off).
-            Not applied to wholesale sales.
+            {t("A seasonal discount is applied automatically at the till on every retail sale while it is switched on and today is inside its dates. It adds to the payment-method discount (e.g. Cash 10% + Avurudu 5% = 15% off). Not applied to wholesale sales.")}
           </p>
           {promotions.length === 0 && (
-            <p className="text-[13px]" style={{ color: 'var(--color-muted)' }}>No seasonal discounts yet.</p>
+            <p className="text-[13px]" style={{ color: 'var(--color-muted)' }}>{t("No seasonal discounts yet.")}</p>
           )}
           {promotions.map((p) => {
             const window = p.startsOn || p.endsOn
-              ? `${p.startsOn ?? 'now'} → ${p.endsOn ?? 'until switched off'}`
-              : 'No dates — runs until switched off';
+              ? `${p.startsOn ?? t('now')} → ${p.endsOn ?? t('until switched off')}`
+              : t('No dates — runs until switched off');
             return (
               <div key={p.id} className="flex items-center gap-3 flex-wrap rounded-lg px-3 py-2"
                 style={{ background: 'var(--color-ink-1)', border: '1px solid var(--color-line-2)', opacity: p.active ? 1 : 0.6 }}>
                 <div className="flex-1" style={{ minWidth: 160 }}>
-                  <div style={{ fontWeight: 600 }}>{p.name} — {p.percent}% off</div>
+                  <div style={{ fontWeight: 600 }}>{t("{0} — {1}% off", [p.name, p.percent])}</div>
                   <div className="text-[12px]" style={{ color: 'var(--color-muted)' }}>{window}</div>
                 </div>
                 <button
@@ -314,40 +313,40 @@ export default function SettingsView({
                   disabled={busy}
                   onClick={() => run(() => setPromotionActive(p.id, !p.active), p.active ? 'Switched off' : 'Switched on')}
                 >
-                  {p.active ? 'Switch off' : 'Switch on'}
+                  {p.active ? t("Switch off") : t("Switch on")}
                 </button>
                 <button
                   className="btn btn-danger btn-sm"
                   disabled={busy}
                   onClick={() => {
-                    if (confirm(`Remove the "${p.name}" seasonal discount?`)) run(() => removePromotion(p.id), 'Seasonal discount removed');
+                    if (confirm(t("Remove the \"{0}\" seasonal discount?", [p.name]))) run(() => removePromotion(p.id), 'Seasonal discount removed');
                   }}
                 >
-                  Remove
+                  {t("Remove")}
                 </button>
               </div>
             );
           })}
 
           <div className="pt-3 mt-1 flex flex-col gap-3" style={{ borderTop: '1px solid var(--color-line-2)' }}>
-            <div className="field-label">Add a seasonal discount</div>
+            <div className="field-label">{t("Add a seasonal discount")}</div>
             <div className="grid grid-cols-[1fr_auto] items-end gap-3">
               <div>
-                <label className="field-label">Name</label>
-                <input className="input" value={pName} placeholder="e.g. Avurudu sale" onChange={(e) => setPName(e.target.value)} />
+                <label className="field-label">{t("Name")}</label>
+                <input className="input" value={pName} placeholder={t("e.g. Avurudu sale")} onChange={(e) => setPName(e.target.value)} />
               </div>
               <div style={{ width: 110 }}>
-                <label className="field-label">Discount %</label>
+                <label className="field-label">{t("Discount %")}</label>
                 <input className="input num" inputMode="numeric" value={String(pPct)} onChange={(e) => setPPct(parseAmount(e.target.value))} />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="field-label">From (optional)</label>
+                <label className="field-label">{t("From (optional)")}</label>
                 <input className="input" type="date" value={pFrom} onChange={(e) => setPFrom(e.target.value)} />
               </div>
               <div>
-                <label className="field-label">To (optional)</label>
+                <label className="field-label">{t("To (optional)")}</label>
                 <input className="input" type="date" value={pTo} onChange={(e) => setPTo(e.target.value)} />
               </div>
             </div>
@@ -363,7 +362,7 @@ export default function SettingsView({
                   if (ok) { setPName(''); setPPct(0); setPFrom(''); setPTo(''); }
                 }}
               >
-                + Add seasonal discount
+                {t("+ Add seasonal discount")}
               </button>
             </div>
           </div>

@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { toast } from './toast';
+import { useT } from '@/components/I18nProvider';
 
 export type NameListItem = {
   id: string;
@@ -37,6 +38,7 @@ export default function NameListManager({
   onRename?: (id: string, name: string) => Promise<ListResult>;
   onChanged: () => void;
 }) {
+  const t = useT();
   const [name, setName] = useState('');
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
@@ -58,7 +60,7 @@ export default function NameListManager({
 
   function add() {
     const n = name.trim();
-    if (!n) { toast('Enter a name.', true); return; }
+    if (!n) { toast(t("Enter a name."), true); return; }
     run(() => onAdd(n), () => setName(''));
   }
 
@@ -83,11 +85,11 @@ export default function NameListManager({
           onKeyDown={(e) => { if (e.key === 'Enter') add(); }}
           maxLength={maxLength}
         />
-        <button className="btn btn-primary shrink-0" onClick={add} disabled={pending}>+ Add</button>
+        <button className="btn btn-primary shrink-0" onClick={add} disabled={pending}>{t("+ Add")}</button>
       </div>
 
       {items.length === 0 ? (
-        <p className="text-center text-[14px]" style={{ color: 'var(--color-faint)', padding: '20px' }}>{emptyText}</p>
+        <p className="text-center text-[14px]" style={{ color: 'var(--color-faint)', padding: '20px' }}>{t(emptyText)}</p>
       ) : (
         <ul className="flex flex-col gap-2">
           {items.map((c) => (
@@ -114,7 +116,7 @@ export default function NameListManager({
                 <button
                   className="text-left flex-1 min-w-0"
                   onClick={() => { setEditId(c.id); setEditName(c.name); }}
-                  title="Click to rename"
+                  title={t("Click to rename")}
                 >
                   <span className="text-strong font-semibold text-[15px]">{c.name}</span>
                 </button>
@@ -129,10 +131,10 @@ export default function NameListManager({
               {confirmId === c.id ? (
                 <div className="flex items-center gap-1.5 shrink-0">
                   <button className="btn btn-danger btn-sm" onClick={() => remove(c.id)} disabled={pending}>
-                    {c.confirmLabel ?? 'Confirm'}
+                    {c.confirmLabel ?? t("Confirm")}
                   </button>
                   <button className="btn btn-ghost btn-sm" onClick={() => setConfirmId(null)} disabled={pending}>
-                    Cancel
+                    {t("Cancel")}
                   </button>
                 </div>
               ) : (
@@ -140,8 +142,8 @@ export default function NameListManager({
                   className="qtybtn shrink-0"
                   onClick={() => (c.confirmLabel ? setConfirmId(c.id) : remove(c.id))}
                   disabled={pending}
-                  aria-label={`Remove ${c.name}`}
-                  title="Remove"
+                  aria-label={t("Remove {0}", [c.name])}
+                  title={t("Remove")}
                 >
                   ×
                 </button>

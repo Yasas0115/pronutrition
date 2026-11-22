@@ -1,6 +1,7 @@
 'use client';
 
 import { todayStr, startOfMonth, monthKey, monthRange } from '@/lib/dates';
+import { useT } from '@/components/I18nProvider';
 
 // From / To dates plus the usual presets, for the pages that report over a
 // period. It only reports changes; the page decides how to apply them.
@@ -13,6 +14,7 @@ export default function RangeBar({
   toStr: string;
   onChange: (next: { from?: string; to?: string }) => void;
 }) {
+  const t = useT();
   const today = todayStr();
   const monthStart = todayStr(startOfMonth());
   const prev = (() => {
@@ -32,11 +34,11 @@ export default function RangeBar({
   return (
     <div className="card p-3 mb-5 flex flex-wrap items-end gap-3 no-print">
       <div>
-        <label className="field-label">From</label>
+        <label className="field-label">{t("From")}</label>
         <input className="input" type="date" value={fromStr} max={toStr} onChange={(e) => e.target.value && onChange({ from: e.target.value })} />
       </div>
       <div>
-        <label className="field-label">To</label>
+        <label className="field-label">{t("To")}</label>
         <input className="input" type="date" value={toStr} min={fromStr} max={today} onChange={(e) => e.target.value && onChange({ to: e.target.value })} />
       </div>
       <div className="flex flex-wrap gap-2">
@@ -47,7 +49,7 @@ export default function RangeBar({
             data-active={(p.from === fromStr && p.to === toStr) || undefined}
             onClick={() => onChange({ from: p.from, to: p.to })}
           >
-            {p.label}
+            {t(p.label)}
           </button>
         ))}
       </div>

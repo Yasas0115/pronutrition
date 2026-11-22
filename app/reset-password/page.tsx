@@ -2,6 +2,7 @@ import Link from 'next/link';
 import AuthShell from '@/components/AuthShell';
 import { checkResetToken, TOKEN_PROBLEM, MIN_NEW_PASSWORD } from '@/lib/password-reset';
 import ResetForm from './reset-form';
+import { getT } from '@/lib/i18n/server';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,6 +14,7 @@ export default async function ResetPasswordPage({
 }: {
   searchParams: Promise<{ token?: string }>;
 }) {
+  const t = await getT();
   const { token } = await searchParams;
   const check = await checkResetToken(token);
 
@@ -26,7 +28,7 @@ export default async function ResetPasswordPage({
           </span>
         </div>
         <span className="auth-card__rule" />
-        <div className="auth-card__label">Set a new password</div>
+        <div className="auth-card__label">{t("Set a new password")}</div>
         <div className="auth-card__body">
           {check.ok ? (
             <ResetForm token={token as string} email={check.email} minLength={MIN_NEW_PASSWORD} />
@@ -38,12 +40,12 @@ export default async function ResetPasswordPage({
               >
                 {TOKEN_PROBLEM[check.reason]}
               </div>
-              <Link href="/forgot-password" className="btn btn-primary btn-block">Get a new link</Link>
+              <Link href="/forgot-password" className="btn btn-primary btn-block">{t("Get a new link")}</Link>
             </div>
           )}
         </div>
         <div className="auth-card__foot">
-          <Link href="/login" className="accent">Back to sign in</Link>
+          <Link href="/login" className="accent">{t("Back to sign in")}</Link>
         </div>
       </div>
     </AuthShell>

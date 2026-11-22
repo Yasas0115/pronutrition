@@ -9,6 +9,7 @@ import ReceiptModal from './ReceiptModal';
 import { checkoutAction, type Receipt } from '@/app/actions';
 import { saveCustomer, getTillAccount, type TillAccount } from '@/app/customers/actions';
 import { fmtDate, todayStr } from '@/lib/dates';
+import { useT } from '@/components/I18nProvider';
 
 type Product = {
   id: string;
@@ -79,6 +80,7 @@ export default function POSView({
   cashierName: string;
   canBackdate: boolean; // owner / accountant may set an earlier invoice date
 }) {
+  const t = useT();
   const router = useRouter();
   const [query, setQuery] = useState('');
   const [cat, setCat] = useState<string>('All');
@@ -221,11 +223,11 @@ export default function POSView({
 
   function add(p: Product) {
     if (stockOf(p) <= 0) {
-      toast(`${p.name} is out of stock.`, true);
+      toast(t("{0} is out of stock.", [p.name]), true);
       return;
     }
     if (unitPrice(p) <= 0) {
-      toast(`${p.name} has no price set. Set a retail price first.`, true);
+      toast(t("{0} has no price set. Set a retail price first.", [p.name]), true);
       return;
     }
     setCart((prev) => {
@@ -283,7 +285,7 @@ export default function POSView({
 
   function chooseMethod(m: PaymentMethod) {
     if (m.requiresCustomer && !customer && !wholesale) {
-      toast(`${m.label} needs a registered customer — pick one first.`, true);
+      toast(t("{0} needs a registered customer — pick one first.", [m.label]), true);
       return;
     }
     setSplit(false);
@@ -295,7 +297,7 @@ export default function POSView({
 
   function chooseSplit() {
     if (wholesale) {
-      toast('Split payment is for retail sales.', true);
+      toast(t("Split payment is for retail sales."), true);
       return;
     }
     setSplit(true);
@@ -364,24 +366,24 @@ export default function POSView({
     if (blockedNoCustomer) {
       toast(
         wholesale
-          ? 'Pick the customer (shop) for a wholesale sale.'
+          ? t("Pick the customer (shop) for a wholesale sale.")
           : splitCredit
-            ? 'Credit needs a registered customer — pick one first.'
-            : `${selectedMethod?.label ?? 'This method'} needs a registered customer.`,
+            ? t("Credit needs a registered customer — pick one first.")
+            : t("{0} needs a registered customer.", [selectedMethod?.label ?? 'This method']),
         true,
       );
       return;
     }
     if (splitBad) {
-      toast('Enter a first-part amount that is less than the total.', true);
+      toast(t("Enter a first-part amount that is less than the total."), true);
       return;
     }
     if (isCash && paid < total) {
-      toast('Cash received is less than the total.', true);
+      toast(t("Cash received is less than the total."), true);
       return;
     }
     if (creditOver) {
-      toast('The paid-now amount cannot be more than the total.', true);
+      toast(t("The paid-now amount cannot be more than the total."), true);
       return;
     }
     // A credit sale for someone who already owes: show what they owe and what
@@ -414,7 +416,7 @@ export default function POSView({
       setMobileCartOpen(false);
       clearCart();
       router.refresh(); // pull fresh stock counts + customer balances
-      toast(`Sale #${res.receipt.number} completed`);
+      toast(t("Sale #{0} completed", [res.receipt.number]));
     } else {
       toast(res.error, true);
       router.refresh();
@@ -425,9 +427,9 @@ export default function POSView({
 
   const chargeLabel = isCredit
     ? paid > 0
-      ? `Charge ${money(total, currency)} · ${money(paid, currency)} now`
-      : `Credit sale ${money(total, currency)}`
-    : `Charge ${money(total, currency)}`;
+      ? t("Charge {0} · {1} now", [money(total, currency), money(paid, currency)])
+      : t("Credit sale {0}", [money(total, currency)])
+    : t("Charge {0}", [money(total, currency)]);
 
   const chargeButton = (
     <button
@@ -436,7 +438,7 @@ export default function POSView({
       disabled={lines.length === 0 || processing || blockedNoCustomer || creditOver || splitBad || (isCash && paid < total)}
       onClick={() => checkout()}
     >
-      {processing ? 'Processing…' : chargeLabel}
+      {processing ? t("Processing…") : chargeLabel}
     </button>
   );
 
@@ -453,17 +455,17 @@ export default function POSView({
     >
       <div className="flex items-center justify-between px-4 py-3.5" style={{ borderBottom: '1px solid var(--color-line)', flexShrink: 0 }}>
         {panel ? (
-          <div className="brand" style={{ fontSize: 18 }}>Cart</div>
+          <div className="brand" style={{ fontSize: 18 }}>{t("Cart")}</div>
         ) : (
-          <span className="text-[13px]" style={{ color: 'var(--color-muted)' }}>{count} item{count === 1 ? '' : 's'}</span>
+          <span className="text-[13px]" style={{ color: 'var(--color-muted)' }}>{t(count === 1 ? "{0} item" : "{0} items", [count])}</span>
         )}
         <div className="flex items-center gap-3">
           {panel && (
-            <span className="text-[13px]" style={{ color: 'var(--color-muted)' }}>{count} item{count === 1 ? '' : 's'}</span>
+            <span className="text-[13px]" style={{ color: 'var(--color-muted)' }}>{t(count === 1 ? "{0} item" : "{0} items", [count])}</span>
           )}
           {lines.length > 0 && (
             <button className="text-[12px] uppercase tracking-wider" style={{ color: 'var(--color-brand)' }} onClick={clearCart}>
-              Clear
+              {t("Clear")}
             </button>
           )}
         </div>
@@ -471,8 +473,8 @@ export default function POSView({
 
       {/* Retail / Wholesale */}
       <div className="px-4 pt-3 flex gap-2" style={{ flexShrink: 0 }}>
-        <button className="chip" data-active={!wholesale || undefined} onClick={() => changeSaleType('RETAIL')}>Retail</button>
-        <button className="chip" data-active={wholesale || undefined} onClick={() => changeSaleType('WHOLESALE')}>Wholesale (shop)</button>
+        <button className="chip" data-active={!wholesale || undefined} onClick={() => changeSaleType('RETAIL')}>{t("Retail")}</button>
+        <button className="chip" data-active={wholesale || undefined} onClick={() => changeSaleType('WHOLESALE')}>{t("Wholesale (shop)")}</button>
       </div>
 
       <div
@@ -481,7 +483,7 @@ export default function POSView({
       >
         {lines.length === 0 ? (
           <div className="px-4 py-10 text-center text-[13.5px]" style={{ color: 'var(--color-faint)' }}>
-            Press “Add” on a product to add it to the cart.
+            {t("Press “Add” on a product to add it to the cart.")}
           </div>
         ) : (
           lines.map((l) => {
@@ -495,24 +497,24 @@ export default function POSView({
                       <input
                         className="input num"
                         inputMode="numeric"
-                        aria-label={`Price for ${l.product.name}`}
+                        aria-label={t("Price for {0}", [l.product.name])}
                         style={{ height: 30, width: 92, padding: '0 8px', fontSize: 13 }}
                         value={String(unit)}
                         onFocus={(e) => e.target.select()}
                         onChange={(e) => setOverride(l.product.id, parseAmount(e.target.value))}
                       />
-                      <span>each{unit !== l.product.price && ` (list ${fmt(l.product.price)})`}</span>
+                      <span>{t("each")}{unit !== l.product.price && t(" (list {0})", [fmt(l.product.price)])}</span>
                     </div>
                   ) : (
-                    <div className="cart__meta">{money(unit, currency)} each</div>
+                    <div className="cart__meta">{t("{0} each", [money(unit, currency)])}</div>
                   )}
                 </div>
                 <div className="flex flex-col items-end gap-1.5">
                   <div className="num text-strong font-semibold">{money(unit * l.qty, currency)}</div>
                   <div className="flex items-center gap-1.5">
-                    <button className="qtybtn" onClick={() => setQty(l.product.id, l.qty - 1)} aria-label="Decrease">−</button>
+                    <button className="qtybtn" onClick={() => setQty(l.product.id, l.qty - 1)} aria-label={t("Decrease")}>−</button>
                     <span className="num w-7 text-center text-[14px] text-strong">{l.qty}</span>
-                    <button className="qtybtn" onClick={() => setQty(l.product.id, l.qty + 1)} aria-label="Increase" disabled={l.qty >= l.product.stock}>+</button>
+                    <button className="qtybtn" onClick={() => setQty(l.product.id, l.qty + 1)} aria-label={t("Increase")} disabled={l.qty >= l.product.stock}>+</button>
                   </div>
                 </div>
               </div>
@@ -526,7 +528,7 @@ export default function POSView({
             Koko / Bank transfer / Credit and for every wholesale sale. */}
         <div>
           <label className="field-label">
-            Customer {needsCustomer && <span style={{ color: 'var(--color-brand)' }}>· required</span>}
+            {t("Customer")}{' '}{needsCustomer && <span style={{ color: 'var(--color-brand)' }}>{t("· required")}</span>}
           </label>
           {customer ? (
             <div
@@ -536,18 +538,18 @@ export default function POSView({
               <div className="min-w-0">
                 <div className="text-strong font-semibold text-[13.5px] truncate">{customer.name}</div>
                 <div className="text-[12px]" style={{ color: 'var(--color-muted)' }}>
-                  {[customer.type === 'SHOP' ? 'Shop' : 'Customer', customer.phone].filter(Boolean).join(' · ')}
+                  {[customer.type === 'SHOP' ? t('Shop') : t('Customer'), customer.phone].filter(Boolean).join(' · ')}
                   {customer.due > 0 && (
-                    <span style={{ color: 'var(--color-warn)' }}> · owes {money(customer.due, currency)}</span>
+                    <span style={{ color: 'var(--color-warn)' }}>{' '}{t("· owes {0}", [money(customer.due, currency)])}</span>
                   )}
                 </div>
               </div>
               <div className="flex items-center gap-3 shrink-0">
                 <button className="text-[12px] uppercase tracking-wider" style={{ color: 'var(--color-muted)' }} onClick={showAccount}>
-                  Balance
+                  {t("Balance")}
                 </button>
                 <button className="text-[12px] uppercase tracking-wider" style={{ color: 'var(--color-brand)' }} onClick={() => chooseCustomer(null)}>
-                  Change
+                  {t("Change")}
                 </button>
               </div>
             </div>
@@ -556,7 +558,7 @@ export default function POSView({
               <input
                 className="input"
                 value={custQuery}
-                placeholder={needsCustomer ? 'Search name / phone to pick…' : 'Walk-in — search to pick a customer'}
+                placeholder={needsCustomer ? t("Search name / phone to pick…") : t("Walk-in — search to pick a customer")}
                 onChange={(e) => { setCustQuery(e.target.value); setCustOpen(true); }}
                 onFocus={() => setCustOpen(true)}
               />
@@ -574,7 +576,7 @@ export default function POSView({
                     style={{ boxShadow: 'var(--shadow-pop)', maxHeight: 260, overflowY: 'auto' }}
                   >
                     {custMatches.length === 0 ? (
-                      <div className="px-3 py-2 text-[13px]" style={{ color: 'var(--color-faint)' }}>No customer matches.</div>
+                      <div className="px-3 py-2 text-[13px]" style={{ color: 'var(--color-faint)' }}>{t("No customer matches.")}</div>
                     ) : (
                       custMatches.map((c) => (
                         <button key={c.id} type="button" className="menu-item" onClick={() => chooseCustomer(c.id)}>
@@ -582,7 +584,7 @@ export default function POSView({
                             <span className="block text-strong truncate">{c.name}</span>
                             <span className="block text-[11.5px]" style={{ color: 'var(--color-muted)' }}>
                               {[c.type === 'SHOP' ? 'Shop' : null, c.phone].filter(Boolean).join(' · ') || '—'}
-                              {c.due > 0 && ` · owes ${money(c.due, currency)}`}
+                              {c.due > 0 && t(" · owes {0}", [money(c.due, currency)])}
                             </span>
                           </span>
                         </button>
@@ -594,7 +596,7 @@ export default function POSView({
                       style={{ color: 'var(--color-brand)' }}
                       onClick={() => { setCustOpen(false); setNewCustomerOpen(true); }}
                     >
-                      + New customer
+                      {t("+ New customer")}
                     </button>
                   </div>
                 </>
@@ -604,7 +606,7 @@ export default function POSView({
         </div>
 
         <div>
-          <label className="field-label">Discount ({currency})</label>
+          <label className="field-label">{t("Discount ({0})", [currency])}</label>
           <input
             className="input"
             inputMode="numeric"
@@ -616,10 +618,10 @@ export default function POSView({
 
         {/* Summary */}
         <div className="flex flex-col gap-1.5 pt-1">
-          <div className="summary-row"><span>Subtotal</span><span className="num">{money(subtotal, currency)}</span></div>
+          <div className="summary-row"><span>{t("Subtotal")}</span><span className="num">{money(subtotal, currency)}</span></div>
           {methodDiscount > 0 && (
             <div className="summary-row" style={{ color: 'var(--color-brand)' }}>
-              <span>{selectedMethod?.label ?? method} discount ({methodPercent}%)</span>
+              <span>{t("{0} discount ({1}%)", [selectedMethod?.label ?? method, methodPercent])}</span>
               <span className="num">− {money(methodDiscount, currency)}</span>
             </div>
           )}
@@ -630,17 +632,17 @@ export default function POSView({
             </div>
           )}
           {manualDiscount > 0 && (
-            <div className="summary-row" style={{ color: 'var(--color-brand)' }}><span>Extra discount</span><span className="num">− {money(manualDiscount, currency)}</span></div>
+            <div className="summary-row" style={{ color: 'var(--color-brand)' }}><span>{t("Extra discount")}</span><span className="num">− {money(manualDiscount, currency)}</span></div>
           )}
           {tax > 0 && (
-            <div className="summary-row"><span>Tax ({taxPercent}%)</span><span className="num">{money(tax, currency)}</span></div>
+            <div className="summary-row"><span>{t("Tax ({0}%)", [taxPercent])}</span><span className="num">{money(tax, currency)}</span></div>
           )}
-          <div className="summary-row total pt-1"><span>Total</span><span className="num amt">{money(total, currency)}</span></div>
+          <div className="summary-row total pt-1"><span>{t("Total")}</span><span className="num amt">{money(total, currency)}</span></div>
         </div>
 
         {canBackdate && (
           <div>
-            <label className="field-label">Invoice date</label>
+            <label className="field-label">{t("Invoice date")}</label>
             <div className="flex gap-2">
               <input
                 type="date"
@@ -650,12 +652,12 @@ export default function POSView({
                 onChange={(e) => setSaleDate(e.target.value === todayStr() ? '' : e.target.value)}
               />
               {saleDate && (
-                <button type="button" className="btn btn-ghost btn-sm" onClick={() => setSaleDate('')}>Today</button>
+                <button type="button" className="btn btn-ghost btn-sm" onClick={() => setSaleDate('')}>{t("Today")}</button>
               )}
             </div>
             {saleDate && (
               <p className="text-[12px] mt-1.5" style={{ color: 'var(--color-warn)' }}>
-                Back-dated: this sale will count in profit and reports on {fmtDate(saleDate + 'T12:00:00+05:30')}.
+                {t("Back-dated: this sale will count in profit and reports on {0}.", [fmtDate(saleDate + 'T12:00:00+05:30')])}
               </p>
             )}
           </div>
@@ -663,7 +665,7 @@ export default function POSView({
 
         {/* Payment method */}
         <div>
-          <label className="field-label">Payment method</label>
+          <label className="field-label">{t("Payment method")}</label>
           <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${Math.min(paymentMethods.length, 3)}, 1fr)` }}>
             {paymentMethods.map((m) => {
               // A walk-in can't pick a method that needs a registered customer.
@@ -675,7 +677,7 @@ export default function POSView({
                   className="btn"
                   onClick={() => chooseMethod(m)}
                   aria-disabled={locked || undefined}
-                  title={locked ? 'Pick a registered customer first' : undefined}
+                  title={locked ? t("Pick a registered customer first") : undefined}
                   style={{
                     flexDirection: 'column',
                     height: 'auto',
@@ -686,15 +688,15 @@ export default function POSView({
                       : { background: 'var(--color-ink-1)', color: 'var(--color-ash)', borderColor: 'var(--color-line-2)' }),
                   }}
                 >
-                  <span>{m.label}</span>
+                  <span>{t(m.label)}</span>
                   <span style={{ fontSize: 10, opacity: 0.8 }}>
                     {locked
-                      ? 'needs customer'
+                      ? t("needs customer")
                       : wholesale
-                        ? 'no auto disc.'
+                        ? t("no auto disc.")
                         : m.discountPercent > 0
-                          ? `${m.discountPercent}% off`
-                          : 'no disc.'}
+                          ? t("{0}% off", [m.discountPercent])
+                          : t("no disc.")}
                   </span>
                 </button>
               );
@@ -710,23 +712,23 @@ export default function POSView({
                   : { background: 'var(--color-ink-1)', color: 'var(--color-ash)', borderColor: 'var(--color-line-2)' }
               }
             >
-              Split payment (cash / card / bank + credit) · no method discount
+              {t("Split payment (cash / card / bank + credit) · no method discount")}
             </button>
           )}
           {blockedNoCustomer && (
             <p className="text-[12px] mt-1.5" style={{ color: 'var(--color-warn)' }}>
               {wholesale
-                ? 'Wholesale sales need a registered customer — pick the shop above.'
+                ? t("Wholesale sales need a registered customer — pick the shop above.")
                 : splitCredit
-                  ? 'Credit needs a registered customer — pick one above.'
-                  : `${selectedMethod?.label ?? 'This method'} needs a registered customer — pick one above.`}
+                  ? t("Credit needs a registered customer — pick one above.")
+                  : t("{0} needs a registered customer — pick one above.", [selectedMethod?.label ?? 'This method'])}
             </p>
           )}
         </div>
 
         {isCash && (
           <div className="flex flex-col gap-2">
-            <label className="field-label">Cash received</label>
+            <label className="field-label">{t("Cash received")}</label>
             <input
               className="input num"
               inputMode="numeric"
@@ -737,13 +739,13 @@ export default function POSView({
             <div className="grid grid-cols-4 gap-2">
               {quickCash.map((v, i) => (
                 <button key={i} className="btn btn-ghost btn-sm" onClick={() => setPaid(v)}>
-                  {i === 0 ? 'Exact' : fmt(v)}
+                  {i === 0 ? t("Exact") : fmt(v)}
                 </button>
               ))}
             </div>
             <div className="summary-row pt-1">
               <span style={{ color: shortfall > 0 ? 'var(--color-brand)' : 'var(--color-ok)' }}>
-                {shortfall > 0 ? 'Shortfall' : 'Change'}
+                {shortfall > 0 ? t("Shortfall") : t("Change")}
               </span>
               <span className="num" style={{ color: shortfall > 0 ? 'var(--color-brand)' : 'var(--color-ok)' }}>
                 {money(shortfall > 0 ? shortfall : change, currency)}
@@ -754,7 +756,7 @@ export default function POSView({
 
         {split && (
           <div className="flex flex-col gap-2">
-            <label className="field-label">Paid first by</label>
+            <label className="field-label">{t("Paid first by")}</label>
             <div className="grid grid-cols-3 gap-2">
               {splitFirsts.map((v) => (
                 <button
@@ -767,12 +769,12 @@ export default function POSView({
                       : { background: 'var(--color-ink-1)', color: 'var(--color-ash)', borderColor: 'var(--color-line-2)' }
                   }
                 >
-                  {v.label}
+                  {t(v.label)}
                 </button>
               ))}
             </div>
             <label className="field-label">
-              {splitFirsts.find((v) => v.key === splitFirst)?.label} amount ({currency}) — the rest is paid by
+              {splitFirsts.find((v) => v.key === splitFirst)?.label}{' '}{t("amount ({0}) — the rest is paid by", [currency])}
             </label>
             <input
               className="input num"
@@ -793,13 +795,13 @@ export default function POSView({
                       : { background: 'var(--color-ink-1)', color: 'var(--color-ash)', borderColor: 'var(--color-line-2)' }
                   }
                 >
-                  {v.label}
+                  {t(v.label)}
                 </button>
               ))}
             </div>
             <div className="summary-row pt-1">
               <span style={{ color: splitBad ? 'var(--color-brand)' : 'var(--color-ok)' }}>
-                {splitCash >= total && total > 0 ? 'Amount must be less than the total' : `${splitOthers.find((v) => v.key === splitSecond)?.label ?? 'Other'} part`}
+                {splitCash >= total && total > 0 ? t("Amount must be less than the total") : t("{0} part", [t(splitOthers.find((v) => v.key === splitSecond)?.label ?? 'Other')])}
               </span>
               <span className="num" style={{ color: splitBad ? 'var(--color-brand)' : 'var(--color-ok)' }}>
                 {money(splitOther, currency)}
@@ -810,7 +812,7 @@ export default function POSView({
 
         {isCredit && (
           <div className="flex flex-col gap-2">
-            <label className="field-label">Paid now ({currency}) — leave empty for nothing</label>
+            <label className="field-label">{t("Paid now ({0}) — leave empty for nothing", [currency])}</label>
             <input
               className="input num"
               inputMode="numeric"
@@ -831,14 +833,14 @@ export default function POSView({
                         : { background: 'var(--color-ink-1)', color: 'var(--color-ash)', borderColor: 'var(--color-line-2)' }
                     }
                   >
-                    {v.label}
+                    {t(v.label)}
                   </button>
                 ))}
               </div>
             )}
             <div className="summary-row pt-1">
               <span style={{ color: creditOver ? 'var(--color-brand)' : 'var(--color-warn)' }}>
-                {creditOver ? 'More than the total' : `Balance ${customer ? `owed by ${customer.name}` : 'to pay later'}`}
+                {creditOver ? t("More than the total") : t("Balance {0}", [customer ? `owed by ${customer.name}` : 'to pay later'])}
               </span>
               <span className="num" style={{ color: creditOver ? 'var(--color-brand)' : 'var(--color-warn)' }}>
                 {money(creditOver ? paid - total : balanceLater, currency)}
@@ -846,7 +848,7 @@ export default function POSView({
             </div>
             {customer && customer.due > 0 && (
               <p className="text-[12px]" style={{ color: 'var(--color-muted)' }}>
-                {customer.name} already owes {money(customer.due, currency)} — total would be{' '}
+                {t("{0} already owes {1} — total would be", [customer.name, money(customer.due, currency)])}
                 <b style={{ color: 'var(--color-strong)' }}>{money(customer.due + balanceLater, currency)}</b>.
               </p>
             )}
@@ -863,8 +865,8 @@ export default function POSView({
     <>
       <div className="flex items-end justify-between gap-4 mb-5">
         <div>
-          <h1 className="page-title">Point of Sale</h1>
-          <p className="page-sub">Selling at <b style={{ color: 'var(--color-strong)' }}>{branchName}</b> · press <b style={{ color: 'var(--color-strong)' }}>Add</b> on a product to build the cart.</p>
+          <h1 className="page-title">{t("Point of Sale")}</h1>
+          <p className="page-sub">{t("Selling at")}{' '}<b style={{ color: 'var(--color-strong)' }}>{branchName}</b>{' '}{t("· press")}{' '}<b style={{ color: 'var(--color-strong)' }}>{t("Add")}</b>{' '}{t("on a product to build the cart.")}</p>
         </div>
       </div>
 
@@ -880,7 +882,7 @@ export default function POSView({
                 ref={searchRef}
                 className="input"
                 style={{ paddingLeft: '2.75rem' }}
-                placeholder="Search or scan barcode…  (Enter to add)"
+                placeholder={t("Search or scan barcode…  (Enter to add)")}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={onSearchKey}
@@ -889,7 +891,7 @@ export default function POSView({
             <div
               ref={chipsRef}
               role="tablist"
-              aria-label="Product categories"
+              aria-label={t("Product categories")}
               className="flex gap-2 overflow-x-auto mt-3 pb-1"
               onKeyDown={onChipsKey}
             >
@@ -912,7 +914,7 @@ export default function POSView({
           <div className="lg:flex-1 lg:min-h-0 lg:overflow-y-auto lg:-mr-1 lg:pr-1">
           {filtered.length === 0 ? (
             <div className="card p-10 text-center" style={{ color: 'var(--color-faint)' }}>
-              No products match “{query}”.
+              {t("No products match “{0}”.", [query])}
             </div>
           ) : (
             <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))' }}>
@@ -939,7 +941,7 @@ export default function POSView({
                     <span className="prod__foot">
                       <span className="prod__price">{money(p.price, currency)}</span>
                       <span className={`prod__stock ${out ? 'out' : low ? 'low' : ''}`}>
-                        {out ? 'Out' : `${left} left`}
+                        {out ? t("Out") : t("{0} left", [left])}
                       </span>
                     </span>
                     <button
@@ -947,7 +949,7 @@ export default function POSView({
                       onClick={() => add(p)}
                       disabled={out}
                     >
-                      {out ? 'Out of stock' : '+ Add'}
+                      {out ? t("Out of stock") : t("+ Add")}
                     </button>
                   </div>
                 );
@@ -974,50 +976,50 @@ export default function POSView({
             style={{ padding: '14px 18px' }}
             onClick={() => setMobileCartOpen(true)}
           >
-            <span>{count} item{count === 1 ? '' : 's'}</span>
-            <span>View cart · {money(total, currency)}</span>
+            <span>{t(count === 1 ? "{0} item" : "{0} items", [count])}</span>
+            <span>{t("View cart · {0}", [money(total, currency)])}</span>
           </button>
         </div>
       )}
 
       {mobileCartOpen && (
-        <Modal title="Cart" onClose={() => setMobileCartOpen(false)} maxWidth={440} flush footer={chargeButton}>
+        <Modal title={t("Cart")} onClose={() => setMobileCartOpen(false)} maxWidth={440} flush footer={chargeButton}>
           {renderCart('modal')}
         </Modal>
       )}
 
       {debtWarn && customer && (
         <Modal
-          title="This customer already owes"
+          title={t("This customer already owes")}
           onClose={() => setDebtWarn(false)}
           maxWidth={420}
           footer={
             <>
-              <button className="btn btn-ghost" onClick={() => setDebtWarn(false)}>Cancel</button>
-              <button className="btn btn-primary" onClick={() => { setDebtWarn(false); checkout(true); }}>Continue with credit sale</button>
+              <button className="btn btn-ghost" onClick={() => setDebtWarn(false)}>{t("Cancel")}</button>
+              <button className="btn btn-primary" onClick={() => { setDebtWarn(false); checkout(true); }}>{t("Continue with credit sale")}</button>
             </>
           }
         >
           <div className="flex flex-col gap-2 text-[14px]">
             <div className="text-strong font-semibold">{customer.name}</div>
-            <div className="flex justify-between"><span>Still to pay (before this bill)</span><b className="num">{money(customer.due, currency)}</b></div>
-            <div className="flex justify-between"><span>This bill adds</span><b className="num">+ {money(balanceLater, currency)}</b></div>
+            <div className="flex justify-between"><span>{t("Still to pay (before this bill)")}</span><b className="num">{money(customer.due, currency)}</b></div>
+            <div className="flex justify-between"><span>{t("This bill adds")}</span><b className="num">+ {money(balanceLater, currency)}</b></div>
             <div className="flex justify-between pt-2" style={{ borderTop: '1px solid var(--color-line-2)', color: 'var(--color-warn)' }}>
-              <span>Will owe in total</span><b className="num">{money(customer.due + balanceLater, currency)}</b>
+              <span>{t("Will owe in total")}</span><b className="num">{money(customer.due + balanceLater, currency)}</b>
             </div>
           </div>
         </Modal>
       )}
       {account && (
-        <Modal title={`${account.name} — balance`} onClose={() => setAccount(null)} maxWidth={460} footer={<button className="btn btn-primary" onClick={() => setAccount(null)}>Close</button>}>
+        <Modal title={t("{0} — balance", [account.name])} onClose={() => setAccount(null)} maxWidth={460} footer={<button className="btn btn-primary" onClick={() => setAccount(null)}>{t("Close")}</button>}>
           <div className="flex flex-col gap-3 text-[13.5px]">
-            <div className="flex justify-between text-[15px]"><span>Still to pay</span><b className="num" style={{ color: account.totalDue > 0 ? 'var(--color-warn)' : undefined }}>{money(account.totalDue, currency)}</b></div>
+            <div className="flex justify-between text-[15px]"><span>{t("Still to pay")}</span><b className="num" style={{ color: account.totalDue > 0 ? 'var(--color-warn)' : undefined }}>{money(account.totalDue, currency)}</b></div>
             {account.openSales.length > 0 && (
               <div>
-                <div className="field-label">Unpaid bills</div>
+                <div className="field-label">{t("Unpaid bills")}</div>
                 {account.openSales.map((s) => (
                   <div key={s.number} className="flex justify-between py-1" style={{ borderBottom: '1px solid var(--color-line-2)' }}>
-                    <span>#{s.number} · {fmtDate(s.createdAt)} <span style={{ color: 'var(--color-muted)' }}>(of {money(s.total, currency)})</span></span>
+                    <span>#{s.number} · {fmtDate(s.createdAt)} <span style={{ color: 'var(--color-muted)' }}>{t("(of {0})", [money(s.total, currency)])}</span></span>
                     <b className="num">{money(s.balanceDue, currency)}</b>
                   </div>
                 ))}
@@ -1025,10 +1027,10 @@ export default function POSView({
             )}
             {account.recentPayments.length > 0 && (
               <div>
-                <div className="field-label">Recent payments</div>
+                <div className="field-label">{t("Recent payments")}</div>
                 {account.recentPayments.map((p, i) => (
                   <div key={i} className="flex justify-between py-1 text-[12.5px]" style={{ color: 'var(--color-muted)' }}>
-                    <span>{fmtDate(p.createdAt)} · {p.kind === 'SETTLEMENT' ? 'paid off' : 'paid at sale'} #{p.saleNumber} · {p.method}</span>
+                    <span>{fmtDate(p.createdAt)} · {p.kind === 'SETTLEMENT' ? t("paid off") : t("paid at sale")} #{p.saleNumber} · {p.method}</span>
                     <span className="num">{money(p.amount, currency)}</span>
                   </div>
                 ))}
@@ -1072,44 +1074,45 @@ function NewCustomerModal({
   onClose: () => void;
   onCreated: (c: { id: string; name: string; phone: string | null; type: 'RETAIL' | 'SHOP' }) => void;
 }) {
+  const t = useT();
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [type, setType] = useState<'RETAIL' | 'SHOP'>(defaultType);
   const [saving, setSaving] = useState(false);
 
   async function save() {
-    if (!name.trim()) { toast('Enter the customer name.', true); return; }
+    if (!name.trim()) { toast(t("Enter the customer name."), true); return; }
     setSaving(true);
     const res = await saveCustomer({ name, phone, type });
     setSaving(false);
-    if (res.ok) { toast('Customer registered'); onCreated(res.customer); }
+    if (res.ok) { toast(t("Customer registered")); onCreated(res.customer); }
     else toast(res.error, true);
   }
 
   return (
     <Modal
-      title="New customer"
+      title={t("New customer")}
       onClose={onClose}
       maxWidth={420}
       footer={
         <>
-          <button className="btn btn-ghost" onClick={onClose} disabled={saving}>Cancel</button>
-          <button className="btn btn-primary" onClick={save} disabled={saving}>{saving ? 'Saving…' : 'Register'}</button>
+          <button className="btn btn-ghost" onClick={onClose} disabled={saving}>{t("Cancel")}</button>
+          <button className="btn btn-primary" onClick={save} disabled={saving}>{saving ? t("Saving…") : t("Register")}</button>
         </>
       }
     >
       <div className="flex flex-col gap-3">
         <div>
-          <label className="field-label">Name</label>
-          <input className="input" autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="Nimal Perera / ABC Supplements" />
+          <label className="field-label">{t("Name")}</label>
+          <input className="input" autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder={t("Nimal Perera / ABC Supplements")} />
         </div>
         <div>
-          <label className="field-label">Phone</label>
+          <label className="field-label">{t("Phone")}</label>
           <input className="input" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="077 123 4567" />
         </div>
         <div className="flex gap-2">
-          <button className="chip" data-active={type === 'RETAIL' || undefined} onClick={() => setType('RETAIL')}>Customer</button>
-          <button className="chip" data-active={type === 'SHOP' || undefined} onClick={() => setType('SHOP')}>Shop (bulk buyer)</button>
+          <button className="chip" data-active={type === 'RETAIL' || undefined} onClick={() => setType('RETAIL')}>{t("Customer")}</button>
+          <button className="chip" data-active={type === 'SHOP' || undefined} onClick={() => setType('SHOP')}>{t("Shop (bulk buyer)")}</button>
         </div>
       </div>
     </Modal>

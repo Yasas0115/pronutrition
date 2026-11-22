@@ -10,8 +10,10 @@ import { logoutAction, switchBranchAction } from '@/app/actions';
 import { requestOwnPasswordChange } from '@/app/password/actions';
 import { buildNav, isActivePath, type NavIcon, type NavItem } from '@/lib/nav';
 import ThemeToggle from './ThemeToggle';
+import LanguageSwitcher from './LanguageSwitcher';
 import FullscreenToggle from './FullscreenToggle';
 import { toast } from './toast';
+import { useT } from '@/components/I18nProvider';
 
 type IconName = NavIcon | 'key' | 'logout' | 'chevron' | 'menu';
 
@@ -188,6 +190,7 @@ export default function AppShell({
   wide?: boolean;
   children: React.ReactNode;
 }) {
+  const t = useT();
   const [navOpen, setNavOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const pathname = usePathname();
@@ -202,7 +205,7 @@ export default function AppShell({
     const res = await requestOwnPasswordChange();
     setPwBusy(false);
     setMenuOpen(false);
-    if (res.ok) toast(`We emailed a link to ${res.email}`);
+    if (res.ok) toast(t("We emailed a link to {0}", [res.email]));
     else toast(res.error, true);
   }
 
@@ -267,17 +270,17 @@ export default function AppShell({
     branches.length > 0 &&
     ((canSwitchBranch ?? owner) ? (
       <select
-        aria-label="Active branch"
+        aria-label={t("Active branch")}
         className="input"
         value={activeScope}
         disabled={switching}
         onChange={(e) => onBranchChange(e.target.value)}
         style={compact ? { height: 38, padding: '0 30px 0 12px', maxWidth: 190, fontSize: 13 } : { height: 44 }}
       >
-        <option value={ALL_BRANCHES}>All branches</option>
+        <option value={ALL_BRANCHES}>{t("All branches")}</option>
         {branches.map((b) => (
           <option key={b.id} value={b.id}>
-            {b.name}{b.active ? '' : ' (closed)'}
+            {b.name}{b.active ? '' : t(" (closed)")}
           </option>
         ))}
       </select>
@@ -317,7 +320,7 @@ export default function AppShell({
               className="btn btn-ghost btn-sm"
               onClick={() => setNavOpen((v) => !v)}
               aria-expanded={navOpen}
-              aria-label="Toggle navigation"
+              aria-label={t("Toggle navigation")}
             >
               <Icon name="menu" />
             </button>
@@ -341,6 +344,7 @@ export default function AppShell({
           <div className="hidden sm:block">
             <FullscreenToggle />
           </div>
+          <LanguageSwitcher />
           <ThemeToggle />
           <div className="relative">
             <button
@@ -348,7 +352,7 @@ export default function AppShell({
               style={{ background: menuOpen ? 'var(--color-ink-3)' : 'transparent' }}
               onClick={() => setMenuOpen((v) => !v)}
               aria-expanded={menuOpen}
-              aria-label="Account menu"
+              aria-label={t("Account menu")}
             >
               <span
                 className="grid place-items-center rounded-full font-bold shrink-0"
@@ -389,17 +393,17 @@ export default function AppShell({
                   {has('settings') && (
                     <Link href="/settings" className="menu-item" onClick={() => setMenuOpen(false)}>
                       <Icon name="settings" />
-                      Settings
+                      {t("Settings")}
                     </Link>
                   )}
                   <button type="button" className="menu-item" onClick={changePassword} disabled={pwBusy}>
                     <Icon name="key" />
-                    {pwBusy ? 'Sending link…' : 'Change password'}
+                    {pwBusy ? t("Sending link…") : t("Change password")}
                   </button>
                   <form action={logoutAction}>
                     <button type="submit" className="menu-item" style={{ color: 'var(--color-brand)' }}>
                       <Icon name="logout" />
-                      Log out
+                      {t("Log out")}
                     </button>
                   </form>
                 </div>
@@ -429,11 +433,11 @@ export default function AppShell({
           <nav className="flex flex-col gap-1.5 px-4 pt-5 md:pt-10 pb-4">
             {branches.length > 0 && (
               <div className="sm:hidden flex flex-col gap-2 mb-4">
-                <div className="side-label">Branch</div>
+                <div className="side-label">{t("Branch")}</div>
                 {branchControl(false)}
               </div>
             )}
-            <div className="side-label">Main navigation</div>
+            <div className="side-label">{t("Main navigation")}</div>
             {menu.map((item) =>
               item.kind === 'link' ? (
                 <Link
@@ -446,7 +450,7 @@ export default function AppShell({
                   <span className="side-link__icon">
                     <Icon name={item.icon} />
                   </span>
-                  {item.label}
+                  {t(item.label)}
                 </Link>
               ) : (
                 <div key={item.key} className="flex flex-col gap-1.5">
@@ -460,7 +464,7 @@ export default function AppShell({
                     <span className="side-link__icon">
                       <Icon name={item.icon} />
                     </span>
-                    <span className="flex-1 text-left">{item.label}</span>
+                    <span className="flex-1 text-left">{t(item.label)}</span>
                     <Icon
                       name="chevron"
                       className={openGroups.has(item.key) ? 'rotate-180 transition-transform' : 'transition-transform'}
@@ -479,7 +483,7 @@ export default function AppShell({
                           <span className="side-sublink__icon">
                             <Icon name={c.icon} />
                           </span>
-                          {c.label}
+                          {t(c.label)}
                         </Link>
                       ))}
                     </div>

@@ -4,8 +4,10 @@ import { useActionState, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { loginAction, type LoginResult } from '@/app/actions';
+import { useT } from '@/components/I18nProvider';
 
 export default function LoginForm() {
+  const t = useT();
   const router = useRouter();
   const [state, formAction, pending] = useActionState<LoginResult | null, FormData>(
     loginAction,
@@ -23,20 +25,20 @@ export default function LoginForm() {
   return (
     <form action={formAction} className="flex flex-col gap-4">
       <div>
-        <label className="field-label" htmlFor="email">Email</label>
+        <label className="field-label" htmlFor="email">{t("Email")}</label>
         <input
           id="email"
           name="email"
           type="email"
           autoComplete="username"
           className="input"
-          placeholder="you@company.com"
+          placeholder={t("you@company.com")}
           required
         />
       </div>
 
       <div>
-        <label className="field-label" htmlFor="password">Password</label>
+        <label className="field-label" htmlFor="password">{t("Password")}</label>
         <div className="relative">
           <input
             id="password"
@@ -54,11 +56,11 @@ export default function LoginForm() {
             style={{ color: 'var(--color-muted)' }}
             tabIndex={-1}
           >
-            {show ? 'Hide' : 'Show'}
+            {show ? t("Hide") : t("Show")}
           </button>
         </div>
         <div className="mt-2 text-right">
-          <Link href="/forgot-password" className="text-[13px] accent">Forgot password?</Link>
+          <Link href="/forgot-password" className="text-[13px] accent">{t("Forgot password?")}</Link>
         </div>
       </div>
 
@@ -71,12 +73,12 @@ export default function LoginForm() {
             border: '1px solid rgba(239, 68, 68, .3)',
           }}
         >
-          {state.error}
+          {t(state.error)}
         </div>
       )}
 
       <button type="submit" className="btn btn-primary btn-block" disabled={pending}>
-        {pending ? 'Signing in…' : 'Sign in'}
+        {pending ? t("Signing in…") : t("Sign in")}
       </button>
     </form>
   );
