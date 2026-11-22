@@ -199,7 +199,7 @@ export default function SettingsView({
       </div>
 
       <div className="mt-5 flex justify-end">
-        <button className="btn btn-primary" onClick={save} disabled={saving}>
+        <button className="btn btn-primary" onClick={save} aria-busy={saving} disabled={saving}>
           {saving ? t("Saving…") : t("Save settings")}
         </button>
       </div>
@@ -248,7 +248,7 @@ export default function SettingsView({
             </div>
           ))}
           <div className="flex justify-end mt-1">
-            <button className="btn btn-primary btn-sm" onClick={savePayments} disabled={savingMethods}>
+            <button className="btn btn-primary btn-sm" onClick={savePayments} aria-busy={savingMethods} disabled={savingMethods}>
               {savingMethods ? t("Saving…") : t("Save payment methods")}
             </button>
           </div>
@@ -354,6 +354,7 @@ export default function SettingsView({
               <button
                 className="btn btn-primary btn-sm"
                 disabled={busy}
+                aria-busy={busy}
                 onClick={async () => {
                   const ok = await run(
                     () => addPromotion({ name: pName, percent: pPct, startsOn: pFrom, endsOn: pTo }),

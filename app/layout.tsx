@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Barlow, Barlow_Condensed, Noto_Sans_Sinhala, Noto_Sans_Tamil } from 'next/font/google';
 import './globals.css';
 import { Toaster } from '@/components/toast';
+import NavProgress from '@/components/NavProgress';
 import I18nProvider from '@/components/I18nProvider';
 import { getLocale, loadDict } from '@/lib/i18n/server';
 
@@ -61,6 +62,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       </head>
       <body>
         <I18nProvider locale={locale} dict={dict}>
+          <NavProgress />
           {children}
           <Toaster />
         </I18nProvider>

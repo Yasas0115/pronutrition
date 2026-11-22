@@ -109,7 +109,7 @@ function FloatModal({ row, currency, onClose, onSaved }: { row: FloatRow; curren
       footer={
         <>
           <button className="btn btn-ghost" onClick={onClose} disabled={saving}>{t("Cancel")}</button>
-          <button className="btn btn-primary" onClick={save} disabled={saving || delta === 0}>{saving ? t("Saving…") : t("Save float")}</button>
+          <button className="btn btn-primary" onClick={save} aria-busy={saving} disabled={saving || delta === 0}>{saving ? t("Saving…") : t("Save float")}</button>
         </>
       }
     >

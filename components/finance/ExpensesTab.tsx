@@ -172,7 +172,7 @@ function AddExpenseModal({
       footer={
         <>
           <button className="btn btn-ghost" onClick={onClose} disabled={saving}>{t("Cancel")}</button>
-          <button className="btn btn-primary" onClick={save} disabled={saving}>{saving ? t("Saving…") : t("Save expense")}</button>
+          <button className="btn btn-primary" onClick={save} aria-busy={saving} disabled={saving}>{saving ? t("Saving…") : t("Save expense")}</button>
         </>
       }
     >

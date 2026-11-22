@@ -48,7 +48,7 @@ export default function ForgotForm() {
         </div>
       )}
 
-      <button type="submit" className="btn btn-primary btn-block" disabled={pending}>
+      <button type="submit" className="btn btn-primary btn-block" aria-busy={pending} disabled={pending}>
         {pending ? t("Sending…") : t("Send reset link")}
       </button>
     </form>

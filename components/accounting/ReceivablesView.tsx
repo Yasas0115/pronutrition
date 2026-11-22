@@ -375,7 +375,7 @@ function ReceivePaymentModal({
       footer={
         <>
           <button className="btn btn-ghost" onClick={onClose} disabled={saving}>{t("Cancel")}</button>
-          <button className="btn btn-primary" onClick={save} disabled={saving || amount <= 0 || over}>
+          <button className="btn btn-primary" onClick={save} aria-busy={saving} disabled={saving || amount <= 0 || over}>
             {saving ? t("Saving…") : t("Receive {0}", [amount > 0 ? money(amount, currency) : ''])}
           </button>
         </>

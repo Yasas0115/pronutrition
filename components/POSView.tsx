@@ -581,6 +581,7 @@ export default function POSView({
       className="btn btn-primary btn-block"
       style={{ padding: '14px 18px', fontSize: 17 }}
       disabled={!canCharge}
+      aria-busy={processing}
       onClick={() => checkout()}
     >
       {processing ? t("Processing…") : chargeLabel}
@@ -1284,7 +1285,7 @@ function NewCustomerModal({
       footer={
         <>
           <button className="btn btn-ghost" onClick={onClose} disabled={saving}>{t("Cancel")}</button>
-          <button className="btn btn-primary" onClick={save} disabled={saving}>{saving ? t("Saving…") : t("Register")}</button>
+          <button className="btn btn-primary" onClick={save} aria-busy={saving} disabled={saving}>{saving ? t("Saving…") : t("Register")}</button>
         </>
       }
     >

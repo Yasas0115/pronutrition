@@ -85,7 +85,7 @@ export default function NameListManager({
           onKeyDown={(e) => { if (e.key === 'Enter') add(); }}
           maxLength={maxLength}
         />
-        <button className="btn btn-primary shrink-0" onClick={add} disabled={pending}>{t("+ Add")}</button>
+        <button className="btn btn-primary shrink-0" onClick={add} aria-busy={pending} disabled={pending}>{t("+ Add")}</button>
       </div>
 
       {items.length === 0 ? (

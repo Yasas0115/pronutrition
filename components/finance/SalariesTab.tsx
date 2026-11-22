@@ -248,7 +248,7 @@ function WorkerModal({
             </button>
           )}
           <button className="btn btn-ghost" onClick={onClose} disabled={saving}>{t("Cancel")}</button>
-          <button className="btn btn-primary" onClick={save} disabled={saving}>{saving ? t("Saving…") : editing ? t("Save changes") : t("Add worker")}</button>
+          <button className="btn btn-primary" onClick={save} aria-busy={saving} disabled={saving}>{saving ? t("Saving…") : editing ? t("Save changes") : t("Add worker")}</button>
         </>
       }
     >
@@ -326,7 +326,7 @@ function PaySalaryModal({
       footer={
         <>
           <button className="btn btn-ghost" onClick={onClose} disabled={saving}>{t("Cancel")}</button>
-          <button className="btn btn-primary" onClick={save} disabled={saving || net <= 0}>{saving ? t("Saving…") : t("Pay {0}", [net > 0 ? money(net, currency) : ''])}</button>
+          <button className="btn btn-primary" onClick={save} aria-busy={saving} disabled={saving || net <= 0}>{saving ? t("Saving…") : t("Pay {0}", [net > 0 ? money(net, currency) : ''])}</button>
         </>
       }
     >

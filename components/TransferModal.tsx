@@ -145,7 +145,7 @@ export default function TransferModal({
       footer={
         <>
           <button className="btn btn-ghost" onClick={onClose} disabled={pending}>{t("Cancel")}</button>
-          <button className="btn btn-primary" onClick={submit} disabled={pending || wanted.size === 0}>
+          <button className="btn btn-primary" onClick={submit} aria-busy={pending} disabled={pending || wanted.size === 0}>
             {pending ? t("Moving…") : t("Transfer {0}", [wanted.size > 0 ? `${wanted.size} product${wanted.size === 1 ? '' : 's'}` : ''])}
           </button>
         </>

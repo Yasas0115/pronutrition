@@ -455,7 +455,7 @@ function WriteOffRow({
             autoFocus
           />
           <input className="input" style={{ flex: 1, minWidth: 0 }} placeholder={tx("Note (optional)")} value={note} onChange={(e) => setNote(e.target.value)} />
-          <button className="btn btn-primary btn-sm" style={{ whiteSpace: 'nowrap' }} onClick={submit} disabled={pending}>{pending ? tx("Saving…") : tx("Confirm")}</button>
+          <button className="btn btn-primary btn-sm" style={{ whiteSpace: 'nowrap' }} onClick={submit} aria-busy={pending} disabled={pending}>{pending ? tx("Saving…") : tx("Confirm")}</button>
           <button className="btn btn-ghost btn-sm" onClick={onClose} disabled={pending}>{tx("Cancel")}</button>
         </div>
       </td>
@@ -521,7 +521,7 @@ function ReceiveModal({
       footer={
         <>
           <button className="btn btn-ghost" onClick={onClose} disabled={pending}>{tx("Cancel")}</button>
-          <button className="btn btn-primary" onClick={submit} disabled={pending}>{pending ? tx("Saving…") : tx("Receive")}</button>
+          <button className="btn btn-primary" onClick={submit} aria-busy={pending} disabled={pending}>{pending ? tx("Saving…") : tx("Receive")}</button>
         </>
       }
     >

@@ -79,7 +79,7 @@ export default function ResetForm({ token, email, minLength }: { token: string; 
         </div>
       )}
 
-      <button type="submit" className="btn btn-primary btn-block" disabled={pending}>
+      <button type="submit" className="btn btn-primary btn-block" aria-busy={pending} disabled={pending}>
         {pending ? t("Saving…") : t("Change password")}
       </button>
     </form>

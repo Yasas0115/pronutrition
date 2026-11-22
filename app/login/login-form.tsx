@@ -77,7 +77,7 @@ export default function LoginForm() {
         </div>
       )}
 
-      <button type="submit" className="btn btn-primary btn-block" disabled={pending}>
+      <button type="submit" className="btn btn-primary btn-block" aria-busy={pending} disabled={pending}>
         {pending ? t("Signing in…") : t("Sign in")}
       </button>
     </form>

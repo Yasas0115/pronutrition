@@ -155,7 +155,7 @@ function BranchModal({
       footer={
         <>
           <button className="btn btn-ghost" onClick={onClose} disabled={saving}>{t("Cancel")}</button>
-          <button className="btn btn-primary" onClick={save} disabled={saving}>
+          <button className="btn btn-primary" onClick={save} aria-busy={saving} disabled={saving}>
             {saving ? t("Saving…") : editing ? t("Save changes") : t("Open branch")}
           </button>
         </>

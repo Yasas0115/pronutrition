@@ -322,6 +322,14 @@ body {
 }
 .btn:disabled { opacity: .55; cursor: not-allowed; }
 .btn:not(:disabled):active { transform: translateY(1px); }
+/* Loading spinner: set aria-busy={true} on a button while it is saving. */
+.btn[aria-busy="true"]::before {
+  content: ""; flex: none; width: 1em; height: 1em; border-radius: 50%;
+  border: 2px solid currentColor; border-right-color: transparent;
+  animation: btnSpin .7s linear infinite;
+}
+@keyframes btnSpin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .btn[aria-busy="true"]::before { animation-duration: 1.6s; } }
 .btn-primary { background: var(--color-brand); color: #000; }
 .btn-primary:not(:disabled):hover { background: var(--color-brand-600); color: #fff; }
 .btn-ghost { background: transparent; color: var(--color-ash); border-color: var(--color-line-2); }
