@@ -77,6 +77,11 @@
   --color-muted: #57534e;   /* stone-600 — stat labels, sublabels */
   --color-faint: #78716c;   /* stone-500 — hints, idle icons, table heads */
 
+  /* Status text on white: the dark-theme greens/ambers (#22c55e / #f59e0b)
+     are only ~2:1 on white, so light mode uses the 700-level shades (~5:1). */
+  --color-ok: #15803d;      /* green-700 */
+  --color-warn: #b45309;    /* amber-700 */
+
   /* Warm, layered elevation — soft brown tint at low opacity reads
      as gentle depth instead of a hard gray drop. */
   --shadow-card: 0 1px 3px rgba(60, 45, 30, .05), 0 8px 24px rgba(60, 45, 30, .09);

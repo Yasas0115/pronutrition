@@ -3,11 +3,14 @@
 import { useEffect, useState } from 'react';
 import { useT } from './I18nProvider';
 
-type Toast = { id: number; msg: string; err?: boolean };
+// `action` adds a small button to the toast (e.g. "Undo"). A toast with an
+// action stays on screen a little longer so there is time to press it.
+type ToastAction = { label: string; onClick: () => void };
+type Toast = { id: number; msg: string; err?: boolean; action?: ToastAction };
 let push: (t: Omit<Toast, 'id'>) => void = () => {};
 
-export function toast(msg: string, err = false) {
-  push({ msg, err });
+export function toast(msg: string, err = false, action?: ToastAction) {
+  push({ msg, err, action });
 }
 
 export function Toaster() {
@@ -18,7 +21,7 @@ export function Toaster() {
     push = (n) => {
       const id = Date.now() + Math.random();
       setItems((s) => [...s, { ...n, id }]);
-      setTimeout(() => setItems((s) => s.filter((x) => x.id !== id)), 2800);
+      setTimeout(() => setItems((s) => s.filter((x) => x.id !== id)), n.action ? 6000 : 2800);
     };
     return () => { push = () => {}; };
   }, []);
@@ -30,7 +33,7 @@ export function Toaster() {
       {items.map((n) => (
         <div
           key={n.id}
-          className="animate-slide-in text-strong text-sm px-[18px] py-[13px] rounded-lg"
+          className="animate-slide-in text-strong text-sm px-[18px] py-[13px] rounded-lg flex items-center gap-4"
           style={{
             background: 'var(--color-ink-3)',
             border: '1px solid var(--color-line-2)',
@@ -40,7 +43,20 @@ export function Toaster() {
         >
           {/* Messages from server actions arrive as finished English text; the
               dictionary's placeholder keys translate those too. */}
-          {t(n.msg)}
+          <span className="flex-1 min-w-0">{t(n.msg)}</span>
+          {n.action && (
+            <button
+              type="button"
+              className="text-[12px] font-bold uppercase tracking-wider shrink-0"
+              style={{ color: 'var(--color-brand)' }}
+              onClick={() => {
+                n.action?.onClick();
+                setItems((s) => s.filter((x) => x.id !== n.id));
+              }}
+            >
+              {t(n.action.label)}
+            </button>
+          )}
         </div>
       ))}
     </div>

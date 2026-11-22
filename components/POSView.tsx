@@ -44,6 +44,17 @@ type CustomerOpt = {
 type Line = { product: Product; qty: number };
 type SaleType = 'RETAIL' | 'WHOLESALE';
 
+// A saved copy of the cart-building state: used for "Held carts" (park a sale,
+// serve the next customer, come back) and for the Undo on Clear.
+type Snapshot = {
+  lines: [string, number][];
+  discount: number;
+  customerId: string | null;
+  saleType: SaleType;
+  overrides: [string, number][];
+};
+type HeldCart = { id: string; label: string; count: number; snap: Snapshot };
+
 // How the "paid now" part of a credit sale can be taken.
 const PAID_VIA_ALL = [
   { key: 'CASH', label: 'Cash' },
@@ -109,6 +120,25 @@ export default function POSView({
   const [mobileCartOpen, setMobileCartOpen] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
   const chipsRef = useRef<HTMLDivElement>(null);
+
+  // Held carts live in this browser, per branch, so a refresh doesn't lose them.
+  const [held, setHeld] = useState<HeldCart[]>([]);
+  const heldKey = `pn:held:${branchName}`;
+  const heldLoaded = useRef(false);
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(heldKey);
+      if (raw) setHeld(JSON.parse(raw) as HeldCart[]);
+    } catch { /* storage blocked: held carts just last for this visit */ }
+    heldLoaded.current = true;
+  }, [heldKey]);
+  useEffect(() => {
+    if (!heldLoaded.current) return;
+    try {
+      if (held.length) localStorage.setItem(heldKey, JSON.stringify(held));
+      else localStorage.removeItem(heldKey);
+    } catch { /* ignore */ }
+  }, [held, heldKey]);
 
   // Ready the search box for a barcode scanner on tills with a mouse/keyboard.
   // Skipped on touch screens, where focusing it would pop the on-screen
@@ -238,6 +268,12 @@ export default function POSView({
   }
 
   function setQty(id: string, qty: number) {
+    // Taking a line all the way out can be undone from the toast.
+    const before = cart.get(id);
+    if (before && qty <= 0) {
+      const name = byId.get(id)?.name ?? '';
+      toast(t("Removed {0}", [name]), false, { label: "Undo", onClick: () => setQty(id, before) });
+    }
     setCart((prev) => {
       const next = new Map(prev);
       const p = byId.get(id);
@@ -318,6 +354,78 @@ export default function POSView({
     setPriceOverrides(new Map());
     setSaleDate('');
     setMethod(firstWalkInMethod);
+  }
+
+  // ---- Held carts + Undo clear ------------------------------------------
+  const takeSnapshot = (): Snapshot => ({
+    lines: Array.from(cart.entries()),
+    discount,
+    customerId,
+    saleType,
+    overrides: Array.from(priceOverrides.entries()),
+  });
+
+  // Put a snapshot back on the till. Quantities are capped to the stock the
+  // till has now and products that no longer exist are dropped.
+  function loadSnapshot(s: Snapshot) {
+    const next = new Map<string, number>();
+    let dropped = 0;
+    for (const [id, qty] of s.lines) {
+      const p = byId.get(id);
+      const q = p ? Math.min(qty, p.stock) : 0;
+      if (q > 0) next.set(id, q);
+      else dropped++;
+    }
+    setCart(next);
+    setDiscount(s.discount);
+    setCustomerId(s.customerId && allCustomers.some((c) => c.id === s.customerId) ? s.customerId : null);
+    setSaleType(s.saleType);
+    setPriceOverrides(new Map(s.overrides));
+    setMethod(firstWalkInMethod);
+    setSplit(false);
+    setSplitAmts({});
+    setPaid(0);
+    setPaidVia('CASH');
+    if (dropped > 0) toast(t("{0} item(s) are no longer in stock and were left out.", [dropped]), true);
+  }
+
+  function holdCart() {
+    if (lines.length === 0) {
+      toast(t("Add something to the cart before holding it."), true);
+      return;
+    }
+    const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const entry: HeldCart = {
+      id: `${Date.now()}`,
+      label: customer?.name ?? t("Cart {0}", [time]),
+      count,
+      snap: takeSnapshot(),
+    };
+    setHeld((h) => [...h, entry].slice(-8));
+    clearCart();
+    setMobileCartOpen(false);
+    toast(t("Cart held — recall it from “Held carts”."));
+  }
+
+  function recallCart(id: string) {
+    const target = held.find((h) => h.id === id);
+    if (!target) return;
+    // Recalling while a sale is being built parks that sale instead of losing it.
+    const parked: HeldCart[] = lines.length
+      ? [{ id: `${Date.now()}`, label: customer?.name ?? t("Cart {0}", [new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })]), count, snap: takeSnapshot() }]
+      : [];
+    setHeld((h) => [...h.filter((x) => x.id !== id), ...parked].slice(-8));
+    loadSnapshot(target.snap);
+  }
+
+  function dropHeld(id: string) {
+    setHeld((h) => h.filter((x) => x.id !== id));
+  }
+
+  function clearWithUndo() {
+    const snap = takeSnapshot();
+    clearCart();
+    toast(t("Cart cleared"), false, { label: "Undo", onClick: () => loadSnapshot(snap) });
   }
 
   function onSearchKey(e: React.KeyboardEvent<HTMLInputElement>) {
@@ -431,11 +539,48 @@ export default function POSView({
       : t("Credit sale {0}", [money(total, currency)])
     : t("Charge {0}", [money(total, currency)]);
 
+  const canCharge = !(lines.length === 0 || processing || blockedNoCustomer || creditOver || splitBad || (isCash && paid < total));
+
+  // Rounded-up cash amounts (next 500 / 1,000 / 5,000 / 10,000 above the total)
+  // so the cashier can tap what the customer actually handed over. Amounts the
+  // fixed buttons already show are left out.
+  const roundUps = isCash && total > 0
+    ? Array.from(new Set([500, 1000, 5000, 10000].map((step) => Math.ceil(total / step) * step)))
+        .filter((v) => v > total && !quickCash.includes(v))
+        .slice(0, 4)
+    : [];
+
+  // Keyboard shortcuts for a till with a keyboard: F2 search, F3 hold the cart,
+  // F4 charge, Esc clears the search box. The handler reads the latest actions
+  // through a ref so it is registered once.
+  const keysRef = useRef({ hold: holdCart, charge: () => checkout(), canCharge, dialogOpen: false });
+  keysRef.current = {
+    hold: holdCart,
+    charge: () => checkout(),
+    canCharge,
+    dialogOpen: !!(receipt || debtWarn || account || newCustomerOpen),
+  };
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const k = keysRef.current;
+      if (e.key === 'Escape') {
+        if (document.activeElement === searchRef.current && searchRef.current?.value) setQuery('');
+        return;
+      }
+      if (k.dialogOpen || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.key === 'F2') { e.preventDefault(); searchRef.current?.focus(); searchRef.current?.select(); }
+      else if (e.key === 'F3') { e.preventDefault(); k.hold(); }
+      else if (e.key === 'F4') { e.preventDefault(); if (k.canCharge) k.charge(); }
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
   const chargeButton = (
     <button
       className="btn btn-primary btn-block"
       style={{ padding: '14px 18px', fontSize: 17 }}
-      disabled={lines.length === 0 || processing || blockedNoCustomer || creditOver || splitBad || (isCash && paid < total)}
+      disabled={!canCharge}
       onClick={() => checkout()}
     >
       {processing ? t("Processing…") : chargeLabel}
@@ -464,12 +609,42 @@ export default function POSView({
             <span className="text-[13px]" style={{ color: 'var(--color-muted)' }}>{t(count === 1 ? "{0} item" : "{0} items", [count])}</span>
           )}
           {lines.length > 0 && (
-            <button className="text-[12px] uppercase tracking-wider" style={{ color: 'var(--color-brand)' }} onClick={clearCart}>
+            <button className="text-[12px] uppercase tracking-wider" style={{ color: 'var(--color-muted)' }} onClick={holdCart} title={t("Park this sale and serve the next customer (F3)")}>
+              {t("Hold")}
+            </button>
+          )}
+          {lines.length > 0 && (
+            <button className="text-[12px] uppercase tracking-wider" style={{ color: 'var(--color-brand)' }} onClick={clearWithUndo}>
               {t("Clear")}
             </button>
           )}
         </div>
       </div>
+
+      {/* Held carts: parked sales waiting to be recalled */}
+      {held.length > 0 && (
+        <div className="px-4 pt-3" style={{ flexShrink: 0 }}>
+          <div className="field-label" style={{ marginBottom: 6 }}>{t("Held carts")}</div>
+          <div className="flex flex-wrap gap-2">
+            {held.map((h) => (
+              <span key={h.id} className="chip" style={{ padding: '4px 4px 4px 12px', textTransform: 'none' }}>
+                <button type="button" onClick={() => recallCart(h.id)} title={t("Recall this cart")}>
+                  {h.label} · {h.count}
+                </button>
+                <button
+                  type="button"
+                  aria-label={t("Discard held cart")}
+                  onClick={() => dropHeld(h.id)}
+                  className="px-1.5"
+                  style={{ color: 'var(--color-faint)' }}
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Retail / Wholesale */}
       <div className="px-4 pt-3 flex gap-2" style={{ flexShrink: 0 }}>
@@ -743,11 +918,20 @@ export default function POSView({
                 </button>
               ))}
             </div>
+            {roundUps.length > 0 && (
+              <div className="grid grid-cols-4 gap-2">
+                {roundUps.map((v) => (
+                  <button key={v} className="btn btn-ghost btn-sm" onClick={() => setPaid(v)}>
+                    {fmt(v)}
+                  </button>
+                ))}
+              </div>
+            )}
             <div className="summary-row pt-1">
               <span style={{ color: shortfall > 0 ? 'var(--color-brand)' : 'var(--color-ok)' }}>
                 {shortfall > 0 ? t("Shortfall") : t("Change")}
               </span>
-              <span className="num" style={{ color: shortfall > 0 ? 'var(--color-brand)' : 'var(--color-ok)' }}>
+              <span className="num" style={{ color: shortfall > 0 ? 'var(--color-brand)' : 'var(--color-ok)', ...(change > 0 ? { fontSize: 20, fontWeight: 700 } : {}) }}>
                 {money(shortfall > 0 ? shortfall : change, currency)}
               </span>
             </div>
@@ -909,6 +1093,9 @@ export default function POSView({
                 </button>
               ))}
             </div>
+            <p className="hidden lg:block text-[11.5px] mt-2" style={{ color: 'var(--color-faint)' }}>
+              {t("Shortcuts: F2 search · F3 hold cart · F4 charge · Esc clear search")}
+            </p>
           </div>
 
           <div className="lg:flex-1 lg:min-h-0 lg:overflow-y-auto lg:-mr-1 lg:pr-1">

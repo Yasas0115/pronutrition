@@ -58,14 +58,14 @@ async function main() {
   const same = (got: string[], want: string[]) => got.length === want.length && want.every((w) => got.includes(w));
 
   const ownerPages = pagesFor('OWNER', '');
-  check('owner sees every page once', new Set(ownerPages).size === ownerPages.length && ownerPages.length === 13);
+  check('owner sees every page once', new Set(ownerPages).size === ownerPages.length && ownerPages.length === 14);
   check(
     'owner: all money pages sit under /accounting',
-    ['/accounting/sales', '/accounting/receivables', '/accounting/expenses', '/accounting/profit', '/accounting/stock-value', '/accounting/activity']
+    ['/accounting/overview', '/accounting/sales', '/accounting/receivables', '/accounting/expenses', '/accounting/profit', '/accounting/stock-value', '/accounting/activity']
       .every((p) => ownerPages.includes(p)),
   );
   check('old money URLs are not in the sidebar', !ownerPages.some((p) => ['/sales', '/accounts', '/finance'].includes(p)));
-  check('reports only → Accounting › Sales', same(pagesFor('STAFF', 'reports'), ['/accounting/sales']));
+  check('reports only → Accounting › Overview + Sales', same(pagesFor('STAFF', 'reports'), ['/accounting/overview', '/accounting/sales']));
   check('customers only → Customers + Receivables', same(pagesFor('STAFF', 'customers'), ['/customers', '/accounting/receivables']));
   check(
     'finance only → the four finance pages',

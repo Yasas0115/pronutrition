@@ -37,6 +37,7 @@ export function buildNav(has: (m: ModuleKey) => boolean): NavItem[] {
       : []),
 
     ...group('accounting', 'Accounting', 'accounts', [
+      has('reports') && { href: '/accounting/overview', label: 'Overview', icon: 'trend' },
       has('reports') && { href: '/accounting/sales', label: 'Sales', icon: 'sales' },
       has('customers') && { href: '/accounting/receivables', label: 'Receivables', icon: 'receipt' },
       (has('finance') || has('expenses_add')) && {

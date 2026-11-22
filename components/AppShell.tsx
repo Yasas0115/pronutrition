@@ -12,6 +12,7 @@ import { buildNav, isActivePath, type NavIcon, type NavItem } from '@/lib/nav';
 import ThemeToggle from './ThemeToggle';
 import LanguageSwitcher from './LanguageSwitcher';
 import FullscreenToggle from './FullscreenToggle';
+import CommandPalette from './CommandPalette';
 import { toast } from './toast';
 import { useT } from '@/components/I18nProvider';
 
@@ -197,6 +198,19 @@ export default function AppShell({
   const router = useRouter();
   const [switching, startSwitch] = useTransition();
   const [pwBusy, setPwBusy] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+
+  // Ctrl/Cmd+K opens the quick finder from any page.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setPaletteOpen((v) => !v);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   // There is no "type a new password" box: a link is emailed to the signed-in
   // person's own address, which proves the mailbox is theirs.
@@ -344,6 +358,17 @@ export default function AppShell({
           <div className="hidden sm:block">
             <FullscreenToggle />
           </div>
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            onClick={() => setPaletteOpen(true)}
+            aria-label={t("Quick search")}
+            title={t("Quick search (Ctrl+K)")}
+          >
+            <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+          </button>
           <LanguageSwitcher />
           <ThemeToggle />
           <div className="relative">
@@ -503,6 +528,12 @@ export default function AppShell({
           </div>
         </main>
       </div>
+      {paletteOpen && (
+        <CommandPalette
+          pages={menu.flatMap((i) => (i.kind === 'link' ? [{ href: i.href, label: i.label }] : i.children.map((c) => ({ href: c.href, label: c.label }))))}
+          onClose={() => setPaletteOpen(false)}
+        />
+      )}
     </div>
   );
 }
