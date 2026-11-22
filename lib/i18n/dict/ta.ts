@@ -665,6 +665,7 @@ const ta: Dict = {
   "Choose image files.": "படக் கோப்புகளைத் தேர்ந்தெடுக்கவும்.",
   "Added {0} — max {1} photos.": "{0} சேர்க்கப்பட்டது — அதிகபட்சம் {1} புகைப்படங்கள்.",
   "Could not read that image.": "அந்தப் படத்தைப் படிக்க முடியவில்லை.",
+  "Could not load the photos.": "புகைப்படங்களை ஏற்ற முடியவில்லை.",
   "Enter a product name.": "பொருளின் பெயரை உள்ளிடவும்.",
   "Product updated": "பொருள் புதுப்பிக்கப்பட்டது",
   "Product added": "பொருள் சேர்க்கப்பட்டது",

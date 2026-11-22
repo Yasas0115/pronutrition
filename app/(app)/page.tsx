@@ -4,6 +4,7 @@ import { getT } from '@/lib/i18n/server';
 import { getTillBranchId } from '@/lib/branch';
 import { dueByCustomerId } from '@/lib/receivables';
 import { livePromotions } from '@/lib/promotions';
+import { loadImageMeta, coverUrl } from '@/lib/product-images';
 import POSView from '@/components/POSView';
 
 // Stock changes on every sale, so never cache this screen.
@@ -14,7 +15,7 @@ export default async function POSPage() {
   const session = await requireModule('pos');
   const branchId = await getTillBranchId(session);
 
-  const [store, products, methods, tillBranch, customerRows, dueByCustomer, promotions] = await Promise.all([
+  const [store, products, methods, tillBranch, customerRows, dueByCustomer, promotions, imageMeta] = await Promise.all([
     prisma.store.findFirst(),
     // The till never needs the buying price, so it is not even loaded here
     // (explicit select) — cost can't leak through this page by accident.
@@ -30,7 +31,6 @@ export default async function POSPage() {
         sku: true,
         barcode: true,
         price: true,
-        imageUrl: true,
         stocks: { select: { branchId: true, stock: true, lowStockAt: true } },
       },
     }),
@@ -44,6 +44,9 @@ export default async function POSPage() {
     // What each customer already owes, so the till can warn before more credit.
     dueByCustomerId(),
     livePromotions(prisma),
+    // Photos are served as cacheable images (/api/product-image/...) instead of
+    // being embedded in this page, which used to make every load multi-megabyte.
+    loadImageMeta(),
   ]);
 
   const customers = customerRows.map((c) => ({
@@ -65,7 +68,7 @@ export default async function POSPage() {
       sku: p.sku,
       barcode: p.barcode,
       price: p.price,
-      imageUrl: p.imageUrl,
+      imageUrl: coverUrl(p.id, imageMeta.get(p.id)),
       stock: row?.stock ?? 0,
       lowStockAt: row?.lowStockAt ?? 5,
     };

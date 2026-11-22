@@ -1114,7 +1114,7 @@ export default function POSView({
                   <div key={p.id} className="prod" data-out={out || undefined}>
                     {p.imageUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img className="prod__img" src={p.imageUrl} alt="" />
+                      <img className="prod__img" src={p.imageUrl} alt="" loading="lazy" decoding="async" />
                     ) : (
                       <div className="prod__img prod__img--ph" aria-hidden>
                         <svg width={26} height={26} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">

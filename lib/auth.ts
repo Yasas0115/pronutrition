@@ -1,4 +1,5 @@
 // Server-side session helpers built on next/headers cookies (Next 15: async).
+import { cache } from 'react';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import {
@@ -21,7 +22,7 @@ const MAX_AGE_SECONDS = 60 * 60 * 12; // 12 hours
 //   • a password change retires every session issued before it,
 //   • role / branch / name come from the database, so demoting or re-pinning a
 //     person takes effect immediately instead of after their next login.
-export async function getSession(): Promise<Session | null> {
+async function loadSession(): Promise<Session | null> {
   const token = (await cookies()).get(TOKEN_COOKIE)?.value;
   const claims = await sessionFromToken(token);
   if (!claims) return null;
@@ -46,6 +47,10 @@ export async function getSession(): Promise<Session | null> {
     issuedAt: claims.issuedAt,
   };
 }
+
+// Cached per request: the shared layout, the page and its helpers all ask who
+// is signed in, but the database is only asked once.
+export const getSession = cache(loadSession);
 
 export async function requireSession(): Promise<Session> {
   const session = await getSession();

@@ -1,10 +1,10 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Modal from './Modal';
 import { toast } from './toast';
 import { parseAmount } from '@/lib/money';
-import { saveProduct, deleteProduct } from '@/app/(app)/products/actions';
+import { saveProduct, deleteProduct, getProductGallery } from '@/app/(app)/products/actions';
 import { useT } from '@/components/I18nProvider';
 
 export type ProductRow = {
@@ -18,7 +18,9 @@ export type ProductRow = {
   price: number;
   cost: number;
   imageUrl: string | null;
-  images: string[];
+  // How many photos the product has. The photos themselves are loaded when the
+  // edit window opens, so the product list stays light.
+  imageCount: number;
   stock: number;
   lowStockAt: number;
   active: boolean;
@@ -60,7 +62,10 @@ export default function ProductModal({
   const [stock, setStock] = useState(product?.stock ?? 0);
   const [lowStockAt, setLowStockAt] = useState(product?.lowStockAt ?? 5);
   const [active, setActive] = useState(product?.active ?? true);
-  const [images, setImages] = useState<string[]>(product?.images ?? []);
+  // Photos are fetched when the window opens (the product list only carries a
+  // count), so the list page stays small.
+  const [images, setImages] = useState<string[]>([]);
+  const [galleryLoading, setGalleryLoading] = useState(!!product && product.imageCount > 0);
   const [imagesTouched, setImagesTouched] = useState(false);
   const [saving, setSaving] = useState(false);
   const [confirmDel, setConfirmDel] = useState(false);
@@ -68,11 +73,22 @@ export default function ProductModal({
 
   const MAX_IMAGES = 8;
 
+  useEffect(() => {
+    if (!product || product.imageCount === 0) return;
+    let live = true;
+    getProductGallery(product.id)
+      .then((loaded) => { if (live) setImages((prev) => [...loaded, ...prev]); })
+      .catch(() => { if (live) toast(t("Could not load the photos."), true); })
+      .finally(() => { if (live) setGalleryLoading(false); });
+    return () => { live = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [product?.id]);
+
   // Accept one or many files; resize each and append to the gallery.
   async function onImage(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
     if (fileRef.current) fileRef.current.value = ''; // allow re-picking same file
-    if (!files.length) return;
+    if (!files.length || galleryLoading) return;
     const room = MAX_IMAGES - images.length;
     if (room <= 0) { toast(t("Up to {0} photos.", [MAX_IMAGES]), true); return; }
     const picked = files.slice(0, room);

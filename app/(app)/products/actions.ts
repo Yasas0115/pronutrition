@@ -8,6 +8,7 @@ import { setStockTo } from '@/lib/stock';
 import { recordPriceChange } from '@/lib/price-history';
 import { logAudit, diffFields } from '@/lib/audit';
 import { revalidateAccounting } from '@/lib/revalidate';
+import { galleryOf } from '@/lib/images';
 
 export type ProductInput = {
   id?: string;
@@ -61,6 +62,14 @@ async function ensureStockRows(productId: string) {
       create: { branchId: b.id, productId, stock: 0, lowStockAt: 5 },
     });
   }
+}
+
+// The full photo gallery of one product, fetched when its edit window opens
+// (the product list only carries a photo count to stay light).
+export async function getProductGallery(id: string): Promise<string[]> {
+  await requireModule('products');
+  const p = await prisma.product.findUnique({ where: { id }, select: { images: true, imageUrl: true } });
+  return p ? galleryOf(p) : [];
 }
 
 export async function saveProduct(input: ProductInput): Promise<SaveResult> {

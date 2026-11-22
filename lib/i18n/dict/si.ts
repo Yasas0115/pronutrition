@@ -665,6 +665,7 @@ const si: Dict = {
   "Choose image files.": "රූප ගොනු තෝරන්න.",
   "Added {0} — max {1} photos.": "{0} එක් කළා — උපරිම ඡායාරූප {1}.",
   "Could not read that image.": "එම රූපය කියවිය නොහැකි විය.",
+  "Could not load the photos.": "ඡායාරූප පූරණය කළ නොහැකි විය.",
   "Enter a product name.": "නිෂ්පාදනයේ නමක් ඇතුළත් කරන්න.",
   "Product updated": "නිෂ්පාදනය යාවත්කාලීන කළා",
   "Product added": "නිෂ්පාදනය එක් කළා",

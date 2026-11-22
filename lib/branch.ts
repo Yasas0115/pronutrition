@@ -3,6 +3,7 @@
 // A CASHIER is pinned to their assigned branch. An OWNER can switch the "active
 // branch" freely; the choice is kept in a cookie (`pn_branch`) and may be a
 // branch id or the sentinel `ALL_BRANCHES` for company-wide reports.
+import { cache } from 'react';
 import { cookies } from 'next/headers';
 import { prisma } from './db';
 import type { Session } from './session';
@@ -21,7 +22,7 @@ export const BRANCH_COOKIE = 'pn_branch';
 export { ALL_BRANCHES, parseModules, ALL_MODULES, STAFF_MODULES } from './modules';
 export type { BranchLite, ModuleKey } from './modules';
 
-export async function listBranches(activeOnly = false): Promise<BranchLite[]> {
+async function loadBranches(activeOnly: boolean): Promise<BranchLite[]> {
   const rows = await prisma.branch.findMany({
     where: activeOnly ? { active: true } : undefined,
     orderBy: [{ active: 'desc' }, { createdAt: 'asc' }],
@@ -29,6 +30,9 @@ export async function listBranches(activeOnly = false): Promise<BranchLite[]> {
   });
   return rows;
 }
+
+// Cached per request (the shell and the page both list branches).
+export const listBranches = cache((activeOnly: boolean = false) => loadBranches(activeOnly));
 
 // The owner's chosen scope: a concrete branch id, or ALL_BRANCHES. Cashiers are
 // always locked to their own branch regardless of the cookie.
@@ -88,7 +92,7 @@ export async function getEnabledModules(): Promise<Set<ModuleKey>> {
 // What THIS person may open: owner = every company-enabled module; staff = the
 // intersection of company-enabled modules and their own grants (read fresh from
 // the DB so edits take effect without a re-login).
-export async function getEffectiveModules(session: Session): Promise<Set<ModuleKey>> {
+async function loadEffectiveModules(session: Session): Promise<Set<ModuleKey>> {
   const companyEnabled = await getEnabledModules();
   if (session.role === 'OWNER') return companyEnabled;
   const user = await prisma.user.findUnique({
@@ -97,3 +101,6 @@ export async function getEffectiveModules(session: Session): Promise<Set<ModuleK
   });
   return effectiveModules('STAFF', companyEnabled, parseUserModules(user?.modules));
 }
+
+// Cached per request: gating checks and the sidebar both need this.
+export const getEffectiveModules = cache(loadEffectiveModules);

@@ -5,7 +5,7 @@ import { getShellProps } from '@/lib/shell';
 import { getActiveScope, getEffectiveModules, ALL_BRANCHES } from '@/lib/branch';
 import { landingRoute } from '@/lib/modules';
 import ProductsStockView, { type StockProduct, type MovementRow } from '@/components/ProductsStockView';
-import { galleryOf } from '@/lib/images';
+import { loadImageMeta, coverUrl } from '@/lib/product-images';
 import { listTransfers } from '@/lib/transfers';
 import type { TransferRow } from '@/lib/transfer-types';
 
@@ -30,7 +30,7 @@ export default async function ProductsPage() {
   const scope = await getActiveScope(session);
   const allBranches = scope === ALL_BRANCHES;
 
-  const [shell, store, products, categories, branches] = await Promise.all([
+  const [shell, store, products, categories, branches, imageMeta] = await Promise.all([
     getShellProps(session),
     prisma.store.findFirst({ select: { currency: true, name: true } }),
     // Buying price is only selected for finance users; everyone else never
@@ -46,8 +46,6 @@ export default async function ProductsPage() {
         sku: true,
         barcode: true,
         price: true,
-        imageUrl: true,
-        images: true,
         active: true,
         ...(mayCost ? { cost: true } : {}),
         stocks: true,
@@ -58,6 +56,9 @@ export default async function ProductsPage() {
       orderBy: [{ active: 'desc' }, { createdAt: 'asc' }],
       select: { id: true, name: true, active: true },
     }),
+    // Photo counts + cache versions only; the photos themselves are fetched by
+    // the browser as cacheable images, not embedded in this page.
+    loadImageMeta(),
   ]);
 
   const branchName = new Map(branches.map((b) => [b.id, b.name]));
@@ -87,8 +88,8 @@ export default async function ProductsPage() {
       barcode: p.barcode,
       price: p.price,
       cost: mayCost ? (p as { cost?: number }).cost ?? 0 : 0,
-      imageUrl: p.imageUrl,
-      images: galleryOf(p),
+      imageUrl: coverUrl(p.id, imageMeta.get(p.id)),
+      imageCount: imageMeta.get(p.id)?.count ?? 0,
       stock,
       lowStockAt,
       active: p.active,

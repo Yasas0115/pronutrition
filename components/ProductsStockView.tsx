@@ -45,12 +45,12 @@ function ProductCell({ p, allBranches }: { p: StockProduct; allBranches: boolean
       <span className="relative grid place-items-center rounded-lg shrink-0 overflow-hidden" style={{ width: 40, height: 40, background: 'var(--color-ink-1)', border: '1px solid var(--color-line-2)' }}>
         {p.imageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={p.imageUrl} alt="" style={{ width: 40, height: 40, objectFit: 'cover' }} />
+          <img src={p.imageUrl} alt="" loading="lazy" decoding="async" style={{ width: 40, height: 40, objectFit: 'cover' }} />
         ) : (
           <span style={{ fontSize: 11, color: 'var(--color-faint)' }}>{p.name[0]?.toUpperCase() ?? '?'}</span>
         )}
-        {p.images.length > 1 && (
-          <span className="absolute bottom-0 right-0 num" style={{ fontSize: 9, lineHeight: 1, padding: '1px 3px', color: '#fff', background: 'var(--color-brand)', borderTopLeftRadius: 4 }}>+{p.images.length - 1}</span>
+        {p.imageCount > 1 && (
+          <span className="absolute bottom-0 right-0 num" style={{ fontSize: 9, lineHeight: 1, padding: '1px 3px', color: '#fff', background: 'var(--color-brand)', borderTopLeftRadius: 4 }}>+{p.imageCount - 1}</span>
         )}
       </span>
       <span>
