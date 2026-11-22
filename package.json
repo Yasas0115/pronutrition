@@ -20,6 +20,10 @@
     "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
+    "@fontsource/barlow": "^5.3.0",
+    "@fontsource/barlow-condensed": "^5.3.0",
+    "@fontsource/noto-sans-sinhala": "^5.3.0",
+    "@fontsource/noto-sans-tamil": "^5.3.0",
     "@prisma/client": "^6.2.1",
     "jose": "^5.9.6",
     "next": "^15.1.6",

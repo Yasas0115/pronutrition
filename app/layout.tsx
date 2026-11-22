@@ -1,43 +1,26 @@
 import type { Metadata } from 'next';
-import { Barlow, Barlow_Condensed, Noto_Sans_Sinhala, Noto_Sans_Tamil } from 'next/font/google';
+// Fonts are self-hosted (@fontsource) so the build never depends on Google Fonts.
+// Sinhala / Tamil faces sit behind Barlow in the font stack (see --font-sans in
+// globals.css); unicode-range makes the browser fetch a file only when a glyph needs it.
+import '@fontsource/barlow/400.css';
+import '@fontsource/barlow/500.css';
+import '@fontsource/barlow/600.css';
+import '@fontsource/barlow-condensed/500.css';
+import '@fontsource/barlow-condensed/600.css';
+import '@fontsource/barlow-condensed/700.css';
+import '@fontsource/noto-sans-sinhala/400.css';
+import '@fontsource/noto-sans-sinhala/500.css';
+import '@fontsource/noto-sans-sinhala/600.css';
+import '@fontsource/noto-sans-sinhala/700.css';
+import '@fontsource/noto-sans-tamil/400.css';
+import '@fontsource/noto-sans-tamil/500.css';
+import '@fontsource/noto-sans-tamil/600.css';
+import '@fontsource/noto-sans-tamil/700.css';
 import './globals.css';
 import { Toaster } from '@/components/toast';
 import NavProgress from '@/components/NavProgress';
 import I18nProvider from '@/components/I18nProvider';
 import { getLocale, loadDict } from '@/lib/i18n/server';
-
-const barlow = Barlow({
-  subsets: ['latin'],
-  weight: ['400', '500', '600'],
-  variable: '--font-barlow',
-  display: 'swap',
-});
-
-const barlowCondensed = Barlow_Condensed({
-  subsets: ['latin'],
-  weight: ['500', '600', '700'],
-  variable: '--font-barlow-cond',
-  display: 'swap',
-});
-
-// Sinhala / Tamil glyphs. Barlow has none, so these sit behind it in the font
-// stack (see --font-sans in globals.css). preload:false keeps English users
-// from downloading them; the browser fetches a font only when a glyph needs it.
-const notoSinhala = Noto_Sans_Sinhala({
-  subsets: ['sinhala'],
-  weight: ['400', '500', '600', '700'],
-  variable: '--font-noto-sinhala',
-  display: 'swap',
-  preload: false,
-});
-
-const notoTamil = Noto_Sans_Tamil({
-  subsets: ['tamil'],
-  weight: ['400', '500', '600', '700'],
-  variable: '--font-noto-tamil',
-  display: 'swap',
-  preload: false,
-});
 
 export const metadata: Metadata = {
   title: 'Pro Nutrition — POS',
@@ -54,7 +37,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html
       lang={locale}
-      className={`${barlow.variable} ${barlowCondensed.variable} ${notoSinhala.variable} ${notoTamil.variable}`}
       suppressHydrationWarning
     >
       <head>
