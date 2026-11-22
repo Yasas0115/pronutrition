@@ -1,10 +1,53 @@
 'use client';
 
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { money, fmt } from '@/lib/money';
 import { useT } from '@/components/I18nProvider';
 
 type Day = { key: string; total: number };
+
+// Round the chart's top up to a tidy number (1, 2, 2.5, 5 × a power of ten) so
+// the axis labels read cleanly; an empty week still gets a small scale.
+function niceMax(v: number): number {
+  if (v <= 0) return 1000;
+  const p = 10 ** Math.floor(Math.log10(v));
+  return ([1, 2, 2.5, 5, 10].find((s) => s * p >= v) ?? 10) * p;
+}
+
+// 228500 -> "229k", 1200000 -> "1.2M": short axis labels.
+function compact(v: number): string {
+  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`;
+  if (v >= 1000) return `${Math.round(v / 1000)}k`;
+  return String(Math.round(v));
+}
+
+// Smooth line through the points (monotone cubic), so a curve never dips below
+// a zero day or overshoots a peak.
+function smooth(p: [number, number][]): string {
+  const n = p.length;
+  if (n < 2) return '';
+  const dx: number[] = [], m: number[] = [];
+  for (let i = 0; i < n - 1; i++) {
+    dx[i] = p[i + 1][0] - p[i][0];
+    m[i] = (p[i + 1][1] - p[i][1]) / dx[i];
+  }
+  const tg: number[] = [m[0]];
+  for (let i = 1; i < n - 1; i++) tg[i] = m[i - 1] * m[i] <= 0 ? 0 : (m[i - 1] + m[i]) / 2;
+  tg[n - 1] = m[n - 2];
+  for (let i = 0; i < n - 1; i++) {
+    if (m[i] === 0) { tg[i] = 0; tg[i + 1] = 0; continue; }
+    const a = tg[i] / m[i], b = tg[i + 1] / m[i], h = a * a + b * b;
+    if (h > 9) { const k = 3 / Math.sqrt(h); tg[i] = k * a * m[i]; tg[i + 1] = k * b * m[i]; }
+  }
+  let d = `M${p[0][0].toFixed(1)},${p[0][1].toFixed(1)}`;
+  for (let i = 0; i < n - 1; i++) {
+    d += ` C${(p[i][0] + dx[i] / 3).toFixed(1)},${(p[i][1] + (tg[i] * dx[i]) / 3).toFixed(1)}`
+      + ` ${(p[i + 1][0] - dx[i] / 3).toFixed(1)},${(p[i + 1][1] - (tg[i + 1] * dx[i]) / 3).toFixed(1)}`
+      + ` ${p[i + 1][0].toFixed(1)},${p[i + 1][1].toFixed(1)}`;
+  }
+  return d;
+}
 
 // Accounting › Overview: today at a glance. Read-only; every card links to the
 // page that holds the detail.
@@ -46,12 +89,30 @@ export default function OverviewView({
   const thisWeek = days.slice(7);
   const weekTotal = thisWeek.reduce((s, d) => s + d.total, 0);
   const prevTotal = prevWeek.reduce((s, d) => s + d.total, 0);
-  const max = Math.max(1, ...days.map((d) => d.total));
-  const W = 560, H = 150, PAD = 8;
-  const x = (i: number) => PAD + (i / 6) * (W - PAD * 2);
-  const y = (v: number) => H - PAD - (v / max) * (H - PAD * 2);
-  const line = (arr: Day[]) => arr.map((d, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)},${y(d.total).toFixed(1)}`).join(' ');
-  const area = `${line(thisWeek)} L${x(6)},${H - PAD} L${x(0)},${H - PAD} Z`;
+  // The chart is drawn at its real pixel width (re-measured on resize) so the
+  // text stays 11px instead of scaling up with the card.
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [w, setW] = useState(560);
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const measure = () => setW(Math.max(260, Math.floor(el.clientWidth)));
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const H = 190, L = 48, R = 24, T = 12, B = 28;
+  const max = niceMax(Math.max(...days.map((d) => d.total)));
+  const x = (i: number) => L + (i / 6) * (w - L - R);
+  const y = (v: number) => T + (1 - v / max) * (H - T - B);
+  const base = H - B;
+  const pts = (arr: Day[]): [number, number][] => arr.map((d, i) => [x(i), y(d.total)]);
+  const prevPath = smooth(pts(prevWeek));
+  const thisPath = smooth(pts(thisWeek));
+  const area = `${thisPath} L${x(6).toFixed(1)},${base} L${x(0).toFixed(1)},${base} Z`;
+  const ticks = [0, max / 2, max];
   const weekday = (key: string) =>
     new Date(`${key}T12:00:00Z`).toLocaleDateString(undefined, { weekday: 'short', timeZone: 'UTC' });
 
@@ -101,7 +162,7 @@ export default function OverviewView({
         )}
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+      <div className="grid gap-4 items-start lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
         <div className="card p-4">
           <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
             <div className="brand" style={{ fontSize: 17 }}>{t("Takings, last 7 days")}</div>
@@ -110,22 +171,27 @@ export default function OverviewView({
               <span className="inline-flex items-center gap-1.5"><span style={{ width: 14, height: 0, borderTop: '2px dashed var(--color-faint)', display: 'inline-block' }} />{t("Week before")} {money(prevTotal, currency)}</span>
             </div>
           </div>
-          <svg viewBox={`0 0 ${W} ${H + 20}`} width="100%" role="img" aria-label={t("Daily takings for the last 7 days compared with the week before")}>
-            {[0, 0.5, 1].map((g) => (
-              <line key={g} x1={PAD} x2={W - PAD} y1={y(max * g)} y2={y(max * g)} stroke="var(--color-line)" strokeWidth={1} />
-            ))}
-            <path d={line(prevWeek)} fill="none" stroke="var(--color-faint)" strokeWidth={2} strokeDasharray="5 4" strokeLinejoin="round" strokeLinecap="round" />
-            <path d={area} fill="var(--color-brand)" opacity={0.1} />
-            <path d={line(thisWeek)} fill="none" stroke="var(--color-brand)" strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round" />
-            {thisWeek.map((d, i) => (
-              <g key={d.key}>
-                <circle cx={x(i)} cy={y(d.total)} r={4} fill="var(--color-brand)" stroke="var(--color-ink-2)" strokeWidth={2}>
-                  <title>{`${d.key}: ${money(d.total, currency)}`}</title>
-                </circle>
-                <text x={x(i)} y={H + 14} textAnchor="middle" fontSize={11} fill="var(--color-faint)">{weekday(d.key)}</text>
-              </g>
-            ))}
-          </svg>
+          <div ref={wrapRef} style={{ width: '100%' }}>
+            <svg width={w} height={H} style={{ display: 'block' }} role="img" aria-label={t("Daily takings for the last 7 days compared with the week before")}>
+              {ticks.map((v) => (
+                <g key={v}>
+                  <line x1={L} x2={w - R} y1={y(v)} y2={y(v)} stroke="var(--color-line)" strokeWidth={1} />
+                  <text x={L - 8} y={y(v) + 4} textAnchor="end" fontSize={11} fill="var(--color-faint)">{compact(v)}</text>
+                </g>
+              ))}
+              <path d={prevPath} fill="none" stroke="var(--color-faint)" strokeWidth={2} strokeDasharray="5 4" strokeLinejoin="round" strokeLinecap="round" />
+              <path d={area} fill="var(--color-brand)" opacity={0.1} />
+              <path d={thisPath} fill="none" stroke="var(--color-brand)" strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round" />
+              {thisWeek.map((d, i) => (
+                <g key={d.key}>
+                  <circle cx={x(i)} cy={y(d.total)} r={4} fill="var(--color-brand)" stroke="var(--color-ink-2)" strokeWidth={2}>
+                    <title>{`${d.key}: ${money(d.total, currency)}`}</title>
+                  </circle>
+                  <text x={x(i)} y={H - 8} textAnchor="middle" fontSize={11} fill="var(--color-faint)">{weekday(d.key)}</text>
+                </g>
+              ))}
+            </svg>
+          </div>
         </div>
 
         <div className="flex flex-col gap-4">
