@@ -30,10 +30,11 @@
   --color-ok: #22c55e;
   --color-warn: #f59e0b;
 
-  /* Barlow has no Sinhala/Tamil glyphs; the Noto faces sit behind it so Latin
-     text keeps the brand look and සිංහල / தமிழ் fall through to a real font. */
-  --font-barlow: 'Barlow';
-  --font-barlow-cond: 'Barlow Condensed';
+  /* Inter (body) and Oswald (headings) have no Sinhala/Tamil glyphs; the Noto
+     faces sit behind them so Latin text keeps the brand look and සිංහල / தமிழ்
+     fall through to a real font. (Variable names kept from the old Barlow stack.) */
+  --font-barlow: 'Inter';
+  --font-barlow-cond: 'Oswald';
   --font-noto-sinhala: 'Noto Sans Sinhala';
   --font-noto-tamil: 'Noto Sans Tamil';
   --font-sans: var(--font-barlow),var(--font-noto-sinhala), var(--font-noto-tamil), ui-sans-serif, system-ui, -apple-system, sans-serif;
@@ -807,6 +808,153 @@ header.no-print::after {
   .auth-card { animation: none; }
   .stat:hover, .prod:hover, .chip:hover, .side-link:hover, .side-sublink:hover, .btn-primary:hover { transform: none !important; }
 }
+
+/* ============================================================
+   Light theme · "Ivory & Ember" refinement — LIGHT MODE ONLY, STYLE ONLY.
+   Builds on the Warm Athletic tokens above. Adds: a glowing top-of-header
+   accent, a warm-gradient header + sidebar, white raised header controls,
+   a brand-tinted hover/active language, KPI top accents, zebra tables and
+   proper filled status badges. No markup, layout or behaviour changes.
+   ============================================================ */
+:root[data-theme="light"] {
+  --ember: #dc2626;
+  --ember-tint: rgba(220, 38, 38, .07);        /* hover wash */
+  --ember-tint-2: rgba(220, 38, 38, .11);      /* active wash */
+  --paper: #fffcf9;                            /* header / sidebar surface */
+  --line-warm: #e6ddd0;                        /* card hairline, a touch crisper */
+  --hover-ring: color-mix(in srgb, var(--color-brand) 55%, var(--color-line-2));
+}
+
+/* Canvas: second, amber glow bottom-left so the page isn't one flat wash */
+:root[data-theme="light"] body {
+  background:
+    radial-gradient(1000px 560px at 100% -8%, rgba(220, 38, 38, .06), transparent 60%),
+    radial-gradient(800px 520px at -6% 108%, rgba(245, 158, 11, .07), transparent 60%),
+    var(--color-ink-0);
+  background-attachment: fixed;
+}
+:root[data-theme="light"] ::selection { background: rgba(220, 38, 38, .2); }
+:root[data-theme="light"] *::-webkit-scrollbar-thumb { background-color: #d8cdbf; }
+:root[data-theme="light"] *::-webkit-scrollbar-thumb:hover { background-color: #b9ab98; }
+:root[data-theme="light"] * { scrollbar-color: #d8cdbf transparent; }
+
+/* ---- Header ---- */
+:root[data-theme="light"] header.no-print {
+  background: linear-gradient(180deg, #ffffff 0%, var(--paper) 100%) !important;
+  border-bottom: 1px solid var(--line-warm);
+  box-shadow: 0 6px 20px -14px rgba(60, 45, 30, .28);
+}
+/* Ember accent strip across the very top */
+:root[data-theme="light"] header.no-print::before {
+  content: ''; position: absolute; left: 0; right: 0; top: 0; height: 3px; pointer-events: none;
+  background: linear-gradient(90deg, #b91c1c 0%, #ef4444 38%, #f59e0b 100%);
+}
+/* Controls on the bar read as small raised white keys */
+:root[data-theme="light"] header.no-print .btn-ghost,
+:root[data-theme="light"] header.no-print .hamburger {
+  background: #fff; border-color: var(--color-line-2);
+  box-shadow: 0 1px 2px rgba(60, 45, 30, .07);
+}
+:root[data-theme="light"] header.no-print .btn-ghost:not(:disabled):hover,
+:root[data-theme="light"] header.no-print .hamburger:hover {
+  background: #fff5f3; color: var(--ember); border-color: var(--hover-ring);
+  box-shadow: 0 2px 8px rgba(220, 38, 38, .14);
+}
+:root[data-theme="light"] header.no-print select.input {
+  background: #fff; box-shadow: 0 1px 2px rgba(60, 45, 30, .07);
+}
+/* Avatar: white initial on a brand gradient (black on red looks muddy on light) */
+:root[data-theme="light"] header.no-print span.rounded-full.place-items-center {
+  background: var(--grad-brand) !important; color: #fff !important;
+  box-shadow: 0 0 0 2px #fff, 0 0 0 3.5px rgba(220, 38, 38, .35), 0 3px 8px rgba(220, 38, 38, .25);
+}
+/* Profile button hover (idle background is inline-transparent) */
+:root[data-theme="light"] header.no-print button.rounded-lg:hover { background: var(--ember-tint); }
+
+/* ---- Sidebar ---- */
+:root[data-theme="light"] aside.no-print {
+  background: var(--paper) !important;
+  border-right: 1px solid var(--line-warm) !important;
+  box-shadow: 8px 0 24px -20px rgba(60, 45, 30, .35);
+}
+:root[data-theme="light"] aside.no-print > div.sticky { background: var(--paper) !important; }
+:root[data-theme="light"] .side-label { color: #a39587; }
+:root[data-theme="light"] .side-link__icon { background: #f6efe7; color: #8a7d70; }
+:root[data-theme="light"] .side-link:hover { background: var(--ember-tint); color: var(--ember); }
+:root[data-theme="light"] .side-link:hover .side-link__icon { background: var(--ember-tint-2); color: var(--ember); }
+:root[data-theme="light"] .side-link[data-active] {
+  background: linear-gradient(90deg, rgba(220, 38, 38, .13), rgba(220, 38, 38, .02));
+  color: var(--ember);
+}
+:root[data-theme="light"] .side-sublink:hover { background: var(--ember-tint); color: var(--ember); }
+:root[data-theme="light"] .side-sublink:hover .side-sublink__icon { color: var(--ember); }
+:root[data-theme="light"] .side-sub { border-left-color: #eadfd2; }
+
+/* ---- Surfaces ---- */
+:root[data-theme="light"] .card,
+:root[data-theme="light"] .stat,
+:root[data-theme="light"] .cart,
+:root[data-theme="light"] .prod { border-color: var(--line-warm); }
+/* KPI tiles: ember accent running along the top edge */
+:root[data-theme="light"] .stat {
+  background-image: linear-gradient(90deg, var(--ember) 0, rgba(245, 158, 11, .85) 42%, transparent 100%);
+  background-size: 100% 3px; background-repeat: no-repeat; background-position: top left;
+}
+@media (hover: hover) {
+  :root[data-theme="light"] .stat:hover,
+  :root[data-theme="light"] .prod:not([data-out]):hover {
+    box-shadow: 0 2px 6px rgba(60, 45, 30, .06), 0 14px 30px -10px rgba(220, 38, 38, .22);
+  }
+}
+:root[data-theme="light"] .prod__img { background: #f6efe7; }
+:root[data-theme="light"] .cart__row { border-bottom-color: #efe7dc; }
+
+/* ---- Controls ---- */
+:root[data-theme="light"] .btn-ghost { background: #fff; box-shadow: 0 1px 2px rgba(60, 45, 30, .05); }
+:root[data-theme="light"] .btn-ghost:not(:disabled):hover { background: #fff5f3; color: var(--ember); }
+:root[data-theme="light"] .btn-danger { border-color: rgba(220, 38, 38, .35); background: #fff; }
+:root[data-theme="light"] .btn-danger:not(:disabled):hover { background: #fff0ee; }
+:root[data-theme="light"] .input,
+:root[data-theme="light"] .stock-input { box-shadow: inset 0 1px 2px rgba(60, 45, 30, .05); }
+:root[data-theme="light"] .input:focus,
+:root[data-theme="light"] .stock-input:focus {
+  background: #fff; box-shadow: 0 0 0 3px rgba(220, 38, 38, .16);
+}
+:root[data-theme="light"] .chip,
+:root[data-theme="light"] .qtybtn { background: #fff; box-shadow: 0 1px 2px rgba(60, 45, 30, .05); }
+/* Chips: hover = crisp white pill with a red outline + text; selected = solid
+   brand fill with white text and a tight drop shadow (no wide halo ring), so
+   the label stays clear in both states. */
+:root[data-theme="light"] .chip:not([data-active]):hover {
+  background: #fff; color: var(--ember); border-color: var(--hover-ring);
+  box-shadow: 0 2px 8px rgba(220, 38, 38, .14);
+}
+:root[data-theme="light"] .chip[data-active],
+:root[data-theme="light"] .chip[data-active]:hover {
+  background: var(--grad-brand); border-color: var(--color-brand-600); color: #fff;
+  box-shadow: 0 3px 8px rgba(220, 38, 38, .28), inset 0 1px 0 rgba(255, 255, 255, .22);
+}
+:root[data-theme="light"] .plan-opt { background: #fff; }
+:root[data-theme="light"] .plan-opt.selected { background: #fff0ee; }
+:root[data-theme="light"] .menu-item:hover { background: var(--ember-tint); color: var(--ember); }
+
+/* ---- Tables: warm header, soft zebra, ember row hover ---- */
+:root[data-theme="light"] .table thead th {
+  background: #f8f1e9; color: #7a6d60; border-bottom-color: #e6ddd0;
+}
+:root[data-theme="light"] .table tbody tr:nth-child(even) td { background: rgba(120, 90, 60, .028); }
+:root[data-theme="light"] .table tbody tr:hover td { background: rgba(220, 38, 38, .05); }
+:root[data-theme="light"] .table tbody td { border-bottom-color: #efe7dc; }
+:root[data-theme="light"] .table tfoot td { background: #f8f1e9; border-top-color: #e6ddd0; }
+
+/* ---- Status badges: solid pastel fills with readable dark text ---- */
+:root[data-theme="light"] .badge-active  { background: #e6f5ec; }
+:root[data-theme="light"] .badge-expiring { background: #fdf1de; }
+:root[data-theme="light"] .badge-expired { background: #fde9e7; }
+
+/* ---- Auth + modal ---- */
+:root[data-theme="light"] .auth-card { border-color: var(--line-warm); }
+:root[data-theme="light"] .modal-panel { border-color: var(--line-warm); }
 
 /* Receipt (printable) */
 .receipt { font-family: var(--font-sans); color: var(--color-strong); }

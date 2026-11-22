@@ -1,13 +1,15 @@
 import type { Metadata } from 'next';
 // Fonts are self-hosted (@fontsource) so the build never depends on Google Fonts.
-// Sinhala / Tamil faces sit behind Barlow in the font stack (see --font-sans in
-// globals.css); unicode-range makes the browser fetch a file only when a glyph needs it.
-import '@fontsource/barlow/400.css';
-import '@fontsource/barlow/500.css';
-import '@fontsource/barlow/600.css';
-import '@fontsource/barlow-condensed/500.css';
-import '@fontsource/barlow-condensed/600.css';
-import '@fontsource/barlow-condensed/700.css';
+// Sinhala / Tamil faces sit behind Inter / Oswald in the font stack (see --font-sans
+// and --font-head in globals.css); unicode-range makes the browser fetch a file only
+// when a glyph needs it.
+import '@fontsource/inter/400.css';
+import '@fontsource/inter/500.css';
+import '@fontsource/inter/600.css';
+import '@fontsource/inter/700.css';
+import '@fontsource/oswald/500.css';
+import '@fontsource/oswald/600.css';
+import '@fontsource/oswald/700.css';
 import '@fontsource/noto-sans-sinhala/400.css';
 import '@fontsource/noto-sans-sinhala/500.css';
 import '@fontsource/noto-sans-sinhala/600.css';
