@@ -211,6 +211,9 @@ export default function AppShell({
   const [switching, startSwitch] = useTransition();
   const [pwBusy, setPwBusy] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  // Where the desktop (sidebar) account menu opens: it is position:fixed so the
+  // sidebar's own scrolling can't clip it.
+  const [menuPos, setMenuPos] = useState<{ left: number; bottom: number } | null>(null);
   const mainRef = useRef<HTMLElement>(null);
   const isWide = wide ?? !NARROW_PATHS.some((p) => pathname === p || pathname.startsWith(p + '/'));
 
@@ -350,7 +353,7 @@ export default function AppShell({
   // Branch switcher (owner) / current branch label (staff). Lives in the header
   // on wider screens and at the top of the drawer on phones, where the header
   // has no room for it.
-  const branchControl = (compact: boolean) =>
+  const branchControl = (compact: boolean, fill = false) =>
     branches.length > 0 &&
     ((canSwitchBranch ?? owner) ? (
       <select
@@ -359,7 +362,7 @@ export default function AppShell({
         value={activeScope}
         disabled={switching}
         onChange={(e) => onBranchChange(e.target.value)}
-        style={compact ? { height: 38, padding: '0 30px 0 12px', maxWidth: 190, fontSize: 13 } : { height: 44 }}
+        style={compact ? { height: 38, padding: '0 30px 0 12px', maxWidth: fill ? undefined : 190, width: fill ? '100%' : undefined, fontSize: 13 } : { height: 44 }}
       >
         <option value={ALL_BRANCHES}>{t("All branches")}</option>
         {branches.map((b) => (
@@ -371,7 +374,7 @@ export default function AppShell({
     ) : (
       <span
         className="inline-flex items-center gap-1.5 rounded-lg px-3"
-        style={{ height: compact ? 38 : 44, background: 'var(--color-ink-1)', border: '1px solid var(--color-line-2)', color: 'var(--color-ash)', fontSize: 13 }}
+        style={{ width: fill ? '100%' : undefined, height: compact ? 38 : 44, background: 'var(--color-ink-1)', border: '1px solid var(--color-line-2)', color: 'var(--color-ash)', fontSize: 13 }}
       >
         <Icon name="branch" className="opacity-70" />
         {activeBranchName}
@@ -386,6 +389,64 @@ export default function AppShell({
       return next;
     });
 
+  // Quick-search button and the account menu contents are shared by the phone
+  // header and the desktop sidebar (which now carries what the header used to).
+  const searchButton = (
+    <button
+      type="button"
+      className="btn btn-ghost btn-sm"
+      onClick={() => setPaletteOpen(true)}
+      aria-label={t("Quick search")}
+      title={t("Quick search (Ctrl+K)")}
+      style={{ padding: 8, width: 38, height: 38 }}
+    >
+      <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+      </svg>
+    </button>
+  );
+
+  const accountItems = (
+    <>
+      <div className="px-3 py-2 mb-1" style={{ borderBottom: '1px solid var(--color-line)' }}>
+        <div className="text-[13px] text-strong font-semibold truncate">{username}</div>
+        <div className="text-[11px]" style={{ color: 'var(--color-muted)' }}>{roleLabel}</div>
+      </div>
+      {has('settings') && (
+        <Link href="/settings" className="menu-item" onClick={() => setMenuOpen(false)}>
+          <Icon name="settings" />
+          {t("Settings")}
+        </Link>
+      )}
+      <button type="button" className="menu-item" onClick={changePassword} disabled={pwBusy}>
+        <Icon name="key" />
+        {pwBusy ? t("Sending link…") : t("Change password")}
+      </button>
+      <form action={logoutAction}>
+        <button type="submit" className="menu-item" style={{ color: 'var(--color-brand)' }}>
+          <Icon name="logout" />
+          {t("Log out")}
+        </button>
+      </form>
+    </>
+  );
+
+  const avatar = (
+    <span
+      className="grid place-items-center rounded-full font-bold shrink-0"
+      style={{
+        width: 34,
+        height: 34,
+        background: 'var(--color-brand)',
+        color: '#000',
+        fontFamily: 'var(--font-head)',
+        fontSize: 16,
+      }}
+    >
+      {initial}
+    </span>
+  );
+
   return (
     // overflow-x: clip is a safety net: anything that ever pokes past the
     // viewport gets cut off instead of making the whole page side-scroll /
@@ -393,9 +454,10 @@ export default function AppShell({
     // The page scrolls inside the body area (not the window), so the scrollbar
     // starts below the header instead of running alongside it.
     <div className="h-screen supports-[height:100dvh]:h-[100dvh] flex flex-col overflow-hidden print:!h-auto print:overflow-visible">
-      {/* Header */}
+      {/* Top bar — phones only. On desktop (md+) everything in it lives in the
+          sidebar: brand + toggle at the top, tools under it, account at the bottom. */}
       <header
-        className="no-print sticky top-0 z-30 flex items-center justify-between gap-2 px-4 sm:px-6"
+        className="no-print sticky top-0 z-30 flex md:hidden items-center justify-between gap-2 px-4 sm:px-6"
         style={{ background: 'var(--color-ink-2)', minHeight: 64 }}
       >
         <div className="flex items-center gap-3 min-w-0">
@@ -433,18 +495,7 @@ export default function AppShell({
           <div className="hidden sm:block">
             <FullscreenToggle />
           </div>
-          <button
-            type="button"
-            className="btn btn-ghost btn-sm"
-            onClick={() => setPaletteOpen(true)}
-            aria-label={t("Quick search")}
-            title={t("Quick search (Ctrl+K)")}
-            style={{ padding: 8, width: 38, height: 38 }}
-          >
-            <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
-            </svg>
-          </button>
+          {searchButton}
           <LanguageSwitcher />
           <ThemeToggle />
           <div className="relative">
@@ -455,23 +506,7 @@ export default function AppShell({
               aria-expanded={menuOpen}
               aria-label={t("Account menu")}
             >
-              <span
-                className="grid place-items-center rounded-full font-bold shrink-0"
-                style={{
-                  width: 34,
-                  height: 34,
-                  background: 'var(--color-brand)',
-                  color: '#000',
-                  fontFamily: 'var(--font-head)',
-                  fontSize: 16,
-                }}
-              >
-                {initial}
-              </span>
-              <span className="hidden md:flex flex-col items-start leading-tight">
-                <span className="text-[13px] text-strong font-semibold max-w-[170px] truncate">{username}</span>
-                <span className="text-[11px]" style={{ color: 'var(--color-muted)' }}>{roleLabel}</span>
-              </span>
+              {avatar}
               <Icon name="chevron" className={`hidden sm:block transition-transform${menuOpen ? ' rotate-180' : ''}`} />
             </button>
 
@@ -487,26 +522,7 @@ export default function AppShell({
                   className="absolute right-0 mt-2 w-[220px] z-40 card p-1 animate-pop"
                   style={{ boxShadow: 'var(--shadow-pop)' }}
                 >
-                  <div className="px-3 py-2 mb-1" style={{ borderBottom: '1px solid var(--color-line)' }}>
-                    <div className="text-[13px] text-strong font-semibold truncate">{username}</div>
-                    <div className="text-[11px]" style={{ color: 'var(--color-muted)' }}>{roleLabel}</div>
-                  </div>
-                  {has('settings') && (
-                    <Link href="/settings" className="menu-item" onClick={() => setMenuOpen(false)}>
-                      <Icon name="settings" />
-                      {t("Settings")}
-                    </Link>
-                  )}
-                  <button type="button" className="menu-item" onClick={changePassword} disabled={pwBusy}>
-                    <Icon name="key" />
-                    {pwBusy ? t("Sending link…") : t("Change password")}
-                  </button>
-                  <form action={logoutAction}>
-                    <button type="submit" className="menu-item" style={{ color: 'var(--color-brand)' }}>
-                      <Icon name="logout" />
-                      {t("Log out")}
-                    </button>
-                  </form>
+                  {accountItems}
                 </div>
               </>
             )}
@@ -529,17 +545,25 @@ export default function AppShell({
           data-rail={rail || undefined}
           className={`no-print fixed top-16 left-0 bottom-0 z-40 w-[260px] overflow-y-auto ${
             navOpen ? 'block' : 'hidden'
-          } md:static md:block md:z-auto ${rail ? 'md:w-[76px]' : 'md:w-[290px]'} md:transition-[width] md:duration-200 md:shrink-0 md:h-full md:overflow-y-auto`}
+          } md:static md:flex md:flex-col md:z-auto ${rail ? 'md:w-[76px]' : 'md:w-[290px]'} md:transition-[width] md:duration-200 md:shrink-0 md:h-full md:overflow-y-auto`}
           style={{ background: 'var(--color-ink-2)', borderRight: '1px solid var(--color-line)' }}
         >
           {/* Desktop only: the sidebar's own toggle. Open → a close button at the
               right of the heading; collapsed → the hamburger sits on top of the
               icon rail. (Phones keep the header hamburger + drawer.) */}
           <div
-            className={`no-print hidden md:flex sticky top-0 z-10 items-center h-[52px] ${rail ? 'justify-center px-2' : 'justify-between px-4'}`}
+            className={`no-print hidden md:flex sticky top-0 z-10 shrink-0 items-center gap-2 h-[64px] ${rail ? 'justify-center px-2' : 'justify-between px-4'}`}
             style={{ background: 'var(--color-ink-2)' }}
           >
-            {!rail && <div className="side-label">{t("Main navigation")}</div>}
+            {!rail && (
+              <Link href="/" className="flex items-center gap-2.5 min-w-0" aria-label={storeName}>
+                {logoUrl && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={logoUrl} alt="" style={{ objectFit: 'contain' }} className="shrink-0 h-9 max-w-[96px]" />
+                )}
+                <span className="brand text-[22px] truncate">{storeName}</span>
+              </Link>
+            )}
             {rail ? (
               <button
                 type="button"
@@ -556,7 +580,7 @@ export default function AppShell({
             ) : (
               <button
                 type="button"
-                className="sidebar-close"
+                className="sidebar-close shrink-0"
                 onClick={toggleSidebar}
                 aria-expanded
                 aria-label={t("Close sidebar")}
@@ -566,14 +590,24 @@ export default function AppShell({
               </button>
             )}
           </div>
-          <nav className={`flex flex-col gap-1.5 ${rail ? 'px-2' : 'px-4'} pt-5 md:pt-2 pb-4`}>
+          {/* Desktop only: the tools that used to sit in the top bar. */}
+          <div className={`side-tools no-print hidden md:flex shrink-0 flex-col gap-3 ${rail ? 'px-2 items-center' : 'px-4'} pb-3`}>
+            {!rail && branches.length > 0 && branchControl(true, true)}
+            <div className={`flex items-center gap-2 ${rail ? 'flex-col' : 'flex-wrap'}`}>
+              {searchButton}
+              <FullscreenToggle />
+              {!rail && <LanguageSwitcher />}
+              <ThemeToggle />
+            </div>
+          </div>
+          <nav className={`flex flex-col gap-1.5 shrink-0 ${rail ? 'px-2' : 'px-4'} pt-5 md:pt-2 pb-4`}>
             {branches.length > 0 && (
               <div className="sm:hidden flex flex-col gap-2 mb-4">
                 <div className="side-label">{t("Branch")}</div>
                 {branchControl(false)}
               </div>
             )}
-            <div className="side-label md:hidden">{t("Main navigation")}</div>
+            <div className="side-label">{t("Main navigation")}</div>
             {menu.map((item) =>
               item.kind === 'link' ? (
                 <Link
@@ -637,12 +671,59 @@ export default function AppShell({
               ),
             )}
           </nav>
+
+          {/* Desktop only: signed-in person + account menu, pinned to the bottom. */}
+          <div
+            className={`no-print hidden md:block sticky bottom-0 z-10 mt-auto shrink-0 ${rail ? 'px-2' : 'px-4'} py-3`}
+            style={{ background: 'var(--color-ink-2)', borderTop: '1px solid var(--color-line)' }}
+          >
+            <button
+              type="button"
+              className={`side-profile flex items-center gap-2.5 rounded-lg px-2 py-1.5 transition-colors w-full ${rail ? 'justify-center' : 'text-left'}`}
+              style={{ background: menuOpen ? 'var(--color-ink-3)' : 'transparent' }}
+              onClick={(e) => {
+                const r = e.currentTarget.getBoundingClientRect();
+                setMenuPos({ left: rail ? 84 : r.left, bottom: window.innerHeight - r.top + 8 });
+                setMenuOpen((v) => !v);
+              }}
+              aria-expanded={menuOpen}
+              aria-label={t("Account menu")}
+              title={rail ? `${username} · ${roleLabel}` : undefined}
+            >
+              {avatar}
+              {!rail && (
+                <>
+                  <span className="flex flex-col items-start leading-tight min-w-0 flex-1">
+                    <span className="text-[13px] text-strong font-semibold max-w-full truncate">{username}</span>
+                    <span className="text-[11px]" style={{ color: 'var(--color-muted)' }}>{roleLabel}</span>
+                  </span>
+                  <Icon name="chevron" className={`shrink-0 transition-transform${menuOpen ? '' : ' rotate-180'}`} />
+                </>
+              )}
+            </button>
+            {menuOpen && menuPos && (
+              <>
+                <button
+                  className="fixed inset-0 z-40 cursor-default"
+                  onClick={() => setMenuOpen(false)}
+                  aria-hidden
+                  tabIndex={-1}
+                />
+                <div
+                  className="fixed w-[220px] z-50 card p-1 animate-pop"
+                  style={{ left: menuPos.left, bottom: menuPos.bottom, boxShadow: 'var(--shadow-pop)' }}
+                >
+                  {accountItems}
+                </div>
+              </>
+            )}
+          </div>
         </aside>
 
         <main
           ref={mainRef}
-          className="flex-1 min-w-0 px-4 sm:px-6 pt-6 pb-4 md:h-full md:overflow-y-auto print:!h-auto print:!overflow-visible"
-          style={{ borderTop: '1px solid var(--color-line)' }}
+          className="flex-1 min-w-0 px-4 sm:px-6 pt-6 pb-4 border-t md:border-t-0 md:h-full md:overflow-y-auto print:!h-auto print:!overflow-visible"
+          style={{ borderColor: 'var(--color-line)' }}
         >
           {/* min-h-full + flex-1: on short pages the footer card sits at the bottom
               edge; on long pages it follows the content with a small gap. */}
