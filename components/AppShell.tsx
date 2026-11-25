@@ -395,6 +395,7 @@ export default function AppShell({
     <div className="h-screen supports-[height:100dvh]:h-[100dvh] flex flex-col overflow-hidden print:!h-auto print:overflow-visible">
       {/* Header */}
       <header
+        data-rail={rail || undefined}
         className="no-print sticky top-0 z-30 flex items-center justify-between gap-2 px-4 sm:px-6"
         style={{ background: 'var(--color-ink-2)', minHeight: 64 }}
       >

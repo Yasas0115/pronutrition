@@ -695,9 +695,17 @@ a:focus-visible, button:focus-visible, [role="button"]:focus-visible, summary:fo
   .prod:not([data-out]):hover { border-color: var(--hover-ring); transform: translateY(-2px); box-shadow: var(--shadow-soft); }
 }
 
-/* Header and sidebar share one surface, so no divider line under the header
-   (the old brand-red hairline and edge shadow are gone). */
-header.no-print::after { content: none; }
+/* Header and sidebar share one surface, so the brand-red hairline under the
+   header only runs above the page content — it starts where the sidebar ends
+   (290px open, 76px icon rail; on phones the sidebar is a drawer, so full width). */
+header.no-print::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: -1px; height: 1px; pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(239, 68, 68, .5), transparent);
+}
+@media (min-width: 768px) {
+  header.no-print::after { left: 290px; transition: left .2s; }
+  header.no-print[data-rail]::after { left: 76px; }
+}
 :root:not([data-theme="light"]) header.no-print { box-shadow: none; }
 /* Dark theme: sidebar uses the same surface colour as the header */
 :root:not([data-theme="light"]) aside.no-print { background: var(--color-ink-2) !important; }
