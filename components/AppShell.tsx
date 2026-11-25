@@ -644,8 +644,10 @@ export default function AppShell({
           className="flex-1 min-w-0 px-4 sm:px-6 pt-6 pb-4 md:h-full md:overflow-y-auto print:!h-auto print:!overflow-visible"
           style={{ borderTop: '1px solid var(--color-line)' }}
         >
-          <div className={isWide ? 'max-w-[1400px] mx-auto' : 'max-w-[1100px] mx-auto'}>
-            {children}
+          {/* min-h-full + flex-1: on short pages the footer card sits at the bottom
+              edge; on long pages it follows the content with a small gap. */}
+          <div className={`${isWide ? 'max-w-[1400px]' : 'max-w-[1100px]'} mx-auto md:min-h-full flex flex-col`}>
+            <div className="flex-1 min-w-0">{children}</div>
             <AppFooter storeName={storeName} logoUrl={logoUrl} branchName={branches.length > 0 ? activeBranchName : ''} />
           </div>
         </main>
