@@ -395,7 +395,6 @@ export default function AppShell({
     <div className="h-screen supports-[height:100dvh]:h-[100dvh] flex flex-col overflow-hidden print:!h-auto print:overflow-visible">
       {/* Header */}
       <header
-        data-rail={rail || undefined}
         className="no-print sticky top-0 z-30 flex items-center justify-between gap-2 px-4 sm:px-6"
         style={{ background: 'var(--color-ink-2)', minHeight: 64 }}
       >
@@ -516,7 +515,7 @@ export default function AppShell({
       </header>
 
       {/* Body: sidebar + content */}
-      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-clip md:flex md:overflow-hidden print:!overflow-visible">
+      <div className="app-frame flex-1 min-h-0 overflow-y-auto overflow-x-clip md:flex md:overflow-hidden print:!overflow-visible">
         {navOpen && (
           <button
             className="md:hidden fixed inset-0 z-30 no-print cursor-default"
@@ -642,8 +641,7 @@ export default function AppShell({
 
         <main
           ref={mainRef}
-          className="flex-1 min-w-0 px-4 sm:px-6 pt-6 pb-4 md:h-full md:overflow-y-auto print:!h-auto print:!overflow-visible"
-          style={{ borderTop: '1px solid var(--color-line)' }}
+          className="flex-1 min-w-0 px-4 sm:px-6 pt-6 pb-4 app-pane md:h-full md:overflow-y-auto print:!h-auto print:!overflow-visible"
         >
           {/* min-h-full + flex-1: on short pages the footer card sits at the bottom
               edge; on long pages it follows the content with a small gap. */}

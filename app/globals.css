@@ -695,18 +695,28 @@ a:focus-visible, button:focus-visible, [role="button"]:focus-visible, summary:fo
   .prod:not([data-out]):hover { border-color: var(--hover-ring); transform: translateY(-2px); box-shadow: var(--shadow-soft); }
 }
 
-/* Header and sidebar share one surface, so the brand-red hairline under the
-   header only runs above the page content — it starts where the sidebar ends
-   (290px open, 76px icon rail; on phones the sidebar is a drawer, so full width). */
-header.no-print::after {
-  content: ''; position: absolute; left: 0; right: 0; bottom: -1px; height: 1px; pointer-events: none;
-  background: linear-gradient(90deg, transparent, rgba(239, 68, 68, .5), transparent);
-}
-@media (min-width: 768px) {
-  header.no-print::after { left: 290px; transition: left .2s; }
-  header.no-print[data-rail]::after { left: 76px; }
-}
+/* Frame + inset pane: header and sidebar are one "frame" surface (no divider
+   lines between them); the page content sits in a rounded pane inside it. */
+header.no-print::after { content: none; }
 :root:not([data-theme="light"]) header.no-print { box-shadow: none; }
+main.app-pane { border-top: 1px solid var(--color-line); }
+:root[data-theme="light"] main.app-pane { border-color: #d9cbb8; }
+@media (min-width: 768px) {
+  .app-frame { background: var(--color-ink-2); }
+  :root[data-theme="light"] .app-frame { background: #f3ebe1; }
+  main.app-pane {
+    background: var(--color-ink-0);
+    border-left: 1px solid var(--color-line);
+    border-top-left-radius: 14px;
+  }
+  :root[data-theme="light"] main.app-pane { border-left-color: #d9cbb8; }
+  /* the pane draws its own edge, so the sidebar needs no right border */
+  aside.no-print { border-right: 0 !important; }
+}
+@media print {
+  .app-frame { background: none !important; }
+  main.app-pane { border: 0 !important; border-radius: 0 !important; }
+}
 /* Dark theme: sidebar uses the same surface colour as the header */
 :root:not([data-theme="light"]) aside.no-print { background: var(--color-ink-2) !important; }
 :root:not([data-theme="light"]) aside.no-print > div.sticky { background: var(--color-ink-2) !important; }
@@ -884,8 +894,13 @@ header.no-print::after {
 /* Header and sidebar share the warm "sand" surface. */
 :root[data-theme="light"] aside.no-print {
   background: #f3ebe1 !important;
-  border-right: 1px solid #d9cbb8 !important;
-  box-shadow: inset -6px 0 10px -8px rgba(60, 45, 30, .18);
+}
+/* phone drawer keeps its edge; on desktop the content pane draws it */
+@media (max-width: 767px) {
+  :root[data-theme="light"] aside.no-print {
+    border-right: 1px solid #d9cbb8 !important;
+    box-shadow: inset -6px 0 10px -8px rgba(60, 45, 30, .18);
+  }
 }
 :root[data-theme="light"] aside.no-print > div.sticky { background: #f3ebe1 !important; }
 :root[data-theme="light"] .side-label { color: #a39587; }
