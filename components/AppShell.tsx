@@ -206,6 +206,7 @@ export default function AppShell({
   const t = useT();
   const [navOpen, setNavOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [logoShift, setLogoShift] = useState(0);
   const pathname = usePathname();
   const router = useRouter();
   const [switching, startSwitch] = useTransition();
@@ -232,6 +233,19 @@ export default function AppShell({
     mq.addEventListener('change', sync);
     return () => mq.removeEventListener('change', sync);
   }, []);
+
+  // Measure the logo's rendered width (h-10 = 40px tall, capped at 132px) so it can
+  // be centred on the sidebar icon column (icon chips are 36px wide).
+  useEffect(() => {
+    if (!logoUrl) return;
+    const im = new Image();
+    im.onload = () => {
+      if (!im.naturalWidth || !im.naturalHeight) return;
+      const w = Math.min(132, (40 * im.naturalWidth) / im.naturalHeight);
+      setLogoShift((36 - w) / 2);
+    };
+    im.src = logoUrl;
+  }, [logoUrl]);
 
   function toggleSidebar() {
     setFlyout(null);
@@ -417,9 +431,9 @@ export default function AppShell({
           </div>
           <Link href="/" className="flex items-center gap-3 min-w-0" aria-label={storeName}>
             {logoUrl && (
-              // The min-width box lets a square logo centre on the same vertical axis as
-              // the sidebar icon chips below it (a wide logo just starts at their left edge).
-              <span className="shrink-0 flex justify-center md:min-w-[36px]">
+              // logoShift nudges the logo (on desktop) so its centre sits on the same
+              // vertical axis as the sidebar icon chips below it, whatever its width.
+              <span className="brand-logo shrink-0" style={{ ['--logo-shift' as string]: `${logoShift}px` }}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={logoUrl} alt="" style={{ objectFit: 'contain' }} className="shrink-0 h-8 max-w-[88px] sm:h-10 sm:max-w-[132px]" />
               </span>

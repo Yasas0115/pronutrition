@@ -717,6 +717,7 @@ main.app-pane { border-top: 1px solid var(--color-line); }
      rail: 8 + 3 + centred in the 76px column, chip left ≈ 21.5). */
   header.no-print { padding-left: 31px !important; transition: padding-left .2s; }
   header.no-print[data-rail] { padding-left: 21.5px !important; }
+  header.no-print .brand-logo { margin-left: var(--logo-shift, 0px); }
 }
 @media print {
   .app-frame { background: none !important; }
