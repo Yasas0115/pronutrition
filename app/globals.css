@@ -701,9 +701,9 @@ header.no-print::after {
   background: linear-gradient(90deg, transparent, rgba(239, 68, 68, .5), transparent);
 }
 :root:not([data-theme="light"]) header.no-print { box-shadow: 0 10px 24px -14px rgba(0, 0, 0, .7); }
-/* Dark theme: sidebar one step darker than the header so they read as two panels */
-:root:not([data-theme="light"]) aside.no-print { background: var(--color-ink-1) !important; }
-:root:not([data-theme="light"]) aside.no-print > div.sticky { background: var(--color-ink-1) !important; }
+/* Dark theme: sidebar uses the same surface colour as the header */
+:root:not([data-theme="light"]) aside.no-print { background: var(--color-ink-2) !important; }
+:root:not([data-theme="light"]) aside.no-print > div.sticky { background: var(--color-ink-2) !important; }
 
 /* Sidebar: glassy active pill, glowing icon chip, gentle hover nudge */
 .side-link { transition: background .18s, color .18s, border-color .18s, transform .18s; }
@@ -843,8 +843,8 @@ header.no-print::after {
 
 /* ---- Header ---- */
 :root[data-theme="light"] header.no-print {
-  background: linear-gradient(180deg, #ffffff 0%, var(--paper) 100%) !important;
-  border-bottom: 1px solid var(--line-warm);
+  background: #f3ebe1 !important; /* sand — same as the sidebar */
+  border-bottom: 1px solid #d9cbb8;
   box-shadow: 0 6px 20px -14px rgba(60, 45, 30, .28);
 }
 /* Ember accent strip across the very top */
@@ -874,35 +874,14 @@ header.no-print::after {
 /* Profile button hover (idle background is inline-transparent) */
 :root[data-theme="light"] header.no-print button.rounded-lg:hover { background: var(--ember-tint); }
 
-/* The tools + profile that moved from the header into the sidebar get the same
-   raised-white-key look. */
-:root[data-theme="light"] aside.no-print .side-tools .btn-ghost {
-  background: #fff; border-color: var(--color-line-2);
-  box-shadow: 0 1px 2px rgba(60, 45, 30, .07);
-}
-:root[data-theme="light"] aside.no-print .side-tools .btn-ghost:not(:disabled):hover {
-  background: #fff5f3; color: var(--ember); border-color: var(--hover-ring);
-  box-shadow: 0 2px 8px rgba(220, 38, 38, .14);
-}
-:root[data-theme="light"] aside.no-print .side-tools select.input {
-  background: #fff; box-shadow: 0 1px 2px rgba(60, 45, 30, .07);
-}
-:root[data-theme="light"] aside.no-print .side-profile span.rounded-full.place-items-center {
-  background: var(--grad-brand) !important; color: #fff !important;
-  box-shadow: 0 0 0 2px #fff, 0 0 0 3.5px rgba(220, 38, 38, .35), 0 3px 8px rgba(220, 38, 38, .25);
-}
-:root[data-theme="light"] aside.no-print .side-profile:hover { background: var(--ember-tint) !important; }
-
 /* ---- Sidebar ---- */
-/* The sidebar gets its own warm "sand" surface (the header stays white) so the
-   two read as separate panels instead of one L-shaped block. */
+/* Header and sidebar share the warm "sand" surface. */
 :root[data-theme="light"] aside.no-print {
-  --sand: #f3ebe1;
-  background: var(--sand) !important;
+  background: #f3ebe1 !important;
   border-right: 1px solid #d9cbb8 !important;
   box-shadow: inset -6px 0 10px -8px rgba(60, 45, 30, .18);
 }
-:root[data-theme="light"] aside.no-print > div.sticky { background: var(--sand) !important; }
+:root[data-theme="light"] aside.no-print > div.sticky { background: #f3ebe1 !important; }
 :root[data-theme="light"] .side-label { color: #a39587; }
 :root[data-theme="light"] .side-link__icon { background: #e9dece; color: #7d6f60; }
 :root[data-theme="light"] .side-link:hover { background: rgba(255, 255, 255, .6); color: var(--ember); }
