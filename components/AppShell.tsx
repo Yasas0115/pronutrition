@@ -395,6 +395,7 @@ export default function AppShell({
     <div className="h-screen supports-[height:100dvh]:h-[100dvh] flex flex-col overflow-hidden print:!h-auto print:overflow-visible">
       {/* Header */}
       <header
+        data-rail={rail || undefined}
         className="no-print sticky top-0 z-30 flex items-center justify-between gap-2 px-4 sm:px-6"
         style={{ background: 'var(--color-ink-2)', minHeight: 64 }}
       >
@@ -416,8 +417,12 @@ export default function AppShell({
           </div>
           <Link href="/" className="flex items-center gap-3 min-w-0" aria-label={storeName}>
             {logoUrl && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={logoUrl} alt="" style={{ objectFit: 'contain' }} className="shrink-0 h-8 max-w-[88px] sm:h-10 sm:max-w-[132px]" />
+              // The min-width box lets a square logo centre on the same vertical axis as
+              // the sidebar icon chips below it (a wide logo just starts at their left edge).
+              <span className="shrink-0 flex justify-center md:min-w-[36px]">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={logoUrl} alt="" style={{ objectFit: 'contain' }} className="shrink-0 h-8 max-w-[88px] sm:h-10 sm:max-w-[132px]" />
+              </span>
             )}
             <span className="brand text-[22px] sm:text-[27px] truncate">
               {storeName}
@@ -536,7 +541,7 @@ export default function AppShell({
               right of the heading; collapsed → the hamburger sits on top of the
               icon rail. (Phones keep the header hamburger + drawer.) */}
           <div
-            className={`no-print hidden md:flex sticky top-0 z-10 items-center h-[52px] ${rail ? 'justify-center px-2' : 'justify-between px-4'}`}
+            className={`no-print hidden md:flex sticky top-0 z-10 items-center h-[52px] ${rail ? 'justify-center pl-[11px] pr-2' : 'justify-between px-4'}`}
             style={{ background: 'var(--color-ink-2)' }}
           >
             {!rail && <div className="side-label">{t("Main navigation")}</div>}

@@ -712,6 +712,11 @@ main.app-pane { border-top: 1px solid var(--color-line); }
   :root[data-theme="light"] main.app-pane { border-left-color: #d9cbb8; }
   /* the pane draws its own edge, so the sidebar needs no right border */
   aside.no-print { border-right: 0 !important; }
+  /* Logo sits on the same vertical axis as the sidebar icon chips: header's left
+     padding = where the chips start (open: 16 nav pad + 3 border + 12 link pad;
+     rail: 8 + 3 + centred in the 76px column, chip left ≈ 21.5). */
+  header.no-print { padding-left: 31px !important; transition: padding-left .2s; }
+  header.no-print[data-rail] { padding-left: 21.5px !important; }
 }
 @media print {
   .app-frame { background: none !important; }
