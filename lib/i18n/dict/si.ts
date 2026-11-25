@@ -1056,6 +1056,12 @@ const si: Dict = {
   "open": "විවෘත කරන්න",
   "close": "වසන්න",
   "Go to": "වෙත යන්න",
+  "All rights reserved": "සියලු හිමිකම් ඇවිරිණි",
+  "Keyboard shortcuts": "යතුරුපුවරු කෙටිමං",
+  "Search": "සොයන්න",
+  "Sidebar": "පැති මෙනුව",
+  "Online": "සබැඳියි",
+  "Offline": "නොබැඳියි",
 };
 
 export default si;

@@ -1056,6 +1056,12 @@ const ta: Dict = {
   "open": "திற",
   "close": "மூடு",
   "Go to": "செல்லவும்",
+  "All rights reserved": "அனைத்து உரிமைகளும் பாதுகாக்கப்பட்டவை",
+  "Keyboard shortcuts": "விசைப்பலகை குறுக்குவழிகள்",
+  "Search": "தேடு",
+  "Sidebar": "பக்கப்பட்டி",
+  "Online": "இணைப்பில்",
+  "Offline": "இணைப்பு இல்லை",
 };
 
 export default ta;

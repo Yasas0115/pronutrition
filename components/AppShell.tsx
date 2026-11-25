@@ -13,6 +13,7 @@ import ThemeToggle from './ThemeToggle';
 import LanguageSwitcher from './LanguageSwitcher';
 import FullscreenToggle from './FullscreenToggle';
 import CommandPalette from './CommandPalette';
+import AppFooter from './AppFooter';
 import { toast } from './toast';
 import { useT } from '@/components/I18nProvider';
 
@@ -640,11 +641,12 @@ export default function AppShell({
 
         <main
           ref={mainRef}
-          className="flex-1 min-w-0 px-4 sm:px-6 pt-6 pb-24 lg:pb-16 md:h-full md:overflow-y-auto print:!h-auto print:!overflow-visible"
+          className="flex-1 min-w-0 px-4 sm:px-6 pt-6 pb-4 md:h-full md:overflow-y-auto print:!h-auto print:!overflow-visible"
           style={{ borderTop: '1px solid var(--color-line)' }}
         >
           <div className={isWide ? 'max-w-[1400px] mx-auto' : 'max-w-[1100px] mx-auto'}>
             {children}
+            <AppFooter storeName={storeName} logoUrl={logoUrl} branchName={branches.length > 0 ? activeBranchName : ''} />
           </div>
         </main>
       </div>
