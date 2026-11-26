@@ -273,6 +273,10 @@ A dump on the same server is lost with the server, so copy it elsewhere: set up
 [rclone](https://rclone.org) and add `BACKUP_REMOTE=name:folder` before `bash` in
 that line.
 
+**Copy to a Windows PC** — `scripts/pull-backup.ps1` downloads the dumps the PC
+does not have yet into `~\ProNutritionBackups`. Copy the script into that folder
+and schedule the copy in Task Scheduler, so a changed repo cannot alter what runs.
+
 **Test a restore** now and then, into a throwaway database (never the live one):
 
 ```bash
