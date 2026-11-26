@@ -3,6 +3,8 @@
 
 # next
 /.next
+/.next-build
+/.next-previous
 /out
 next-env.d.ts
 

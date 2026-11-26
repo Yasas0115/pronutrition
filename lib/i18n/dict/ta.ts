@@ -1062,6 +1062,13 @@ const ta: Dict = {
   "Sidebar": "பக்கப்பட்டி",
   "Online": "இணைப்பில்",
   "Offline": "இணைப்பு இல்லை",
+  "Something went wrong": "ஏதோ தவறு ஏற்பட்டது",
+  "This page could not be loaded. Check the connection and try again.": "இந்தப் பக்கத்தை ஏற்ற முடியவில்லை. இணைப்பைச் சரிபார்த்து மீண்டும் முயற்சிக்கவும்.",
+  "If you were saving a sale or payment, check that it is not already recorded before entering it again.": "விற்பனை அல்லது கொடுப்பனவைச் சேமித்துக்கொண்டிருந்தால், மீண்டும் உள்ளிடுவதற்கு முன் அது ஏற்கனவே பதிவாகவில்லை என்பதைச் சரிபார்க்கவும்.",
+  "Try again": "மீண்டும் முயற்சி",
+  "Reload page": "பக்கத்தை மீண்டும் ஏற்று",
+  "Go to dashboard": "முகப்புப் பலகைக்குச் செல்",
+  "Error code: {0}": "பிழைக் குறியீடு: {0}",
 };
 
 export default ta;

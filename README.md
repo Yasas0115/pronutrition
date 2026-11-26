@@ -223,7 +223,10 @@ Never run `pnpm db:reset` on the server — it drops every table.
 `.github/workflows/deploy.yml` runs on every push to `main`: it typechecks and
 builds on GitHub first, and only if that passes it SSHes into the VPS, checks out
 the pushed commit and runs `scripts/deploy.sh` (install → build → migrate →
-`pm2 restart` → health check). Pull requests get the build check only.
+`pm2 restart` → health check). Pull requests get the build check only. The build
+goes into `.next-build` while the live app keeps running; if the new build does
+not answer after the switch, the previous one is put back (database migrations are
+not undone).
 
 One-time setup:
 
@@ -256,3 +259,30 @@ deploy any time from **Actions → Build & Deploy → Run workflow**.
 **Changing the schema:** edit `prisma/schema.prisma`, run
 `pnpm exec prisma migrate dev --name <change>` locally, commit the new folder in
 `prisma/migrations/`, and `pnpm db:migrate` applies it on the VPS.
+
+## Backups, monitoring and restarts
+
+**Daily backup** — `scripts/backup-db.sh` saves a compressed dump to
+`/var/backups/pro-nutrition` and keeps 14 days. Schedule it with `crontab -e`:
+
+```bash
+0 2 * * * bash /var/www/pro-nutrition/scripts/backup-db.sh >> /var/log/pro-nutrition-backup.log 2>&1
+```
+
+A dump on the same server is lost with the server, so copy it elsewhere: set up
+[rclone](https://rclone.org) and add `BACKUP_REMOTE=name:folder` before `bash` in
+that line.
+
+**Test a restore** now and then, into a throwaway database (never the live one):
+
+```bash
+mysql -e "CREATE DATABASE restore_test"
+gunzip -c /var/backups/pro-nutrition/<file>.sql.gz | mysql restore_test
+mysql -e "SELECT COUNT(*) FROM restore_test.Sale"
+mysql -e "DROP DATABASE restore_test"
+```
+
+**Uptime monitoring** — point a monitor at `https://<your-site>/api/health`. It
+returns 200 when the app and database both answer, 503 when the database does not.
+
+**Start after reboot** — run `pm2 startup` once, then `pm2 save`.

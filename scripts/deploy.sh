@@ -24,18 +24,52 @@ fi
 
 echo "==> Deploying $(git rev-parse --short HEAD) in $APP_DIR"
 
-pnpm install --frozen-lockfile
-pnpm build        # prisma generate + next build
-pnpm db:migrate   # prisma migrate deploy — only applies new migrations
+restart_app() {
+  if pm2 describe "$PM2_NAME" >/dev/null 2>&1; then
+    pm2 restart "$PM2_NAME" --update-env
+  else
+    pm2 start "pnpm start" --name "$PM2_NAME"
+  fi
+}
 
-if pm2 describe "$PM2_NAME" >/dev/null 2>&1; then
-  pm2 restart "$PM2_NAME" --update-env
-else
-  pm2 start "pnpm start" --name "$PM2_NAME"
+app_is_up() {
+  curl -fsS -o /dev/null --max-time 10 --retry 15 --retry-delay 2 --retry-connrefused \
+    "http://127.0.0.1:$APP_PORT/login"
+}
+
+pnpm install --frozen-lockfile
+
+# Build into .next-build so the running app keeps serving from .next. If the
+# build fails, the script stops here and the live app is left as it was.
+rm -rf .next-build .next/types # old generated types would be type-checked too
+if [ -d .next/cache ]; then
+  mkdir -p .next-build
+  cp -a .next/cache .next-build/
 fi
-pm2 save
+NEXT_DIST_DIR=.next-build pnpm build # prisma generate + next build
+pnpm db:migrate                      # prisma migrate deploy — only applies new migrations
+
+echo "==> Switching to the new build"
+rm -rf .next-previous
+if [ -d .next ]; then mv .next .next-previous; fi
+mv .next-build .next
+restart_app
 
 echo "==> Waiting for the app on port $APP_PORT"
-curl -fsS -o /dev/null --retry 15 --retry-delay 2 --retry-connrefused \
-  "http://127.0.0.1:$APP_PORT/login"
+if ! app_is_up; then
+  echo "ERROR: the new build does not answer on port $APP_PORT." >&2
+  if [ -d .next-previous ]; then
+    echo "==> Putting the previous build back" >&2
+    rm -rf .next
+    mv .next-previous .next
+    restart_app
+    if app_is_up; then
+      echo "Previous build is running again. Database migrations were NOT undone." >&2
+    else
+      echo "The previous build does not answer either. Check: pm2 logs $PM2_NAME" >&2
+    fi
+  fi
+  exit 1 # still a failed deploy
+fi
+pm2 save
 echo "==> Deploy OK"

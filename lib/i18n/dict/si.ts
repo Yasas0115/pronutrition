@@ -1062,6 +1062,13 @@ const si: Dict = {
   "Sidebar": "පැති මෙනුව",
   "Online": "සබැඳියි",
   "Offline": "නොබැඳියි",
+  "Something went wrong": "යම් දෝෂයක් සිදු විය",
+  "This page could not be loaded. Check the connection and try again.": "මෙම පිටුව පූරණය කළ නොහැකි විය. සම්බන්ධතාව පරීක්ෂා කර නැවත උත්සාහ කරන්න.",
+  "If you were saving a sale or payment, check that it is not already recorded before entering it again.": "ඔබ විකිණීමක් හෝ ගෙවීමක් සුරකිමින් සිටියේ නම්, නැවත ඇතුළත් කිරීමට පෙර එය දැනටමත් සටහන් වී නැති බව පරීක්ෂා කරන්න.",
+  "Try again": "නැවත උත්සාහ කරන්න",
+  "Reload page": "පිටුව නැවත පූරණය කරන්න",
+  "Go to dashboard": "උපකරණ පුවරුවට යන්න",
+  "Error code: {0}": "දෝෂ කේතය: {0}",
 };
 
 export default si;
